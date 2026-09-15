@@ -1,0 +1,202 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`convergence journey over 84 days > scenario A > records the trajectory (gate J14, 9 recalibrations, target amplitude 251 kcal, final offset -385 vs apparent -362) 1`] = `
+{
+  "apparentOffsetKcal": -362,
+  "finalInterval95": [
+    -509,
+    -259,
+  ],
+  "finalMedianOffsetKcal": -385,
+  "firstGateDay": 14,
+  "recalibrations": [
+    {
+      "confidence": "medium",
+      "day": 14,
+      "toKcal": 1664,
+      "width80": 542,
+    },
+    {
+      "confidence": "good",
+      "day": 21,
+      "toKcal": 1414,
+      "width80": 432,
+    },
+    {
+      "confidence": "good",
+      "day": 28,
+      "toKcal": 1465,
+      "width80": 364,
+    },
+    {
+      "confidence": "high",
+      "day": 35,
+      "toKcal": 1426,
+      "width80": 295,
+    },
+    {
+      "confidence": "high",
+      "day": 44,
+      "toKcal": 1459,
+      "width80": 255,
+    },
+    {
+      "confidence": "high",
+      "day": 52,
+      "toKcal": 1481,
+      "width80": 228,
+    },
+    {
+      "confidence": "high",
+      "day": 59,
+      "toKcal": 1535,
+      "width80": 210,
+    },
+    {
+      "confidence": "high",
+      "day": 66,
+      "toKcal": 1568,
+      "width80": 186,
+    },
+    {
+      "confidence": "high",
+      "day": 78,
+      "toKcal": 1569,
+      "width80": 167,
+    },
+  ],
+  "targetAmplitudeAfterGateKcal": 251,
+}
+`;
+
+exports[`convergence journey over 84 days > scenario B > records the trajectory (gate J14, 9 recalibrations, target amplitude 294 kcal, final offset -514 vs apparent -477) 1`] = `
+{
+  "apparentOffsetKcal": -477,
+  "finalInterval95": [
+    -640,
+    -388,
+  ],
+  "finalMedianOffsetKcal": -514,
+  "firstGateDay": 14,
+  "recalibrations": [
+    {
+      "confidence": "medium",
+      "day": 14,
+      "toKcal": 1639,
+      "width80": 553,
+    },
+    {
+      "confidence": "good",
+      "day": 21,
+      "toKcal": 1373,
+      "width80": 438,
+    },
+    {
+      "confidence": "good",
+      "day": 28,
+      "toKcal": 1379,
+      "width80": 367,
+    },
+    {
+      "confidence": "good",
+      "day": 35,
+      "toKcal": 1345,
+      "width80": 304,
+    },
+    {
+      "confidence": "high",
+      "day": 44,
+      "toKcal": 1362,
+      "width80": 262,
+    },
+    {
+      "confidence": "high",
+      "day": 52,
+      "toKcal": 1384,
+      "width80": 233,
+    },
+    {
+      "confidence": "high",
+      "day": 59,
+      "toKcal": 1441,
+      "width80": 214,
+    },
+    {
+      "confidence": "high",
+      "day": 66,
+      "toKcal": 1477,
+      "width80": 188,
+    },
+    {
+      "confidence": "high",
+      "day": 78,
+      "toKcal": 1459,
+      "width80": 169,
+    },
+  ],
+  "targetAmplitudeAfterGateKcal": 294,
+}
+`;
+
+exports[`convergence journey over 84 days > scenario C > records the trajectory (gate J14, 8 recalibrations, target amplitude 286 kcal, final offset 160 vs apparent 157) 1`] = `
+{
+  "apparentOffsetKcal": 157,
+  "finalInterval95": [
+    32,
+    287,
+  ],
+  "finalMedianOffsetKcal": 160,
+  "firstGateDay": 14,
+  "recalibrations": [
+    {
+      "confidence": "medium",
+      "day": 14,
+      "toKcal": 1888,
+      "width80": 530,
+    },
+    {
+      "confidence": "good",
+      "day": 21,
+      "toKcal": 2163,
+      "width80": 474,
+    },
+    {
+      "confidence": "good",
+      "day": 28,
+      "toKcal": 2174,
+      "width80": 407,
+    },
+    {
+      "confidence": "good",
+      "day": 35,
+      "toKcal": 2108,
+      "width80": 339,
+    },
+    {
+      "confidence": "high",
+      "day": 42,
+      "toKcal": 2102,
+      "width80": 276,
+    },
+    {
+      "confidence": "high",
+      "day": 49,
+      "toKcal": 2041,
+      "width80": 232,
+    },
+    {
+      "confidence": "high",
+      "day": 57,
+      "toKcal": 2084,
+      "width80": 205,
+    },
+    {
+      "confidence": "high",
+      "day": 67,
+      "toKcal": 2085,
+      "width80": 182,
+    },
+  ],
+  "targetAmplitudeAfterGateKcal": 286,
+}
+`;

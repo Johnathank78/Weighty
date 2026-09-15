@@ -1,0 +1,17 @@
+node_modules/
+dist/
+dev-dist/
+coverage/
+.vite/
+*.local
+*.log
+.DS_Store
+Thumbs.db
+.env
+.env.*
+.idea/
+.vscode/*
+!.vscode/extensions.json
+tools/hall-reference/__pycache__/
+.claude/
+.instruct/

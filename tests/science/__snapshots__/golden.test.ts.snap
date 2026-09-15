@@ -1,0 +1,1423 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`golden end-to-end profiles (06 s16) > 01 female 25 sedentary normal BMI loss 1`] = `
+{
+  "decomposition": {
+    "exerciseKcalAfterOverlap": 0,
+    "initialTdeeKcal": 2079.47,
+    "netStepKcal": 136.71,
+    "occupationPostureKcal": 0,
+    "reeKcal": 1365.25,
+    "referenceTefKcal": 207.947,
+    "residualNeatKcalDisplay": 369.563,
+    "residualNeatKcalRaw": 369.563,
+  },
+  "exercise": {
+    "afterOverlap": 0,
+    "beforeOverlap": 0,
+    "perActivity": [],
+  },
+  "macroClass": "sedentary",
+  "nasem": {
+    "category": "inactive",
+    "tdee": 2079.47,
+  },
+  "pal": {
+    "adlPriorKcal": 273.05,
+    "categoryFromProxy": "inactive",
+    "palBoundaryFlag": false,
+    "palCategory": "inactive",
+    "palOutlierFlag": false,
+    "physicalOccupationFloorApplied": false,
+    "postureKcal": 0,
+    "provisionalPal": 1.444595,
+    "provisionalTdeeKcal": 1972.233333,
+  },
+  "plan": {
+    "calories": 1781.018066,
+    "hardFloor": 1200,
+    "macrosDisplay": {
+      "carbsG": 213,
+      "fatG": 59,
+      "proteinG": 99,
+    },
+    "macrosExact": {
+      "carbsG": 212.478162,
+      "fatG": 59.367269,
+      "proteinG": 99.2,
+    },
+    "proteinRule": "loss_1_6",
+    "rateAdjusted": false,
+    "rejections": [],
+    "target42": 60.163096,
+    "w42": 60.163081,
+    "warnings": {
+      "belowRee": false,
+      "gainWithoutResistance": false,
+      "lowCarbForEndurance": false,
+      "lowCarbForResistance": false,
+      "lowEnergyAvailability": false,
+    },
+    "weeklyRate": 0.005,
+  },
+  "projection": {
+    "approximateWeeks": 24,
+    "daysToTarget": 166,
+    "end": {
+      "day": 166,
+      "weightKg": 56.988596,
+    },
+    "horizon": 166,
+    "lowerEnd": {
+      "day": 166,
+      "weightKg": 52.355904,
+    },
+    "start": {
+      "day": 0,
+      "weightKg": 62,
+    },
+    "upperEnd": {
+      "day": 166,
+      "weightKg": 62.054124,
+    },
+  },
+  "ree": {
+    "athleteLike": false,
+    "disagreement": false,
+    "kcal": 1365.25,
+    "measured": "absent",
+    "method": "mifflin_st_jeor",
+    "secondary": [],
+  },
+  "steps": {
+    "netStepKcal": 136.71,
+  },
+  "uncertainty": {
+    "interval80": [
+      1770.616073,
+      2388.323927,
+    ],
+    "interval95": [
+      1607.11,
+      2551.83,
+    ],
+    "sigma": {
+      "baseSigmaKcal": 241,
+      "multipliers": [],
+      "sigmaKcal": 241,
+    },
+  },
+}
+`;
+
+exports[`golden end-to-end profiles (06 s16) > 02 male 30 low active normal BMI maintenance 1`] = `
+{
+  "decomposition": {
+    "exerciseKcalAfterOverlap": 0,
+    "initialTdeeKcal": 2871.07,
+    "netStepKcal": 312.375,
+    "occupationPostureKcal": 18,
+    "reeKcal": 1730,
+    "referenceTefKcal": 287.107,
+    "residualNeatKcalDisplay": 523.588,
+    "residualNeatKcalRaw": 523.588,
+  },
+  "exercise": {
+    "afterOverlap": 0,
+    "beforeOverlap": 0,
+    "perActivity": [],
+  },
+  "macroClass": "sedentary",
+  "nasem": {
+    "category": "low_active",
+    "tdee": 2871.07,
+  },
+  "pal": {
+    "adlPriorKcal": 346,
+    "categoryFromProxy": "low_active",
+    "palBoundaryFlag": true,
+    "palCategory": "low_active",
+    "palOutlierFlag": false,
+    "physicalOccupationFloorApplied": false,
+    "postureKcal": 18,
+    "provisionalPal": 1.54552,
+    "provisionalTdeeKcal": 2673.75,
+  },
+  "plan": {
+    "calories": 2870.715332,
+    "hardFloor": 1500,
+    "macrosDisplay": {
+      "carbsG": 412,
+      "fatG": 96,
+      "proteinG": 90,
+    },
+    "macrosExact": {
+      "carbsG": 412.375183,
+      "fatG": 95.690511,
+      "proteinG": 90,
+    },
+    "proteinRule": "base_1_2",
+    "rateAdjusted": false,
+    "rejections": [],
+    "target42": 75,
+    "w42": 74.997937,
+    "warnings": {
+      "belowRee": false,
+      "gainWithoutResistance": false,
+      "lowCarbForEndurance": false,
+      "lowCarbForResistance": false,
+      "lowEnergyAvailability": false,
+    },
+    "weeklyRate": 0,
+  },
+  "projection": {
+    "approximateWeeks": null,
+    "daysToTarget": null,
+    "end": {
+      "day": 84,
+      "weightKg": 74.996526,
+    },
+    "horizon": 84,
+    "lowerEnd": {
+      "day": 84,
+      "weightKg": 70.266105,
+    },
+    "start": {
+      "day": 0,
+      "weightKg": 75,
+    },
+    "upperEnd": {
+      "day": 84,
+      "weightKg": 80.029461,
+    },
+  },
+  "ree": {
+    "athleteLike": false,
+    "disagreement": false,
+    "kcal": 1730,
+    "measured": "absent",
+    "method": "mifflin_st_jeor",
+    "secondary": [],
+  },
+  "steps": {
+    "netStepKcal": 312.375,
+  },
+  "uncertainty": {
+    "interval80": [
+      2367.035769,
+      3375.104231,
+    ],
+    "interval95": [
+      2100.202,
+      3641.938,
+    ],
+    "sigma": {
+      "baseSigmaKcal": 342,
+      "multipliers": [
+        {
+          "factor": 1.15,
+          "reason": "palBoundaryFlag",
+        },
+      ],
+      "sigmaKcal": 393.3,
+    },
+  },
+}
+`;
+
+exports[`golden end-to-end profiles (06 s16) > 03 female 35 resistance training loss 1`] = `
+{
+  "decomposition": {
+    "exerciseKcalAfterOverlap": 78.75,
+    "initialTdeeKcal": 2289.02,
+    "netStepKcal": 240.1,
+    "occupationPostureKcal": 0,
+    "reeKcal": 1414,
+    "referenceTefKcal": 228.902,
+    "residualNeatKcalDisplay": 327.268,
+    "residualNeatKcalRaw": 327.268,
+  },
+  "exercise": {
+    "afterOverlap": 78.75,
+    "beforeOverlap": 78.75,
+    "perActivity": [
+      {
+        "basis": "adult_3_5",
+        "extra": 183.75,
+        "met": 3.5,
+      },
+    ],
+  },
+  "macroClass": "resistance",
+  "nasem": {
+    "category": "low_active",
+    "tdee": 2289.02,
+  },
+  "pal": {
+    "adlPriorKcal": 282.8,
+    "categoryFromProxy": "low_active",
+    "palBoundaryFlag": false,
+    "palCategory": "low_active",
+    "palOutlierFlag": false,
+    "physicalOccupationFloorApplied": false,
+    "postureKcal": 0,
+    "provisionalPal": 1.583883,
+    "provisionalTdeeKcal": 2239.611111,
+  },
+  "plan": {
+    "calories": 1931.140137,
+    "hardFloor": 1200,
+    "macrosDisplay": {
+      "carbsG": 213,
+      "fatG": 64,
+      "proteinG": 126,
+    },
+    "macrosExact": {
+      "carbsG": 211.949524,
+      "fatG": 64.371338,
+      "proteinG": 126,
+    },
+    "proteinRule": "loss_resistance_1_8",
+    "rateAdjusted": false,
+    "rejections": [],
+    "target42": 67.926076,
+    "w42": 67.926746,
+    "warnings": {
+      "belowRee": false,
+      "gainWithoutResistance": false,
+      "lowCarbForEndurance": false,
+      "lowCarbForResistance": false,
+      "lowEnergyAvailability": false,
+    },
+    "weeklyRate": 0.005,
+  },
+  "projection": {
+    "approximateWeeks": 26,
+    "daysToTarget": 180,
+    "end": {
+      "day": 180,
+      "weightKg": 63.984785,
+    },
+    "horizon": 180,
+    "lowerEnd": {
+      "day": 180,
+      "weightKg": 59.374291,
+    },
+    "start": {
+      "day": 0,
+      "weightKg": 70,
+    },
+    "upperEnd": {
+      "day": 180,
+      "weightKg": 68.997417,
+    },
+  },
+  "ree": {
+    "athleteLike": false,
+    "disagreement": false,
+    "kcal": 1414,
+    "measured": "absent",
+    "method": "mifflin_st_jeor",
+    "secondary": [],
+  },
+  "steps": {
+    "netStepKcal": 240.1,
+  },
+  "uncertainty": {
+    "interval80": [
+      1980.166073,
+      2597.873927,
+    ],
+    "interval95": [
+      1816.66,
+      2761.38,
+    ],
+    "sigma": {
+      "baseSigmaKcal": 241,
+      "multipliers": [],
+      "sigmaKcal": 241,
+    },
+  },
+}
+`;
+
+exports[`golden end-to-end profiles (06 s16) > 04 male 28 athlete-like resistance + endurance maintenance 1`] = `
+{
+  "decomposition": {
+    "exerciseKcalAfterOverlap": 339.6,
+    "initialTdeeKcal": 3161.02,
+    "netStepKcal": 431.2,
+    "occupationPostureKcal": 18,
+    "reeKcal": 2017.23896,
+    "referenceTefKcal": 316.102,
+    "residualNeatKcalDisplay": 38.87904,
+    "residualNeatKcalRaw": 38.87904,
+  },
+  "exercise": {
+    "afterOverlap": 339.6,
+    "beforeOverlap": 474,
+    "perActivity": [
+      {
+        "basis": "adult_3_5",
+        "extra": 525,
+        "met": 6,
+      },
+      {
+        "basis": "adult_3_5",
+        "extra": 267.4,
+        "met": 9.3,
+      },
+    ],
+  },
+  "macroClass": "mixed",
+  "nasem": {
+    "category": "active",
+    "tdee": 3161.02,
+  },
+  "pal": {
+    "adlPriorKcal": 403.447792,
+    "categoryFromProxy": "active",
+    "palBoundaryFlag": false,
+    "palCategory": "active",
+    "palOutlierFlag": false,
+    "physicalOccupationFloorApplied": false,
+    "postureKcal": 18,
+    "provisionalPal": 1.767811,
+    "provisionalTdeeKcal": 3566.096391,
+  },
+  "plan": {
+    "calories": 3161.51123,
+    "hardFloor": 1500,
+    "macrosDisplay": {
+      "carbsG": 464,
+      "fatG": 88,
+      "proteinG": 128,
+    },
+    "macrosExact": {
+      "carbsG": 464.783356,
+      "fatG": 87.819756,
+      "proteinG": 128,
+    },
+    "proteinRule": "trained_1_6",
+    "rateAdjusted": false,
+    "rejections": [],
+    "target42": 80,
+    "w42": 80.003064,
+    "warnings": {
+      "belowRee": false,
+      "gainWithoutResistance": false,
+      "lowCarbForEndurance": false,
+      "lowCarbForResistance": false,
+      "lowEnergyAvailability": false,
+    },
+    "weeklyRate": 0,
+  },
+  "projection": {
+    "approximateWeeks": null,
+    "daysToTarget": null,
+    "end": {
+      "day": 84,
+      "weightKg": 80.005161,
+    },
+    "horizon": 84,
+    "lowerEnd": {
+      "day": 84,
+      "weightKg": 75.540486,
+    },
+    "start": {
+      "day": 0,
+      "weightKg": 80,
+    },
+    "upperEnd": {
+      "day": 84,
+      "weightKg": 84.628222,
+    },
+  },
+  "ree": {
+    "athleteLike": true,
+    "disagreement": false,
+    "kcal": 2017.23896,
+    "measured": "absent",
+    "method": "ten_haaf_weight",
+    "secondary": [
+      {
+        "equation": "ten_haaf_ffm",
+        "reeKcalDay": 2087.3424,
+        "relativeDisagreement": 0.034752,
+      },
+      {
+        "equation": "cunningham",
+        "reeKcalDay": 2048.8,
+        "relativeDisagreement": 0.015646,
+      },
+    ],
+  },
+  "steps": {
+    "netStepKcal": 431.2,
+  },
+  "uncertainty": {
+    "interval80": [
+      2722.729365,
+      3599.310635,
+    ],
+    "interval95": [
+      2490.7,
+      3831.34,
+    ],
+    "sigma": {
+      "baseSigmaKcal": 342,
+      "multipliers": [],
+      "sigmaKcal": 342,
+    },
+  },
+}
+`;
+
+exports[`golden end-to-end profiles (06 s16) > 05 female 42 obesity low active loss 1`] = `
+{
+  "decomposition": {
+    "exerciseKcalAfterOverlap": 0,
+    "initialTdeeKcal": 2503.85,
+    "netStepKcal": 302.575,
+    "occupationPostureKcal": 18,
+    "reeKcal": 1591.5,
+    "referenceTefKcal": 250.385,
+    "residualNeatKcalDisplay": 341.39,
+    "residualNeatKcalRaw": 341.39,
+  },
+  "exercise": {
+    "afterOverlap": 0,
+    "beforeOverlap": 0,
+    "perActivity": [],
+  },
+  "macroClass": "sedentary",
+  "nasem": {
+    "category": "low_active",
+    "tdee": 2503.85,
+  },
+  "pal": {
+    "adlPriorKcal": 318.3,
+    "categoryFromProxy": "low_active",
+    "palBoundaryFlag": true,
+    "palCategory": "low_active",
+    "palOutlierFlag": false,
+    "physicalOccupationFloorApplied": false,
+    "postureKcal": 18,
+    "provisionalPal": 1.557144,
+    "provisionalTdeeKcal": 2478.194444,
+  },
+  "plan": {
+    "calories": 1958.435059,
+    "hardFloor": 1200,
+    "macrosDisplay": {
+      "carbsG": 224,
+      "fatG": 65,
+      "proteinG": 120,
+    },
+    "macrosExact": {
+      "carbsG": 222.232215,
+      "fatG": 65.281169,
+      "proteinG": 120.49392,
+    },
+    "proteinRule": "loss_1_6",
+    "rateAdjusted": false,
+    "rejections": [],
+    "target42": 92.185388,
+    "w42": 92.184616,
+    "warnings": {
+      "belowRee": false,
+      "gainWithoutResistance": false,
+      "lowCarbForEndurance": false,
+      "lowCarbForResistance": false,
+      "lowEnergyAvailability": false,
+    },
+    "weeklyRate": 0.005,
+  },
+  "projection": {
+    "approximateWeeks": 54,
+    "daysToTarget": 381,
+    "end": {
+      "day": 381,
+      "weightKg": 79.995761,
+    },
+    "horizon": 381,
+    "lowerEnd": {
+      "day": 381,
+      "weightKg": 71.962536,
+    },
+    "start": {
+      "day": 0,
+      "weightKg": 95,
+    },
+    "upperEnd": {
+      "day": 381,
+      "weightKg": 89.252022,
+    },
+  },
+  "ree": {
+    "athleteLike": false,
+    "disagreement": false,
+    "kcal": 1591.5,
+    "measured": "absent",
+    "method": "mifflin_st_jeor",
+    "secondary": [],
+  },
+  "steps": {
+    "netStepKcal": 302.575,
+  },
+  "uncertainty": {
+    "interval80": [
+      2148.667984,
+      2859.032016,
+    ],
+    "interval95": [
+      1960.636,
+      3047.064,
+    ],
+    "sigma": {
+      "baseSigmaKcal": 241,
+      "multipliers": [
+        {
+          "factor": 1.15,
+          "reason": "palBoundaryFlag",
+        },
+      ],
+      "sigmaKcal": 277.15,
+    },
+  },
+}
+`;
+
+exports[`golden end-to-end profiles (06 s16) > 06 male 45 obesity active loss 1`] = `
+{
+  "decomposition": {
+    "exerciseKcalAfterOverlap": 0,
+    "initialTdeeKcal": 3446.91,
+    "netStepKcal": 658.56,
+    "occupationPostureKcal": 54,
+    "reeKcal": 2000,
+    "referenceTefKcal": 344.691,
+    "residualNeatKcalDisplay": 389.659,
+    "residualNeatKcalRaw": 389.659,
+  },
+  "exercise": {
+    "afterOverlap": 0,
+    "beforeOverlap": 0,
+    "perActivity": [],
+  },
+  "macroClass": "sedentary",
+  "nasem": {
+    "category": "active",
+    "tdee": 3446.91,
+  },
+  "pal": {
+    "adlPriorKcal": 400,
+    "categoryFromProxy": "active",
+    "palBoundaryFlag": true,
+    "palCategory": "active",
+    "palOutlierFlag": false,
+    "physicalOccupationFloorApplied": false,
+    "postureKcal": 54,
+    "provisionalPal": 1.7292,
+    "provisionalTdeeKcal": 3458.4,
+  },
+  "plan": {
+    "calories": 2423.498535,
+    "hardFloor": 1500,
+    "macrosDisplay": {
+      "carbsG": 281,
+      "fatG": 81,
+      "proteinG": 142,
+    },
+    "macrosExact": {
+      "carbsG": 281.960564,
+      "fatG": 80.783285,
+      "proteinG": 142.15168,
+    },
+    "proteinRule": "loss_1_6",
+    "rateAdjusted": false,
+    "rejections": [],
+    "target42": 107.05356,
+    "w42": 107.055977,
+    "warnings": {
+      "belowRee": false,
+      "gainWithoutResistance": false,
+      "lowCarbForEndurance": false,
+      "lowCarbForResistance": false,
+      "lowEnergyAvailability": false,
+    },
+    "weeklyRate": 0.0075,
+  },
+  "projection": {
+    "approximateWeeks": 29,
+    "daysToTarget": 201,
+    "end": {
+      "day": 201,
+      "weightKg": 94.989425,
+    },
+    "horizon": 201,
+    "lowerEnd": {
+      "day": 201,
+      "weightKg": 86.73064,
+    },
+    "start": {
+      "day": 0,
+      "weightKg": 112,
+    },
+    "upperEnd": {
+      "day": 201,
+      "weightKg": 104.089643,
+    },
+  },
+  "ree": {
+    "athleteLike": false,
+    "disagreement": false,
+    "kcal": 2000,
+    "measured": "absent",
+    "method": "mifflin_st_jeor",
+    "secondary": [],
+  },
+  "steps": {
+    "netStepKcal": 658.56,
+  },
+  "uncertainty": {
+    "interval80": [
+      2867.270635,
+      4026.549365,
+    ],
+    "interval95": [
+      2560.4118,
+      4333.4082,
+    ],
+    "sigma": {
+      "baseSigmaKcal": 342,
+      "multipliers": [
+        {
+          "factor": 1.15,
+          "reason": "palBoundaryFlag",
+        },
+        {
+          "factor": 1.15,
+          "reason": "physicalOccupation",
+        },
+      ],
+      "sigmaKcal": 452.295,
+    },
+  },
+}
+`;
+
+exports[`golden end-to-end profiles (06 s16) > 07 female 55 active maintenance 1`] = `
+{
+  "decomposition": {
+    "exerciseKcalAfterOverlap": 156.6,
+    "initialTdeeKcal": 2367.36,
+    "netStepKcal": 367.5,
+    "occupationPostureKcal": 54,
+    "reeKcal": 1189,
+    "referenceTefKcal": 236.736,
+    "residualNeatKcalDisplay": 363.524,
+    "residualNeatKcalRaw": 363.524,
+  },
+  "exercise": {
+    "afterOverlap": 156.6,
+    "beforeOverlap": 156.6,
+    "perActivity": [
+      {
+        "basis": "adult_3_5",
+        "extra": 365.4,
+        "met": 6.8,
+      },
+    ],
+  },
+  "macroClass": "endurance",
+  "nasem": {
+    "category": "very_active",
+    "tdee": 2367.36,
+  },
+  "pal": {
+    "adlPriorKcal": 237.8,
+    "categoryFromProxy": "very_active",
+    "palBoundaryFlag": true,
+    "palCategory": "very_active",
+    "palOutlierFlag": false,
+    "physicalOccupationFloorApplied": false,
+    "postureKcal": 54,
+    "provisionalPal": 1.873563,
+    "provisionalTdeeKcal": 2227.666667,
+  },
+  "plan": {
+    "calories": 2367.858887,
+    "hardFloor": 1200,
+    "macrosDisplay": {
+      "carbsG": 348,
+      "fatG": 66,
+      "proteinG": 96,
+    },
+    "macrosExact": {
+      "carbsG": 347.973541,
+      "fatG": 65.773858,
+      "proteinG": 96,
+    },
+    "proteinRule": "trained_1_6",
+    "rateAdjusted": false,
+    "rejections": [],
+    "target42": 60,
+    "w42": 60.002796,
+    "warnings": {
+      "belowRee": false,
+      "gainWithoutResistance": false,
+      "lowCarbForEndurance": false,
+      "lowCarbForResistance": false,
+      "lowEnergyAvailability": false,
+    },
+    "weeklyRate": 0,
+  },
+  "projection": {
+    "approximateWeeks": null,
+    "daysToTarget": null,
+    "end": {
+      "day": 84,
+      "weightKg": 60.004583,
+    },
+    "horizon": 84,
+    "lowerEnd": {
+      "day": 84,
+      "weightKg": 56.922009,
+    },
+    "start": {
+      "day": 0,
+      "weightKg": 60,
+    },
+    "upperEnd": {
+      "day": 84,
+      "weightKg": 63.318199,
+    },
+  },
+  "ree": {
+    "athleteLike": false,
+    "disagreement": false,
+    "kcal": 1189,
+    "measured": "absent",
+    "method": "mifflin_st_jeor",
+    "secondary": [],
+  },
+  "steps": {
+    "netStepKcal": 367.5,
+  },
+  "uncertainty": {
+    "interval80": [
+      2012.177984,
+      2722.542016,
+    ],
+    "interval95": [
+      1824.146,
+      2910.574,
+    ],
+    "sigma": {
+      "baseSigmaKcal": 241,
+      "multipliers": [
+        {
+          "factor": 1.15,
+          "reason": "palBoundaryFlag",
+        },
+      ],
+      "sigmaKcal": 277.15,
+    },
+  },
+}
+`;
+
+exports[`golden end-to-end profiles (06 s16) > 08 male 60 moderate activity maintenance 1`] = `
+{
+  "decomposition": {
+    "exerciseKcalAfterOverlap": 0,
+    "initialTdeeKcal": 2609.25,
+    "netStepKcal": 380.808,
+    "occupationPostureKcal": 18,
+    "reeKcal": 1618.75,
+    "referenceTefKcal": 260.925,
+    "residualNeatKcalDisplay": 330.767,
+    "residualNeatKcalRaw": 330.767,
+  },
+  "exercise": {
+    "afterOverlap": 0,
+    "beforeOverlap": 122.402571,
+    "perActivity": [
+      {
+        "basis": "older_adult_2_7",
+        "extra": 0,
+        "met": 5.3,
+      },
+    ],
+  },
+  "macroClass": "sedentary",
+  "nasem": {
+    "category": "low_active",
+    "tdee": 2609.25,
+  },
+  "pal": {
+    "adlPriorKcal": 323.75,
+    "categoryFromProxy": "low_active",
+    "palBoundaryFlag": false,
+    "palCategory": "low_active",
+    "palOutlierFlag": false,
+    "physicalOccupationFloorApplied": false,
+    "postureKcal": 18,
+    "provisionalPal": 1.607075,
+    "provisionalTdeeKcal": 2601.453333,
+  },
+  "plan": {
+    "calories": 2609.313965,
+    "hardFloor": 1500,
+    "macrosDisplay": {
+      "carbsG": 363,
+      "fatG": 87,
+      "proteinG": 94,
+    },
+    "macrosExact": {
+      "carbsG": 362.601694,
+      "fatG": 86.977132,
+      "proteinG": 94.02825,
+    },
+    "proteinRule": "base_1_2",
+    "rateAdjusted": false,
+    "rejections": [],
+    "target42": 82,
+    "w42": 82.000347,
+    "warnings": {
+      "belowRee": false,
+      "gainWithoutResistance": false,
+      "lowCarbForEndurance": false,
+      "lowCarbForResistance": false,
+      "lowEnergyAvailability": false,
+    },
+    "weeklyRate": 0,
+  },
+  "projection": {
+    "approximateWeeks": null,
+    "daysToTarget": null,
+    "end": {
+      "day": 84,
+      "weightKg": 82.000585,
+    },
+    "horizon": 84,
+    "lowerEnd": {
+      "day": 84,
+      "weightKg": 78.191982,
+    },
+    "start": {
+      "day": 0,
+      "weightKg": 82,
+    },
+    "upperEnd": {
+      "day": 84,
+      "weightKg": 86.068845,
+    },
+  },
+  "ree": {
+    "athleteLike": false,
+    "disagreement": false,
+    "kcal": 1618.75,
+    "measured": "absent",
+    "method": "mifflin_st_jeor",
+    "secondary": [],
+  },
+  "steps": {
+    "netStepKcal": 380.808,
+  },
+  "uncertainty": {
+    "interval80": [
+      2170.959365,
+      3047.540635,
+    ],
+    "interval95": [
+      1938.93,
+      3279.57,
+    ],
+    "sigma": {
+      "baseSigmaKcal": 342,
+      "multipliers": [],
+      "sigmaKcal": 342,
+    },
+  },
+}
+`;
+
+exports[`golden end-to-end profiles (06 s16) > 09 female 65 resistance training maintenance 1`] = `
+{
+  "decomposition": {
+    "exerciseKcalAfterOverlap": 36.0855,
+    "initialTdeeKcal": 1940.94,
+    "netStepKcal": 256.0005,
+    "occupationPostureKcal": 0,
+    "reeKcal": 1144,
+    "referenceTefKcal": 194.094,
+    "residualNeatKcalDisplay": 310.76,
+    "residualNeatKcalRaw": 310.76,
+  },
+  "exercise": {
+    "afterOverlap": 36.0855,
+    "beforeOverlap": 36.0855,
+    "perActivity": [
+      {
+        "basis": "older_adult_2_7",
+        "extra": 126.29925,
+        "met": 4.3,
+      },
+    ],
+  },
+  "macroClass": "resistance",
+  "nasem": {
+    "category": "low_active",
+    "tdee": 1940.94,
+  },
+  "pal": {
+    "adlPriorKcal": 228.8,
+    "categoryFromProxy": "low_active",
+    "palBoundaryFlag": false,
+    "palCategory": "low_active",
+    "palOutlierFlag": false,
+    "physicalOccupationFloorApplied": false,
+    "postureKcal": 0,
+    "provisionalPal": 1.617022,
+    "provisionalTdeeKcal": 1849.873333,
+  },
+  "plan": {
+    "calories": 1940.588379,
+    "hardFloor": 1200,
+    "macrosDisplay": {
+      "carbsG": 238,
+      "fatG": 65,
+      "proteinG": 101,
+    },
+    "macrosExact": {
+      "carbsG": 238.802966,
+      "fatG": 64.686279,
+      "proteinG": 100.8,
+    },
+    "proteinRule": "trained_1_6",
+    "rateAdjusted": false,
+    "rejections": [],
+    "target42": 63,
+    "w42": 62.997921,
+    "warnings": {
+      "belowRee": false,
+      "gainWithoutResistance": false,
+      "lowCarbForEndurance": false,
+      "lowCarbForResistance": false,
+      "lowEnergyAvailability": false,
+    },
+    "weeklyRate": 0,
+  },
+  "projection": {
+    "approximateWeeks": null,
+    "daysToTarget": null,
+    "end": {
+      "day": 84,
+      "weightKg": 62.996625,
+    },
+    "horizon": 84,
+    "lowerEnd": {
+      "day": 84,
+      "weightKg": 60.256496,
+    },
+    "start": {
+      "day": 0,
+      "weightKg": 63,
+    },
+    "upperEnd": {
+      "day": 84,
+      "weightKg": 65.947975,
+    },
+  },
+  "ree": {
+    "athleteLike": false,
+    "disagreement": false,
+    "kcal": 1144,
+    "measured": "absent",
+    "method": "mifflin_st_jeor",
+    "secondary": [],
+  },
+  "steps": {
+    "netStepKcal": 256.0005,
+  },
+  "uncertainty": {
+    "interval80": [
+      1632.086073,
+      2249.793927,
+    ],
+    "interval95": [
+      1468.58,
+      2413.3,
+    ],
+    "sigma": {
+      "baseSigmaKcal": 241,
+      "multipliers": [],
+      "sigmaKcal": 241,
+    },
+  },
+}
+`;
+
+exports[`golden end-to-end profiles (06 s16) > 10 male 35 resistance training gain 1`] = `
+{
+  "decomposition": {
+    "exerciseKcalAfterOverlap": 252,
+    "initialTdeeKcal": 2931.85,
+    "netStepKcal": 317.52,
+    "occupationPostureKcal": 0,
+    "reeKcal": 1662.5,
+    "referenceTefKcal": 293.185,
+    "residualNeatKcalDisplay": 406.645,
+    "residualNeatKcalRaw": 406.645,
+  },
+  "exercise": {
+    "afterOverlap": 252,
+    "beforeOverlap": 252,
+    "perActivity": [
+      {
+        "basis": "adult_3_5",
+        "extra": 441,
+        "met": 6,
+      },
+    ],
+  },
+  "macroClass": "resistance",
+  "nasem": {
+    "category": "active",
+    "tdee": 2931.85,
+  },
+  "pal": {
+    "adlPriorKcal": 332.5,
+    "categoryFromProxy": "active",
+    "palBoundaryFlag": true,
+    "palCategory": "active",
+    "palOutlierFlag": false,
+    "physicalOccupationFloorApplied": false,
+    "postureKcal": 0,
+    "provisionalPal": 1.713965,
+    "provisionalTdeeKcal": 2849.466667,
+  },
+  "plan": {
+    "calories": 3118.469238,
+    "hardFloor": 1500,
+    "macrosDisplay": {
+      "carbsG": 431,
+      "fatG": 104,
+      "proteinG": 115,
+    },
+    "macrosExact": {
+      "carbsG": 430.532117,
+      "fatG": 103.948975,
+      "proteinG": 115.2,
+    },
+    "proteinRule": "trained_1_6",
+    "rateAdjusted": false,
+    "rejections": [],
+    "target42": 73.086773,
+    "w42": 73.085883,
+    "warnings": {
+      "belowRee": false,
+      "gainWithoutResistance": false,
+      "lowCarbForEndurance": false,
+      "lowCarbForResistance": false,
+      "lowEnergyAvailability": false,
+    },
+    "weeklyRate": 0.0025,
+  },
+  "projection": {
+    "approximateWeeks": null,
+    "daysToTarget": null,
+    "end": {
+      "day": 730,
+      "weightKg": 77.472046,
+    },
+    "horizon": 730,
+    "lowerEnd": {
+      "day": 730,
+      "weightKg": 64.571292,
+    },
+    "start": {
+      "day": 0,
+      "weightKg": 72,
+    },
+    "upperEnd": {
+      "day": 730,
+      "weightKg": 97.692982,
+    },
+  },
+  "ree": {
+    "athleteLike": false,
+    "disagreement": false,
+    "kcal": 1662.5,
+    "measured": "absent",
+    "method": "mifflin_st_jeor",
+    "secondary": [],
+  },
+  "steps": {
+    "netStepKcal": 317.52,
+  },
+  "uncertainty": {
+    "interval80": [
+      2427.815769,
+      3435.884231,
+    ],
+    "interval95": [
+      2160.982,
+      3702.718,
+    ],
+    "sigma": {
+      "baseSigmaKcal": 342,
+      "multipliers": [
+        {
+          "factor": 1.15,
+          "reason": "palBoundaryFlag",
+        },
+      ],
+      "sigmaKcal": 393.3,
+    },
+  },
+}
+`;
+
+exports[`golden end-to-end profiles (06 s16) > 11 female 30 endurance heavy gain 1`] = `
+{
+  "decomposition": {
+    "exerciseKcalAfterOverlap": 236.04,
+    "initialTdeeKcal": 2302.79,
+    "netStepKcal": 384.16,
+    "occupationPostureKcal": 0,
+    "reeKcal": 1452.9626,
+    "referenceTefKcal": 230.279,
+    "residualNeatKcalDisplay": 0,
+    "residualNeatKcalRaw": -0.6516,
+  },
+  "exercise": {
+    "afterOverlap": 236.04,
+    "beforeOverlap": 424.2,
+    "perActivity": [
+      {
+        "basis": "adult_3_5",
+        "extra": 224.616,
+        "met": 9.3,
+      },
+      {
+        "basis": "adult_3_5",
+        "extra": 264.6,
+        "met": 7,
+      },
+    ],
+  },
+  "macroClass": "endurance",
+  "nasem": {
+    "category": "active",
+    "tdee": 2302.79,
+  },
+  "pal": {
+    "adlPriorKcal": 290.59252,
+    "categoryFromProxy": "active",
+    "palBoundaryFlag": true,
+    "palCategory": "active",
+    "palOutlierFlag": false,
+    "physicalOccupationFloorApplied": false,
+    "postureKcal": 0,
+    "provisionalPal": 1.807613,
+    "provisionalTdeeKcal": 2626.394578,
+  },
+  "plan": {
+    "calories": 2357.36084,
+    "hardFloor": 1200,
+    "macrosDisplay": {
+      "carbsG": 354,
+      "fatG": 65,
+      "proteinG": 90,
+    },
+    "macrosExact": {
+      "carbsG": 352.405157,
+      "fatG": 65.482246,
+      "proteinG": 89.6,
+    },
+    "proteinRule": "trained_1_6",
+    "rateAdjusted": false,
+    "rejections": [],
+    "target42": 56.336841,
+    "w42": 56.339483,
+    "warnings": {
+      "belowRee": false,
+      "gainWithoutResistance": true,
+      "lowCarbForEndurance": false,
+      "lowCarbForResistance": false,
+      "lowEnergyAvailability": false,
+    },
+    "weeklyRate": 0.001,
+  },
+  "projection": {
+    "approximateWeeks": null,
+    "daysToTarget": null,
+    "end": {
+      "day": 730,
+      "weightKg": 57.727124,
+    },
+    "horizon": 730,
+    "lowerEnd": {
+      "day": 730,
+      "weightKg": 48.329304,
+    },
+    "start": {
+      "day": 0,
+      "weightKg": 56,
+    },
+    "upperEnd": {
+      "day": 730,
+      "weightKg": 72.269516,
+    },
+  },
+  "ree": {
+    "athleteLike": true,
+    "disagreement": false,
+    "kcal": 1452.9626,
+    "measured": "absent",
+    "method": "ten_haaf_weight",
+    "secondary": [],
+  },
+  "steps": {
+    "netStepKcal": 384.16,
+  },
+  "uncertainty": {
+    "interval80": [
+      1947.607984,
+      2657.972016,
+    ],
+    "interval95": [
+      1759.576,
+      2846.004,
+    ],
+    "sigma": {
+      "baseSigmaKcal": 241,
+      "multipliers": [
+        {
+          "factor": 1.15,
+          "reason": "palBoundaryFlag",
+        },
+      ],
+      "sigmaKcal": 277.15,
+    },
+  },
+}
+`;
+
+exports[`golden end-to-end profiles (06 s16) > 12 valid indirect calorimetry 1`] = `
+{
+  "decomposition": {
+    "exerciseKcalAfterOverlap": 0,
+    "initialTdeeKcal": 2050.3,
+    "netStepKcal": 249.9,
+    "occupationPostureKcal": 0,
+    "reeKcal": 1420,
+    "referenceTefKcal": 205.03,
+    "residualNeatKcalDisplay": 175.37,
+    "residualNeatKcalRaw": 175.37,
+  },
+  "exercise": {
+    "afterOverlap": 0,
+    "beforeOverlap": 0,
+    "perActivity": [],
+  },
+  "macroClass": "sedentary",
+  "nasem": {
+    "category": "inactive",
+    "tdee": 2050.3,
+  },
+  "pal": {
+    "adlPriorKcal": 284,
+    "categoryFromProxy": "inactive",
+    "palBoundaryFlag": true,
+    "palCategory": "inactive",
+    "palOutlierFlag": false,
+    "physicalOccupationFloorApplied": false,
+    "postureKcal": 0,
+    "provisionalPal": 1.528873,
+    "provisionalTdeeKcal": 2171,
+  },
+  "plan": {
+    "calories": 1880.749512,
+    "hardFloor": 1200,
+    "macrosDisplay": {
+      "carbsG": 219,
+      "fatG": 63,
+      "proteinG": 109,
+    },
+    "macrosExact": {
+      "carbsG": 220.331165,
+      "fatG": 62.69165,
+      "proteinG": 108.8,
+    },
+    "proteinRule": "loss_1_6",
+    "rateAdjusted": false,
+    "rejections": [],
+    "target42": 66.986354,
+    "w42": 66.988027,
+    "warnings": {
+      "belowRee": false,
+      "gainWithoutResistance": false,
+      "lowCarbForEndurance": false,
+      "lowCarbForResistance": false,
+      "lowEnergyAvailability": false,
+    },
+    "weeklyRate": 0.0025,
+  },
+  "projection": {
+    "approximateWeeks": 56,
+    "daysToTarget": 391,
+    "end": {
+      "day": 391,
+      "weightKg": 62.994084,
+    },
+    "horizon": 391,
+    "lowerEnd": {
+      "day": 391,
+      "weightKg": 54.145354,
+    },
+    "start": {
+      "day": 0,
+      "weightKg": 68,
+    },
+    "upperEnd": {
+      "day": 391,
+      "weightKg": 73.930193,
+    },
+  },
+  "ree": {
+    "athleteLike": false,
+    "disagreement": false,
+    "kcal": 1420,
+    "measured": "primary",
+    "method": "measured_indirect_calorimetry",
+    "secondary": [],
+  },
+  "steps": {
+    "netStepKcal": 249.9,
+  },
+  "uncertainty": {
+    "interval80": [
+      1695.117984,
+      2405.482016,
+    ],
+    "interval95": [
+      1507.086,
+      2593.514,
+    ],
+    "sigma": {
+      "baseSigmaKcal": 241,
+      "multipliers": [
+        {
+          "factor": 1.15,
+          "reason": "palBoundaryFlag",
+        },
+      ],
+      "sigmaKcal": 277.15,
+    },
+  },
+}
+`;
