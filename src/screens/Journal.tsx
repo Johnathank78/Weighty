@@ -327,6 +327,7 @@ function ProductsPanel({ onPick, onPickRecent, onManual }: { onPick: (f: Resolve
       {scanOpen ? <BarcodePanel onClose={() => setScanOpen(false)} onFound={choose} onManual={onManual} /> : null}
       <form
         className="search-box"
+        style={{ order: 2 }}
         role="search"
         onSubmit={(e) => {
           e.preventDefault();
@@ -342,7 +343,7 @@ function ProductsPanel({ onPick, onPickRecent, onManual }: { onPick: (f: Resolve
         </button>
       </form>
 
-      <div className="sheet__scroll" aria-live="polite">
+      <div className="sheet__scroll" style={{ order: 4 }} aria-live="polite">
         {trimmed === '' ? (
           <>
             <p className="small search-hint">{online ? FOOD_SEARCH_TEXT.emptyQueryOnline : FOOD_SEARCH_TEXT.emptyQuery}</p>
@@ -363,6 +364,15 @@ function ProductsPanel({ onPick, onPickRecent, onManual }: { onPick: (f: Resolve
           </>
         ) : (
           <div className="food-list">
+            {online ? (
+              busy ? (
+                <p className="small search-hint">{FOOD_SEARCH_TEXT.searchingOnline}</p>
+              ) : !remoteForQuery && trimmed.length >= 2 ? (
+                <button type="button" className="btn btn--outline btn--small" style={{ alignSelf: 'flex-start' }} onClick={() => void searchOnline()}>
+                  {FOOD_SEARCH_TEXT.searchOnline}
+                </button>
+              ) : null
+            ) : null}
             {failed ? <p className="small search-hint">{FOOD_SEARCH_TEXT.tableFailed}</p> : !data ? <p className="small search-hint">{FOOD_SEARCH_TEXT.loadingTable}</p> : null}
             {local.map((f) => (
               <FoodRow key={`c${f.code}`} name={f.name} detail={`${FOOD_SOURCE_LABEL.ciqual} · ${f.group}`} kcal={`${formatInteger(Math.round(f.kcal))} kcal / 100 g`} onClick={() => data && onPick(resolveCiqualFood(f, data.table, nowIso()))} />
@@ -382,15 +392,7 @@ function ProductsPanel({ onPick, onPickRecent, onManual }: { onPick: (f: Resolve
               ),
             )}
             {remoteForQuery?.message ? <p className="small search-hint">{remoteForQuery.message}</p> : null}
-            {online ? (
-              busy ? (
-                <p className="small search-hint">{FOOD_SEARCH_TEXT.searchingOnline}</p>
-              ) : !remoteForQuery && trimmed.length >= 2 ? (
-                <button type="button" className="btn btn--outline btn--small" style={{ alignSelf: 'flex-start' }} onClick={() => void searchOnline()}>
-                  {FOOD_SEARCH_TEXT.searchOnline}
-                </button>
-              ) : null
-            ) : (
+            {online ? null : (
               <button type="button" className="link small" style={{ textAlign: 'left' }} onClick={() => go('params')}>
                 {FOOD_SEARCH_TEXT.onlineOff} ›
               </button>
@@ -442,7 +444,7 @@ function BarcodePanel({ onClose, onFound, onManual }: { onClose: () => void; onF
 
   if (!online) {
     return (
-      <div className="barcode-panel">
+      <div className="barcode-panel barcode-panel--below">
         <p className="small" style={{ margin: 0 }}>
           {PRODUCT_SEARCH_TEXT.disabledNote}
         </p>
@@ -459,25 +461,33 @@ function BarcodePanel({ onClose, onFound, onManual }: { onClose: () => void; onF
   }
 
   const cameraMessage = { idle: null, starting: BARCODE_TEXT.starting, scanning: BARCODE_TEXT.scanning, unsupported: BARCODE_TEXT.unsupported, denied: BARCODE_TEXT.denied, error: BARCODE_TEXT.error }[scanner.state];
-  const showVideo = cameraOn && (scanner.state === 'starting' || scanner.state === 'scanning');
+  // Live camera: preview under the selector, above the search bar. Without a camera (unsupported, refused,
+  // code already read), the code field sits under the search bar and the message under the code field.
+  const showVideo = cameraOn && scanner.state !== 'unsupported' && scanner.state !== 'denied' && scanner.state !== 'error';
+  const status = busy ? BARCODE_TEXT.looking : (message ?? cameraMessage);
+  const statusLine = status ? (
+    <p className="small" style={{ margin: showVideo ? '0 0 8px' : '8px 0 0' }} aria-live="polite">
+      {status}
+    </p>
+  ) : null;
+  const incompleteLink = incomplete ? (
+    <button type="button" className="link" style={{ margin: '8px 0 0', alignSelf: 'flex-start' }} onClick={() => onManual(incomplete.name)}>
+      Saisir à la main ›
+    </button>
+  ) : null;
   return (
-    <div className="barcode-panel">
+    <div className={showVideo ? 'barcode-panel' : 'barcode-panel barcode-panel--below'}>
       {showVideo ? (
-        <div className="barcode-panel__camera">
-          <video ref={scanner.videoRef} muted playsInline aria-label="Aperçu de la caméra" />
-          <span className="barcode-panel__frame" aria-hidden="true" />
-        </div>
+        <>
+          <div className="barcode-panel__camera">
+            <video ref={scanner.videoRef} muted playsInline aria-label="Aperçu de la caméra" />
+            <span className="barcode-panel__frame" aria-hidden="true" />
+          </div>
+          {statusLine}
+        </>
       ) : (
         <video ref={scanner.videoRef} muted playsInline hidden />
       )}
-      <p className="small" style={{ margin: '0 0 8px' }} aria-live="polite">
-        {busy ? BARCODE_TEXT.looking : (message ?? cameraMessage ?? '')}
-      </p>
-      {incomplete ? (
-        <button type="button" className="link" style={{ marginBottom: 8 }} onClick={() => onManual(incomplete.name)}>
-          Saisir à la main ›
-        </button>
-      ) : null}
       <form
         style={{ display: 'flex', gap: 8 }}
         onSubmit={(e) => {
@@ -494,6 +504,8 @@ function BarcodePanel({ onClose, onFound, onManual }: { onClose: () => void; onF
           {BARCODE_TEXT.lookup}
         </button>
       </form>
+      {showVideo ? null : statusLine}
+      {incompleteLink}
     </div>
   );
 }
@@ -598,7 +610,7 @@ function QuantityStep({ food, onBack, onSave, timingProps }: { food: ResolvedFoo
         </div>
       ) : null}
 
-      {portion ? <NumberField label={`Nombre de portions « ${portion.label} »`} value={countRaw} onChange={setCountRaw} unit="×" /> : <NumberField label="Quantité" value={gramsRaw} onChange={setGramsRaw} unit="g" />}
+      {portion ? <NumberField label={`Nombre de portions « ${portion.label} »`} value={countRaw} onChange={setCountRaw} unit="×" placeholder="1" /> : <NumberField label="Quantité" value={gramsRaw} onChange={setGramsRaw} unit="g" placeholder="100" />}
 
       <p className="tabular" style={{ margin: '12px 0 0', font: '600 15px var(--font)' }} aria-live="polite">
         {preview ? nutrientsLine(preview) : ' '}
@@ -619,7 +631,7 @@ function QuantityStep({ food, onBack, onSave, timingProps }: { food: ResolvedFoo
             <input id="portion-label" value={newPortion.label} maxLength={40} placeholder="Mon bol, une tranche..." onChange={(e) => setNewPortion({ ...newPortion, label: e.target.value })} />
           </div>
           <div style={{ height: 10 }} />
-          <NumberField label="Poids d’une portion" value={newPortion.grams} onChange={(v) => setNewPortion({ ...newPortion, grams: v })} unit="g" />
+          <NumberField label="Poids d’une portion" value={newPortion.grams} onChange={(v) => setNewPortion({ ...newPortion, grams: v })} unit="g" placeholder="150" />
           <button type="button" role="checkbox" aria-checked={newPortion.forAll} className="checkbox" style={{ paddingTop: 12 }} onClick={() => setNewPortion({ ...newPortion, forAll: !newPortion.forAll })}>
             <span className="checkbox__box" aria-hidden="true">
               {newPortion.forAll ? '✓' : ''}
@@ -686,14 +698,14 @@ function ManualTab({ prefill, onSave, timingProps }: { prefill: ManualFood | nul
         <input id="manual-name" value={name} maxLength={200} placeholder="Repas du midi" onChange={(e) => setName(e.target.value)} />
       </div>
       <div style={{ height: 12 }} />
-      <NumberField label="Calories" value={kcal} onChange={setKcal} unit="kcal" inputMode="decimal" />
+      <NumberField label="Calories" value={kcal} onChange={setKcal} unit="kcal" inputMode="decimal" placeholder="450" />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 12 }}>
-        <NumberField label="Prot. (facult.)" value={protein} onChange={setProtein} unit="g" />
-        <NumberField label="Gluc. (facult.)" value={carbs} onChange={setCarbs} unit="g" />
-        <NumberField label="Lip. (facult.)" value={fat} onChange={setFat} unit="g" />
+        <NumberField label="Prot. (facult.)" value={protein} onChange={setProtein} unit="g" placeholder="20" />
+        <NumberField label="Gluc. (facult.)" value={carbs} onChange={setCarbs} unit="g" placeholder="50" />
+        <NumberField label="Lip. (facult.)" value={fat} onChange={setFat} unit="g" placeholder="15" />
       </div>
       <div style={{ height: 12 }} />
-      <NumberField label="Poids (facultatif)" value={grams} onChange={setGrams} unit="g" />
+      <NumberField label="Poids (facultatif)" value={grams} onChange={setGrams} unit="g" placeholder="250" />
       <ConsumedTimeField {...timingProps} />
       {error ? (
         <p className="field-error" role="alert">

@@ -1565,9 +1565,14 @@ img {
   background: var(--accl);
   color: var(--acc);
 }
+/* Order inside the add sheet: selector, live camera, search bar, code field without camera, results. */
 .barcode-panel {
   display: flex;
   flex-direction: column;
+  order: 1;
+}
+.barcode-panel--below {
+  order: 3;
 }
 .barcode-panel__camera {
   position: relative;

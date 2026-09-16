@@ -1,7 +1,7 @@
 import { useNav } from '@/app/navigation';
 import { useWheighty } from '@/store/StoreProvider';
-import { ADHERENCE_LABEL, CONFIDENCE_LABEL, JOURNAL_TEXT } from '@/app/copy';
-import { journalDay } from '@/domain/journal';
+import { ADHERENCE_LABEL, CONFIDENCE_LABEL, JOURNAL_GAUGE_TEXT, JOURNAL_TEXT } from '@/app/copy';
+import { intakeGauge, journalDay } from '@/domain/journal';
 import { Mascot } from '@/components/Mascot';
 import { formatDayMonth, formatGrams, formatInteger, formatKcal, formatLongDate, formatSignedWeight, formatSteps, formatWeight, weightUnitLabel } from '@/domain/format';
 import { displayMacros, gateProgress, goalStatus, nextWeighInDate, reminderDue, todayLog } from '@/domain/views';
@@ -24,6 +24,8 @@ export function TodayScreen() {
   const reached = goalStatus(store).reached;
   const initials = profileInitials(store.profile);
   const journal = journalDay(store, today);
+  // Same neutral gauge as the journal: logged kcal against today's target, never read by the engine.
+  const kcalGauge = intakeGauge(journal.intakeLoggedKcal, log?.calorieTargetForDay ?? plan.calorieTarget);
   // A result computed for an older store never announces a recalibration.
   const recalibrationReady = calibration?.surfaced === true && !calibrationPending;
 
@@ -94,14 +96,22 @@ export function TodayScreen() {
         <button
           type="button"
           onClick={() => go('journal')}
-          style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'none', border: 0, padding: '0 0 24px', margin: '-12px 0 0', color: 'var(--ink)', textAlign: 'left' }}
+          style={{ width: '100%', display: 'block', background: 'none', border: 0, padding: '0 0 24px', margin: '-12px 0 0', color: 'var(--ink)', textAlign: 'left' }}
         >
-          <span style={{ font: '500 13px var(--font)', color: 'var(--ink2)' }}>{JOURNAL_TEXT.todayLink}</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 8, font: '500 13px var(--font)' }}>
-            {journal.entries.length > 0 ? <span className="tabular">{formatInteger(Math.round(journal.intakeLoggedKcal))} kcal saisies</span> : <span style={{ color: 'var(--ink2)' }}>{JOURNAL_TEXT.todayEmpty}</span>}
-            <span className="chevron" aria-hidden="true">
-              ›
+          <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ font: '500 13px var(--font)', color: 'var(--ink2)' }}>{JOURNAL_TEXT.todayLink}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8, font: '500 13px var(--font)' }}>
+              {journal.entries.length > 0 ? <span className="tabular">{JOURNAL_GAUGE_TEXT.logged(formatInteger(Math.round(journal.intakeLoggedKcal)))}</span> : <span style={{ color: 'var(--ink2)' }}>{JOURNAL_TEXT.todayEmpty}</span>}
+              <span className="chevron" aria-hidden="true">
+                ›
+              </span>
             </span>
+          </span>
+          <span className="progress" style={{ display: 'block' }} role="progressbar" aria-label="Calories saisies par rapport à la cible du plan" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(kcalGauge.fraction * 100)}>
+            <span className="progress__bar" style={{ display: 'block', width: `${kcalGauge.fraction * 100}%` }} />
+          </span>
+          <span className="tabular" style={{ display: 'block', marginTop: 6, font: '400 12px var(--font)', color: 'var(--ink2)' }}>
+            {kcalGauge.beyond > 0 ? JOURNAL_GAUGE_TEXT.beyond(formatInteger(kcalGauge.beyond)) : JOURNAL_GAUGE_TEXT.remaining(formatInteger(kcalGauge.remaining))}
           </span>
         </button>
       </section>

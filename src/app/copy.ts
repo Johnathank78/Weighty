@@ -210,8 +210,8 @@ export const JOURNAL_TIME_TEXT = {
 export const FOOD_SEARCH_TEXT = {
   tabs: { products: 'Produits', manual: 'Libre' },
   placeholder: 'Pomme, riz cuit, yaourt...',
-  emptyQuery: 'Tape le nom d’un aliment ou d’un produit. Les aliments génériques viennent de la table Ciqual et fonctionnent hors connexion.',
-  emptyQueryOnline: 'Tape le nom d’un aliment ou d’un produit, puis valide pour chercher aussi les produits emballés. Tu peux aussi scanner un code-barres.',
+  emptyQuery: 'Tape un aliment, même hors connexion.',
+  emptyQueryOnline: 'Tape un aliment ou scanne un code-barres.',
   recents: 'Récents',
   noLocalResult: 'Aucun aliment générique trouvé.',
   searchOnline: 'Chercher aussi les produits emballés',
