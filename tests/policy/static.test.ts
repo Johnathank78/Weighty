@@ -32,19 +32,72 @@ describe('visible text policy', () => {
   });
 });
 
+/**
+ * The single module allowed to reach the network (IMPLEMENTATION_NOTES J-03): the opt-in Open Food Facts
+ * adapter. Every other file, including science/, domain/, store/, persistence/ and all UI, stays network free.
+ */
+const NETWORK_ADAPTER = join('src', 'adapters', 'openFoodFacts.ts');
+const NETWORK_CALL = /\bfetch\s*\(|XMLHttpRequest|new\s+WebSocket|EventSource|sendBeacon|navigator\.connection|importScripts/;
+const REMOTE_URL = /https?:\/\/(?!localhost)[a-z0-9.-]+\.[a-z]{2,}/i;
+const DOC_COMMENTS = /\/\*\*[\s\S]*?\*\//g;
+const networkOffenders = (files: ReadonlyArray<readonly [string, string]>) => files.filter(([f, src]) => f !== NETWORK_ADAPTER && NETWORK_CALL.test(src)).map(([f]) => f);
+
 describe('no network dependency at runtime', () => {
   const code = SOURCE_FILES.filter((f) => /\.(ts|tsx)$/.test(f)).map((f) => [f, read(f)] as const);
 
-  it('no fetch, XHR, WebSocket, EventSource or beacon calls in application code', () => {
-    const forbidden = /\bfetch\s*\(|XMLHttpRequest|new\s+WebSocket|EventSource|sendBeacon/;
-    expect(code.filter(([, src]) => forbidden.test(src)).map(([f]) => f)).toEqual([]);
+  it('no fetch, XHR, WebSocket, EventSource or beacon calls in application code outside the named adapter', () => {
+    expect(networkOffenders(code)).toEqual([]);
   });
 
-  it('no remote URLs (CDN, Google Fonts, analytics) in source, CSS or entry HTML', () => {
-    const remote = /https?:\/\/(?!localhost)[a-z0-9.-]+\.[a-z]{2,}/i;
-    const allowedDocs = /\/\*\*[\s\S]*?\*\//g;
-    const offenders = UI_FILES.filter((f) => remote.test(read(f).replace(allowedDocs, '')));
+  it('the network exception is exactly one existing file, and it is the only one using the network', () => {
+    const users = code.filter(([, src]) => NETWORK_CALL.test(src)).map(([f]) => f);
+    expect(users).toEqual([NETWORK_ADAPTER]);
+    expect(readdirSync(join('src', 'adapters'))).toEqual(['openFoodFacts.ts']);
+  });
+
+  it('the restriction is effective: a fetch in science, domain, store, persistence or UI would be caught', () => {
+    const probes = ['const r = await fetch(url);', 'globalThis.fetch(input, init)', 'window.fetch (u)', 'new XMLHttpRequest()', 'navigator.sendBeacon(u, b)', 'new WebSocket(u)'];
+    for (const dir of ['science', 'domain', 'store', 'persistence', 'components', 'screens', 'app', 'hooks', 'adapters']) {
+      const f = join('src', dir, 'probe.ts');
+      const fake = probes.map((p, i) => [`${f}#${i}`, p] as const);
+      expect(networkOffenders(fake), f).toHaveLength(probes.length);
+    }
+    // A second adapter file, even next to the allowed one, is not allowed either.
+    expect(networkOffenders([[join('src', 'adapters', 'other.ts'), 'fetch(u)']])).toHaveLength(1);
+    expect(networkOffenders([[NETWORK_ADAPTER, 'fetch(u)']])).toEqual([]);
+  });
+
+  it('no remote URLs (CDN, Google Fonts, analytics) in source, CSS or entry HTML outside the named adapter', () => {
+    const offenders = UI_FILES.filter((f) => f !== NETWORK_ADAPTER && REMOTE_URL.test(read(f).replace(DOC_COMMENTS, '')));
     expect(offenders).toEqual([]);
+  });
+
+  it('the adapter reaches Open Food Facts only, and never reads the store, storage or profile', () => {
+    const src = read(NETWORK_ADAPTER);
+    const hosts = [...src.replace(DOC_COMMENTS, '').matchAll(/https?:\/\/([a-z0-9.-]+)/gi)].map((m) => m[1]);
+    expect(new Set(hosts)).toEqual(new Set(['world.openfoodfacts.org', 'github.com']));
+    // github.com only appears inside the identification string, never as a request target.
+    expect(src).toMatch(/OFF_APP_ID = 'Wheighty\/[^']*\(https:\/\/github\.com\/[^']*\)'/);
+    const imports = [...src.matchAll(/^import (type )?.* from '([^']+)'/gm)].map((m) => [m[1] ?? '', m[2]]);
+    expect(imports.every(([type]) => type === 'type ')).toBe(true);
+    expect(src).not.toMatch(/localStorage|indexedDB|document\.cookie|@\/store|@\/persistence|useWheighty|profile|weightKg/);
+    expect(src).toMatch(/credentials: 'omit'/);
+    expect(src).toMatch(/referrerPolicy: 'no-referrer'/);
+  });
+
+  it('only the product search hook and the journal screen use the adapter', () => {
+    const users = code.filter(([f, src]) => f !== NETWORK_ADAPTER && /from '@\/adapters\/openFoodFacts'/.test(src)).map(([f]) => f.replace(/\\/g, '/'));
+    // Value imports are limited to the hook (client) and the journal screen (pure mapping helper); others are type imports.
+    const valueUsers = code.filter(([, src]) => /^import \{[^}]*\} from '@\/adapters\/openFoodFacts'/m.test(src)).map(([f]) => f.replace(/\\/g, '/'));
+    expect(valueUsers.sort()).toEqual(['src/hooks/useOpenFoodFacts.ts', 'src/screens/Journal.tsx']);
+    expect(users.every((f) => /^src\/(hooks|screens|persistence)\//.test(f))).toBe(true);
+    expect(read('src/screens/Journal.tsx')).not.toMatch(/createOpenFoodFactsClient/);
+  });
+
+  it('the service worker never caches third-party responses', () => {
+    const vite = read('vite.config.ts');
+    expect(vite).toMatch(/runtimeCaching: \[\]/);
+    expect(vite).toMatch(/globPatterns: \['\*\*\/\*\.\{js,css,html,png,svg,woff2,webmanifest\}'\]/);
   });
 
   it('fonts are bundled locally', () => {
@@ -96,6 +149,15 @@ describe('PWA and GitHub Pages configuration', () => {
     expect(vite).toMatch(/process\.env\.WHEIGHTY_BASE \?\? '\.\/'/);
     expect(vite).toMatch(/start_url: '\.\/'/);
     expect(vite).toMatch(/scope: '\.\/'/);
+  });
+
+  it('the production build precaches every script, including the lazily loaded Ciqual table, when present', () => {
+    if (!existsSync('dist/sw.js')) return;
+    const sw = read('dist/sw.js');
+    const scripts = walk(join('dist', 'assets'), (f) => /\.js$/.test(f)).map((f) => f.replace(/\\/g, '/').replace(/^dist\//, ''));
+    expect(scripts.filter((s) => !sw.includes(s))).toEqual([]);
+    const ciqualChunk = scripts.find((s) => /\/ciqual-[\w-]+\.js$/.test(s));
+    expect(ciqualChunk).toBeDefined();
   });
 
   it('entry HTML never references root-absolute assets', () => {

@@ -16,9 +16,11 @@ import type {
 
 /**
  * Version 2 (model 1.1.0): continuous weekly rate replaces speed presets, and historical
- * intake evidence is stored explicitly. See persistence/migrations.ts.
+ * intake evidence is stored explicitly.
+ * Version 3 (food journal, no model change): `foodJournal` and the product search opt-in
+ * preference. See persistence/migrations.ts and IMPLEMENTATION_NOTES J-01.
  */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export type ThemePreference = 'light' | 'dark' | 'system';
 export type UnitPreference = 'metric' | 'imperial';
@@ -29,6 +31,67 @@ export type Preferences = {
   /** In-app due state only; no OS notification is promised (07 s12). */
   weighInReminder: boolean;
   showScientificDetails: boolean;
+  /**
+   * Explicit opt-in for the Open Food Facts product lookup (J-03). Off by default; when off,
+   * no network request is ever made. Never carried over by an import.
+   */
+  productSearchEnabled: boolean;
+};
+
+// ---------------------------------------------------------------------------
+// Food journal (J-01). Display only: never read by the engine, the calibration or the plan.
+// ---------------------------------------------------------------------------
+
+export type FoodSource = 'ciqual' | 'off' | 'manual';
+
+/** Nutrients for a given amount; null when the source does not give the constituent. */
+export type FoodNutrients = {
+  energyKcal: number;
+  proteinG: number | null;
+  carbsG: number | null;
+  fatG: number | null;
+};
+
+export type FoodEntry = {
+  id: string;
+  /** Local day the intake belongs to. */
+  date: string;
+  /** ISO timestamp of the entry creation. */
+  loggedAt: string;
+  /** Local wall clock time (HH:MM) of the entry creation, kept as a raw observable. */
+  localTime: string;
+  name: string;
+  brand?: string;
+  source: FoodSource;
+  /** Ciqual alim_code or Open Food Facts barcode; null for a manual entry. */
+  sourceId: string | null;
+  /** Ciqual table version or Open Food Facts last_modified_t; null for a manual entry. */
+  sourceVersion: string | null;
+  /** ISO timestamp at which the source values were resolved. */
+  resolvedAt: string;
+  /** Snapshot of the source values per 100 g at resolution time; null for a manual entry. */
+  per100g: FoodNutrients | null;
+  /** Amount eaten; null for a manual entry given as a total without weight. */
+  quantity: { grams: number; portion?: { id: string; label: string; count: number; gramsEach: number } } | null;
+  /** Resolved nutrients of this entry, frozen at save time. */
+  intake: FoodNutrients;
+};
+
+/** Reusable personal portion. `foodKey` ties it to one food (`source:sourceId`), null for any food. */
+export type PersonalPortion = {
+  id: string;
+  label: string;
+  grams: number;
+  foodKey: string | null;
+  createdAt: string;
+};
+
+export type FoodJournal = {
+  journalVersion: 1;
+  /** Local day of the first entry ever saved, null before any use. */
+  startedOn: string | null;
+  entries: FoodEntry[];
+  portions: PersonalPortion[];
 };
 
 export type CurrentPlan = {
@@ -117,6 +180,8 @@ export type WheightyStore = {
   calibrationSnapshots: CalibrationSnapshot[];
   /** Historical intake evidence given at onboarding (warm start), null when none (D-23). */
   historicalEvidence: HistoricalIntakeEvidence | null;
+  /** Optional food journal (schema 3, J-01). Kept apart from dailyLogs and the plan targets. */
+  foodJournal: FoodJournal;
   preferences: Preferences;
   meta: AppMeta;
 };
@@ -126,7 +191,12 @@ export const DEFAULT_PREFERENCES: Preferences = {
   units: 'metric',
   weighInReminder: true,
   showScientificDetails: false,
+  productSearchEnabled: false,
 };
+
+export function emptyFoodJournal(): FoodJournal {
+  return { journalVersion: 1, startedOn: null, entries: [], portions: [] };
+}
 
 export const DEFAULT_META: AppMeta = {
   onboardingDate: null,

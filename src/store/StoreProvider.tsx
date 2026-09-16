@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { WheightyStore } from '@/domain/types';
+import { emptyFoodJournal } from '@/domain/types';
 import { ensureDailyLogs } from '@/domain/engine';
 import type { CalibrationState } from '@/domain/engine';
 import { calibrationFingerprint, createCalibrationRunner } from './calibrationClient';
@@ -24,6 +25,8 @@ type StoreContextValue = {
   calibration: CalibrationState | null;
   /** A calibration for the current store is being computed (off the main thread). */
   calibrationPending: boolean;
+  /** Local key-value storage, for side caches that are not part of the store (product cache, J-03). */
+  storage: KeyValueStorage | null;
 };
 
 /** Debounce of the calibration after a store change, so a burst of edits runs a single fit. */
@@ -99,7 +102,9 @@ export function StoreProvider({ children, storage: injected }: { children: React
     if (!needsCalibration) return;
     const id = ++requestId.current;
     const timer = window.setTimeout(() => {
-      runner.current?.run({ id, store: latestStore.current, today, nowIso: new Date().toISOString() }, (response) => {
+      // The food journal never reaches the engine (J-01): it is removed before the store is sent.
+      const engineStore = { ...latestStore.current, foodJournal: emptyFoodJournal() };
+      runner.current?.run({ id, store: engineStore, today, nowIso: new Date().toISOString() }, (response) => {
         // Answers to an older store are ignored: only the latest request may update the state.
         if (response.id !== requestId.current) return;
         if (response.ok) setCalibration({ key: calibrationKey, state: response.state });
@@ -113,7 +118,7 @@ export function StoreProvider({ children, storage: injected }: { children: React
   const calibrationPending = needsCalibration && calibration?.key !== calibrationKey;
 
   const value = useMemo<StoreContextValue>(
-    () => ({ store, today, nowIso, loadStatus: initial.status, saveError, commit, update, wipe, calibration: calibrationState, calibrationPending }),
+    () => ({ store, today, nowIso, loadStatus: initial.status, saveError, commit, update, wipe, calibration: calibrationState, calibrationPending, storage: storageRef.current }),
     [store, today, nowIso, initial.status, saveError, commit, update, wipe, calibrationState, calibrationPending],
   );
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

@@ -169,3 +169,62 @@ export const GATE_CRITERION_LABEL = {
   cleanWeighIns: 'Pesées hors écarts importants',
   adherence: 'Journées notées',
 } as const;
+
+/** Food journal (J-01 to J-04). Display only; nothing here judges the amounts logged. */
+export const JOURNAL_TEXT = {
+  title: 'Journal',
+  eyebrow: 'Facultatif, pour information',
+  logged: 'Saisi',
+  planTarget: 'Cible du plan',
+  empty: 'Aucun aliment pour ce jour. Le journal est facultatif : rien ne change dans ton plan.',
+  partialMacros: 'Certains aliments n’indiquent pas toutes les macros : les totaux couvrent les valeurs connues.',
+  add: 'Ajouter un aliment',
+  added: 'Ajouté au journal.',
+  removed: 'Aliment retiré.',
+  undo: 'Annuler',
+  todayLink: 'Journal alimentaire',
+  todayEmpty: 'Facultatif',
+  /**
+   * Guidance on how complete a food log should be: provided by the product owner, not written here.
+   * The journal screen shows it as soon as it is set; while null, nothing is displayed.
+   */
+  completenessGuidance: null as string | null,
+} as const;
+
+export const FOOD_SOURCE_LABEL = { ciqual: 'Ciqual', off: 'Open Food Facts', manual: 'Saisie libre' } as const;
+
+export const PRODUCT_SEARCH_TEXT = {
+  settingTitle: 'Recherche de produits en ligne',
+  settingHint: 'Produits emballés via Open Food Facts. Désactivée par défaut.',
+  consentTitle: 'Activer la recherche de produits ?',
+  consentLead: 'Pour trouver un produit emballé, Wheighty interroge Open Food Facts, une base collaborative en ligne. C’est la seule fonction de l’app qui utilise internet.',
+  consentSent: 'Ce qui est envoyé : uniquement le code-barres ou les mots que tu recherches.',
+  consentNeverSent: 'Ce qui n’est jamais envoyé : ton profil, ton poids, ton journal, ni aucun identifiant.',
+  consentIp: 'Comme pour tout site web, Open Food Facts voit l’adresse IP de ta connexion.',
+  consentOffline: 'Sans connexion, ou si tu la désactives, la table Ciqual et la saisie libre restent disponibles.',
+  consentConfirm: 'Activer',
+  consentCancel: 'Plus tard',
+  clearCache: 'Oublier les produits consultés',
+  cacheCleared: 'Produits consultés oubliés.',
+  disabledNote: 'La recherche de produits emballés est désactivée. Tu peux l’activer dans les préférences.',
+  openSettings: 'Ouvrir les préférences',
+} as const;
+
+export const OFF_RESULT_TEXT = {
+  offline: 'Pas de connexion. La table Ciqual et la saisie libre restent disponibles.',
+  timeout: 'Open Food Facts ne répond pas pour le moment. Réessaie plus tard ou utilise la saisie libre.',
+  unavailable: 'Open Food Facts est indisponible pour le moment. Réessaie plus tard ou utilise la saisie libre.',
+  rateLimited: (seconds: number) => `Trop de recherches d’affilée pour Open Food Facts. Réessaie dans ${seconds} s.`,
+  notFound: 'Ce produit n’est pas dans Open Food Facts. Tu peux le saisir à la main.',
+  noResults: 'Aucun produit trouvé.',
+  invalidBarcode: 'Un code-barres compte 8, 12, 13 ou 14 chiffres.',
+  invalidTerms: 'Tape au moins 2 caractères.',
+  incomplete: 'Les calories de ce produit ne sont pas renseignées dans Open Food Facts : il ne peut pas être ajouté tel quel.',
+  disabled: 'La recherche de produits est désactivée.',
+} as const;
+
+export const DATA_SOURCES_TEXT = {
+  title: 'Sources des données',
+  ciqual: 'Aliments génériques : Anses. 2025. Table de composition nutritionnelle des aliments Ciqual 2025 (doi 10.57745/RDMHWY), licence Etalab 2.0. Seules l’énergie et les macronutriments sont repris.',
+  off: 'Produits emballés : Open Food Facts (openfoodfacts.org), base sous licence Open Database License (ODbL), contenus sous Database Contents License (DbCL). Les images des produits ne sont pas utilisées.',
+} as const;

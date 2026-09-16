@@ -18,9 +18,10 @@ export type ScreenId =
   | 'params'
   | 'data'
   | 'delete'
-  | 'reached';
+  | 'reached'
+  | 'journal';
 
-export type SheetId = 'balance' | 'weigh' | 'adherence' | 'steps' | 'why' | 'goal';
+export type SheetId = 'balance' | 'weigh' | 'adherence' | 'steps' | 'why' | 'goal' | 'food';
 
 export type WhyTopic = 'estimate' | 'macros' | 'recalibration' | 'nodata';
 

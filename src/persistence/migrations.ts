@@ -2,7 +2,7 @@
  * Schema migrations. Each migration upgrades a raw object from version N to N+1.
  * Migrations never drop data they do not understand: unknown fields are carried over.
  */
-import { SCHEMA_VERSION } from '@/domain/types';
+import { emptyFoodJournal, SCHEMA_VERSION } from '@/domain/types';
 import { isObject } from './schema';
 
 export type Migration = (input: Record<string, unknown>) => Record<string, unknown>;
@@ -46,6 +46,13 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
       const requested = presetRate(plan.goal, speedPreset);
       out.plan = requested === undefined ? plan : { ...plan, requestedWeeklyRate: requested };
     }
+    return out;
+  },
+  // 2 -> 3 (no model change, J-01): empty food journal and product search opt-in, off by default.
+  // Nothing existing is modified: dailyLogs and plan targets stay untouched.
+  2: (input) => {
+    const out: Record<string, unknown> = { ...input, schemaVersion: 3, foodJournal: input.foodJournal ?? emptyFoodJournal() };
+    if (isObject(input.preferences)) out.preferences = { ...input.preferences, productSearchEnabled: false };
     return out;
   },
 };

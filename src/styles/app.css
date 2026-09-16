@@ -1456,3 +1456,16 @@ img {
 .why-block .gauge {
   margin: 4px 0 14px;
 }
+
+/* Food journal (J-04): text inputs reuse the value box at body size. */
+.value-box--text {
+  min-height: 50px;
+  align-items: center;
+}
+.value-box--text input {
+  font: 500 16px var(--font);
+  letter-spacing: 0;
+}
+.value-box--text input::-webkit-search-cancel-button {
+  display: none;
+}

@@ -1,6 +1,7 @@
 import { useNav } from '@/app/navigation';
 import { useWheighty } from '@/store/StoreProvider';
-import { ADHERENCE_LABEL, CONFIDENCE_LABEL } from '@/app/copy';
+import { ADHERENCE_LABEL, CONFIDENCE_LABEL, JOURNAL_TEXT } from '@/app/copy';
+import { journalDay } from '@/domain/journal';
 import { Mascot } from '@/components/Mascot';
 import { formatDayMonth, formatGrams, formatInteger, formatKcal, formatLongDate, formatSignedWeight, formatSteps, formatWeight, weightUnitLabel } from '@/domain/format';
 import { displayMacros, gateProgress, goalStatus, nextWeighInDate, reminderDue, todayLog } from '@/domain/views';
@@ -22,6 +23,7 @@ export function TodayScreen() {
   const due = reminderDue(store, today);
   const reached = goalStatus(store).reached;
   const initials = profileInitials(store.profile);
+  const journal = journalDay(store, today);
   // A result computed for an older store never announces a recalibration.
   const recalibrationReady = calibration?.surfaced === true && !calibrationPending;
 
@@ -89,6 +91,19 @@ export function TodayScreen() {
             Détail
           </button>
         </div>
+        <button
+          type="button"
+          onClick={() => go('journal')}
+          style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'none', border: 0, padding: '0 0 24px', margin: '-12px 0 0', color: 'var(--ink)', textAlign: 'left' }}
+        >
+          <span style={{ font: '500 13px var(--font)', color: 'var(--ink2)' }}>{JOURNAL_TEXT.todayLink}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8, font: '500 13px var(--font)' }}>
+            {journal.entries.length > 0 ? <span className="tabular">{formatInteger(Math.round(journal.intakeLoggedKcal))} kcal saisies</span> : <span style={{ color: 'var(--ink2)' }}>{JOURNAL_TEXT.todayEmpty}</span>}
+            <span className="chevron" aria-hidden="true">
+              ›
+            </span>
+          </span>
+        </button>
       </section>
 
       <div className="divider" style={{ marginBottom: 26 }} />

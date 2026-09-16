@@ -5,8 +5,8 @@
 import { isIsoDate } from '@/science/dates';
 import { SCIENTIFIC_MODEL_VERSION } from '@/science/constants';
 import type { CalibrationSnapshot, DailyLog, HistoricalIntakeEvidence, StructuredActivity, UserProfile, WeightEntry } from '@/science/types';
-import type { AppMeta, CurrentPlan, Preferences, WheightyStore } from '@/domain/types';
-import { DEFAULT_META, DEFAULT_PREFERENCES, SCHEMA_VERSION } from '@/domain/types';
+import type { AppMeta, CurrentPlan, FoodEntry, FoodJournal, FoodNutrients, PersonalPortion, Preferences, WheightyStore } from '@/domain/types';
+import { DEFAULT_META, DEFAULT_PREFERENCES, emptyFoodJournal, SCHEMA_VERSION } from '@/domain/types';
 
 type Obj = Record<string, unknown>;
 
@@ -139,7 +139,65 @@ export function isCurrentPlan(v: unknown): v is CurrentPlan {
 }
 
 export function isPreferences(v: unknown): v is Preferences {
-  return isObject(v) && oneOf(v.theme, ['light', 'dark', 'system'] as const) && oneOf(v.units, ['metric', 'imperial'] as const) && isBool(v.weighInReminder) && isBool(v.showScientificDetails);
+  return (
+    isObject(v) &&
+    oneOf(v.theme, ['light', 'dark', 'system'] as const) &&
+    oneOf(v.units, ['metric', 'imperial'] as const) &&
+    isBool(v.weighInReminder) &&
+    isBool(v.showScientificDetails) &&
+    isBool(v.productSearchEnabled)
+  );
+}
+
+// Food journal (J-01): storage bounds only, no nutritional judgement.
+export const FOOD_NAME_MAX_LENGTH = 200;
+export const PORTION_LABEL_MAX_LENGTH = 40;
+/** Energy density above pure fat (900 kcal / 100 g) plus rounding slack is not a food. */
+export const FOOD_KCAL_PER_100G_MAX = 950;
+export const FOOD_ENTRY_GRAMS_MAX = 5000;
+export const FOOD_ENTRY_KCAL_MAX = 20000;
+const FOOD_SOURCES = ['ciqual', 'off', 'manual'] as const;
+const isNonNegative = (v: unknown, max: number): v is number => isNum(v) && v >= 0 && v <= max;
+const isNullableNonNegative = (v: unknown, max: number): boolean => v === null || isNonNegative(v, max);
+const isLocalTime = (v: unknown): v is string => isStr(v) && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+
+function isFoodNutrients(v: unknown, kcalMax: number, gramsMax: number): v is FoodNutrients {
+  return isObject(v) && isNonNegative(v.energyKcal, kcalMax) && isNullableNonNegative(v.proteinG, gramsMax) && isNullableNonNegative(v.carbsG, gramsMax) && isNullableNonNegative(v.fatG, gramsMax);
+}
+
+function isEntryQuantity(v: unknown): v is NonNullable<FoodEntry['quantity']> {
+  if (!(isObject(v) && isNum(v.grams) && v.grams > 0 && v.grams <= FOOD_ENTRY_GRAMS_MAX)) return false;
+  if (v.portion === undefined) return true;
+  const p = v.portion;
+  return isObject(p) && isStr(p.id) && isStr(p.label) && p.label.length <= PORTION_LABEL_MAX_LENGTH && isNum(p.count) && p.count > 0 && isNum(p.gramsEach) && p.gramsEach > 0;
+}
+
+export function isFoodEntry(v: unknown): v is FoodEntry {
+  if (!isObject(v)) return false;
+  if (!(isStr(v.id) && isStr(v.date) && isIsoDate(v.date) && isStr(v.loggedAt) && isLocalTime(v.localTime) && isStr(v.resolvedAt))) return false;
+  if (!(isStr(v.name) && v.name.trim().length > 0 && v.name.length <= FOOD_NAME_MAX_LENGTH)) return false;
+  if (v.brand !== undefined && !(isStr(v.brand) && v.brand.length <= FOOD_NAME_MAX_LENGTH)) return false;
+  if (!oneOf(v.source, FOOD_SOURCES)) return false;
+  if (!isFoodNutrients(v.intake, FOOD_ENTRY_KCAL_MAX, FOOD_ENTRY_GRAMS_MAX)) return false;
+  if (!(v.quantity === null || isEntryQuantity(v.quantity))) return false;
+  if (v.source === 'manual') return v.sourceId === null && v.sourceVersion === null && v.per100g === null;
+  // Resolved foods always keep their source reference, a per-100 g snapshot and a weight.
+  return isStr(v.sourceId) && v.sourceId.length > 0 && isStr(v.sourceVersion) && isFoodNutrients(v.per100g, FOOD_KCAL_PER_100G_MAX, 100) && v.quantity !== null;
+}
+
+export function isPersonalPortion(v: unknown): v is PersonalPortion {
+  return (
+    isObject(v) &&
+    isStr(v.id) &&
+    isStr(v.label) &&
+    v.label.trim().length > 0 &&
+    v.label.length <= PORTION_LABEL_MAX_LENGTH &&
+    isNum(v.grams) &&
+    v.grams > 0 &&
+    v.grams <= FOOD_ENTRY_GRAMS_MAX &&
+    (v.foodKey === null || isStr(v.foodKey)) &&
+    isStr(v.createdAt)
+  );
 }
 
 function sanitizeMeta(v: unknown): AppMeta {
@@ -185,19 +243,35 @@ export function validateStore(v: unknown): StoreValidation | { error: string } {
   const plan = v.plan === null || v.plan === undefined ? null : isCurrentPlan(v.plan) ? v.plan : null;
   if (v.plan !== null && v.plan !== undefined && plan === null) dropped.push({ path: 'plan', reason: 'invalid' });
 
-  const collect = <T>(key: string, guard: (x: unknown) => x is T): T[] => {
-    const raw = v[key];
+  const collectFrom = <T>(source: Obj, key: string, path: string, guard: (x: unknown) => x is T): T[] => {
+    const raw = source[key];
     if (!Array.isArray(raw)) {
-      if (raw !== undefined) dropped.push({ path: key, reason: 'not_an_array' });
+      if (raw !== undefined) dropped.push({ path, reason: 'not_an_array' });
       return [];
     }
     const out: T[] = [];
     raw.forEach((item, i) => {
       if (guard(item)) out.push(item);
-      else dropped.push({ path: `${key}.${i}`, reason: 'invalid' });
+      else dropped.push({ path: `${path}.${i}`, reason: 'invalid' });
     });
     return out;
   };
+  const collect = <T>(key: string, guard: (x: unknown) => x is T): T[] => collectFrom(v, key, key, guard);
+
+  let foodJournal: FoodJournal = emptyFoodJournal();
+  const rawJournal = v.foodJournal;
+  if (isObject(rawJournal) && rawJournal.journalVersion === 1) {
+    const startedOn = isStr(rawJournal.startedOn) && isIsoDate(rawJournal.startedOn) ? rawJournal.startedOn : null;
+    if (rawJournal.startedOn !== null && startedOn === null) dropped.push({ path: 'foodJournal.startedOn', reason: 'invalid' });
+    foodJournal = {
+      journalVersion: 1,
+      startedOn,
+      entries: collectFrom<FoodEntry>(rawJournal, 'entries', 'foodJournal.entries', isFoodEntry),
+      portions: collectFrom<PersonalPortion>(rawJournal, 'portions', 'foodJournal.portions', isPersonalPortion),
+    };
+  } else if (rawJournal !== undefined) {
+    dropped.push({ path: 'foodJournal', reason: 'invalid' });
+  }
 
   const weights = collect('weights', isWeightEntry);
   const dailyLogs = collect('dailyLogs', isDailyLog);
@@ -217,6 +291,7 @@ export function validateStore(v: unknown): StoreValidation | { error: string } {
     dailyLogs,
     calibrationSnapshots,
     historicalEvidence,
+    foodJournal,
     preferences,
     meta: sanitizeMeta(v.meta),
   };
@@ -233,6 +308,7 @@ export function emptyStore(): WheightyStore {
     dailyLogs: [],
     calibrationSnapshots: [],
     historicalEvidence: null,
+    foodJournal: emptyFoodJournal(),
     preferences: { ...DEFAULT_PREFERENCES },
     meta: { ...DEFAULT_META },
   };

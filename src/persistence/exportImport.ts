@@ -23,7 +23,7 @@ export function exportFileName(todayIso: string): string {
 }
 
 export type ImportResult =
-  | { ok: true; store: WheightyStore; summary: { weights: number; dailyLogs: number; calibrations: number; hasProfile: boolean } }
+  | { ok: true; store: WheightyStore; summary: { weights: number; dailyLogs: number; calibrations: number; hasProfile: boolean; foodEntries: number } }
   | { ok: false; error: 'invalid_json' | 'not_wheighty_export' | 'unsupported_version' | 'invalid_content'; details?: Array<{ path: string; reason: string }> };
 
 /**
@@ -50,5 +50,11 @@ export function parseImport(text: string): ImportResult {
   if (!validated.clean) return { ok: false, error: 'invalid_content', details: validated.dropped };
   const s = validated.store;
   s.meta.recoveredCorruptData = null;
-  return { ok: true, store: s, summary: { weights: s.weights.length, dailyLogs: s.dailyLogs.length, calibrations: s.calibrationSnapshots.length, hasProfile: s.profile !== null } };
+  // Network access is a per-device consent (J-03): a file never switches it on.
+  s.preferences.productSearchEnabled = false;
+  return {
+    ok: true,
+    store: s,
+    summary: { weights: s.weights.length, dailyLogs: s.dailyLogs.length, calibrations: s.calibrationSnapshots.length, hasProfile: s.profile !== null, foodEntries: s.foodJournal.entries.length },
+  };
 }

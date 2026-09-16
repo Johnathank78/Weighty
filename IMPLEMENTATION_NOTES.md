@@ -3,7 +3,7 @@
 Journal technique et scientifique de l'implémentation. Toute décision qui n'est pas écrite telle quelle dans `instruct/` est listée ici avec sa justification. Aucune déviation scientifique n'est silencieuse.
 
 - Modèle scientifique : `SCIENTIFIC_MODEL_VERSION = "1.3.0"` (`src/science/constants.ts`) : maintien apparent comme estimande (D-31), plancher calorique sexué (D-32), plancher d'incertitude structurelle de la calibration (D-33), recalibrations espacées d'au moins 7 jours (D-34), calibration hors du fil principal (P-01)
-- Schéma de stockage : `SCHEMA_VERSION = 2` (`src/domain/types.ts`), migration 1 → 2 dans `src/persistence/migrations.ts`
+- Schéma de stockage : `SCHEMA_VERSION = 3` (`src/domain/types.ts`), migrations 1 → 2 et 2 → 3 (journal alimentaire, J-01) dans `src/persistence/migrations.ts`
 
 Depuis la passe « science + onboarding + warm start » (modèle 1.1.0), les fichiers `instruct/` ont été mis à jour pour refléter les décisions finales ; ils ne contredisent plus ces notes (`instruct/05` s17 et `instruct/08` réalignés sur le modèle 1.2.0 en P3, D-30). La section 9 résume ce qui a changé par rapport au modèle 1.0.0, la section 10 par rapport au modèle 1.1.0, la section 11 par rapport au modèle 1.2.0 (passe bêta).
 
@@ -51,7 +51,7 @@ Frontières garanties par test (`tests/policy/static.test.ts`) :
 
 - les couches UI (`screens`, `components`, `app`, `hooks`, `store`) n'importent de `science/` que `types`, `constants` et `dates` ;
 - `science/` n'importe ni React, ni le DOM, ni la persistance ;
-- aucun `fetch`, XHR, WebSocket, beacon, URL distante, Google Fonts, cloud ou plateforme santé.
+- aucun `fetch`, XHR, WebSocket, beacon, URL distante, Google Fonts, cloud ou plateforme santé, **sauf** dans l'adaptateur nommé `src/adapters/openFoodFacts.ts`, opt-in (J-03).
 
 ### Décisions techniques
 
@@ -546,6 +546,54 @@ Limite qui reste : la baisse de la cible entre J14 et J21 dans A (une variation 
 ### M-01 Confiance « moyenne » du warm start : mesure et règle conservée (D-23, D-29)
 
 La règle relative (largeur 80 % ≤ 75 % de celle du prior) était à réarbitrer. Mesure sur 432 warm starts (3 profils, 7 à 90 jours, 3 qualités de suivi, activité comparable ou non, 4 variations de poids) : « moyenne » dans 8,6 % des cas (26 % avec aliments pesés, 0 % sinon ; 0 % jusqu'à 21 jours, 6 % à 28 jours, 21 % à 60 jours, 25 % à 90 jours). Le critère absolu envisagé (largeur ≤ 500 kcal) donnerait 4,4 %, et 0 % pour les hommes, dont le prior est plus large. La rareté reflète une évidence réellement faible (deux pesées ponctuelles, erreur d'apport déclaré), pas un défaut de la règle : **règle conservée**, sans changement de sortie.
+
+### J-01 Journal alimentaire : contrat de données (schéma 3, aucun changement de modèle)
+
+Le journal collecte et affiche. **Il n'entre dans aucun calcul** : ni calibration, ni adhérence, ni warm start, ni Hall, ni plan. La façon de s'en servir sera décidée après les benchmarks 26 et 28.
+
+- `WheightyStore.foodJournal = { journalVersion: 1, startedOn, entries, portions }`, **séparé** de `dailyLogs` et de `CurrentPlan`. Les totaux du jour (`intakeLoggedKcal`, `intakeLoggedProteinG/CarbsG/FatG`) sont calculés à l'affichage par `domain/journal.ts journalDay`, jamais stockés, et n'écrivent jamais `calorieTargetForDay` ni les macros du plan.
+- `FoodEntry` : `date` (jour local de rattachement), `loggedAt` (horodatage ISO de création), `localTime` (HH:MM local de création), nom, marque, `source` (`ciqual` / `off` / `manual`), `sourceId` (alim_code ou code-barres), `sourceVersion` (version de la table Ciqual ou `last_modified_t` OFF), `resolvedAt`, `per100g` (snapshot), `quantity` (grammes, portion éventuelle), `intake` (valeurs résolues de l'entrée).
+- **Snapshot obligatoire** : les valeurs sont figées à l'enregistrement. Une fiche OFF corrigée ou une nouvelle table Ciqual ne réécrit jamais un jour passé (même principe que D-13). Les récents réutilisent le snapshot de la dernière entrée, jamais une source. Supprimer une portion ne modifie pas les entrées qui l'ont utilisée.
+- Saisie libre : `sourceId`, `sourceVersion` et `per100g` à `null`, poids facultatif, macros facultatives (`null` = inconnu, les totaux couvrent les valeurs connues et l'écran le dit).
+- Portions personnelles : `{ id, label, grams, foodKey, createdAt }`, `foodKey = "source:sourceId"` ou `null` (utilisable pour tout aliment).
+- Observables bruts conservés sans aucune dérivation : entrées horodatées (`loggedAt`, `localTime`), `startedOn` (premier jour avec une entrée) qui permet plus tard de compter les jours sans saisie. **Aucun score de qualité ou de complétude.**
+- Bornes de stockage seulement : kcal pour 100 g ≤ 950, entrée ≤ 5 000 g et ≤ 20 000 kcal, nom ≤ 200 caractères.
+- `Preferences.productSearchEnabled` (J-03), `false` par défaut.
+
+**Migration 2 → 3** : ajoute `foodJournal` vide et `productSearchEnabled: false`. Rien d'existant n'est modifié. Nécessaire : un lecteur de schéma 2 supprimerait silencieusement le journal en revalidant le store ; avec le schéma 3, il refuse la version future et préserve les données brutes. Tests : store existant, fichier exporté de schéma 2, round-trip, rejet d'une entrée invalide, récupération partielle.
+
+**Import** : tout ou rien comme avant ; un fichier importé **ne réactive jamais** la recherche en ligne (consentement propre à l'appareil). **Suppression totale** : `deleteAllData` efface le store (donc le journal) et le cache produits (préfixe `wheighty:`).
+
+**Isolation du moteur** : `StoreProvider` retire le journal avant d'envoyer le store au worker de calibration ; l'empreinte de calibration ne lit pas le journal. Tests : empreinte et `computeCalibrationState` identiques avec et sans journal, et aucun module moteur/worker ne référence le journal.
+
+### J-02 Table Ciqual embarquée
+
+- Source : Anses. 2025. Table de composition nutritionnelle des aliments Ciqual 2025, doi 10.57745/RDMHWY, licence Etalab 2.0, fichier `Table Ciqual 2025_FR_2025_11_03.xlsx` (sha256 `5555c572…fbb0`, 1 541 998 o). Le fichier brut n'est pas versionné ; `tools/build-ciqual.mjs` régénère `src/data/ciqual.json` sans dépendance.
+- Champs retenus : code, nom, groupe, énergie kcal (règlement UE 1169/2011), protéines (N × facteur de Jones), glucides, lipides, pour 100 g. Les 74 constituants ne sont pas embarqués (garde de taille en test : < 350 000 o).
+- Conversions : `traces` et `< x` → 0 (quantités sous la limite de quantification), `-` → `null` (inconnu). 3 484 aliments, **143 exclus faute d'énergie en kcal**, 3 341 conservés, 18 avec une macro inconnue.
+- Poids : JSON 244 871 o brut, 71 531 o gzip ; chunk de build `ciqual-*.js` 243,32 kB (73,83 kB gzip). Chargé par `import()` à l'ouverture de la recherche : **aucun impact sur le premier écran**, précaché par le service worker comme tout script, aucun fetch au runtime.
+- Recherche locale (`domain/foodSearch.ts`) : minuscules, sans accents, ligatures œ/æ développées ; chaque mot doit commencer un mot du nom ; tri par nom commençant par la requête, puis position, puis longueur. Aucune dépendance.
+
+### J-03 Open Food Facts : exception réseau unique, opt-in
+
+Ce contrat casse volontairement « aucune API au runtime » (02, 03 s4), de façon assumée et bornée.
+
+- **Un seul module réseau** : `src/adapters/openFoodFacts.ts`. Le test de politique statique n'est pas supprimé mais restreint : `fetch`/XHR/WebSocket/EventSource/beacon et URL distantes sont interdits partout ailleurs, le dossier `adapters/` ne contient que ce fichier, l'adaptateur n'importe que des types et ne lit ni store, ni stockage, ni profil.
+- **Opt-in** dans Préférences, désactivé par défaut, activé via une feuille de consentement qui dit ce qui part (code-barres ou mots recherchés), ce qui ne part jamais (profil, poids, journal, identifiant) et que l'adresse IP est visible par OFF. L'opt-in est relu à **chaque appel** : désactivé, rien n'est envoyé (testé avec un `fetch` espion).
+- **Requêtes** : `GET /api/v3/product/{code}?fields=…` (v3 recommandée) et `GET /cgi/search.pl?search_terms=…&json=1…`, `credentials: 'omit'`, `referrerPolicy: 'no-referrer'`, aucun cookie, aucune image demandée.
+- **Documentation OFF consultée le 2026-09-16**, écarts par rapport aux hypothèses du prompt :
+  - limites documentées : 15 requêtes/min/IP pour les fiches produit, 10/min pour la recherche, « pas de recherche à la frappe ». L'adaptateur applique ces limites côté client (fenêtre glissante de 60 s) et la recherche se lance à la validation ;
+  - la recherche plein texte n'est pas dans l'API v2 ; la doc renvoie à Search-a-licious, mais ses réponses **n'ont pas d'en-tête CORS** pour une origine navigateur (vérifié). La recherche utilise donc `/cgi/search.pl` ;
+  - la convention `User-Agent: AppName/Version (contact)` ne peut pas être appliquée depuis un navigateur (en-tête interdit). La valeur part dans `X-User-Agent`, explicitement autorisé par les en-têtes CORS d'OFF (vérifié). Contact actuel : l'URL du dépôt ; **une adresse de contact produit reste à fournir**.
+- **Dégradation** : hors ligne (aucune requête), échec réseau/CORS → indisponible, timeout 8 s (requête annulée, jamais de spinner infini), 404 / `product_not_found`, 429 ou 503 → limite de débit avec délai, réponse illisible → indisponible. Fiche sans kcal pour 100 g : cas normal, produit affiché comme non ajoutable avec renvoi vers la saisie libre (pas de conversion depuis les kJ). Ciqual et la saisie libre restent intégralement disponibles.
+- **Cache d'usage** (`persistence/productCache.ts`, clé `wheighty:off-products`) : 100 produits consultés au plus, les plus récents d'abord, frais 7 jours, réutilisé périmé en cas d'échec réseau. Jamais exporté. Effaçable depuis les Préférences et par la suppression totale. Le service worker ne met aucune réponse tierce en cache (`runtimeCaching: []` inchangé).
+- **Attributions** visibles dans Préférences, section « Sources des données » (Ciqual, Etalab 2.0 ; OFF, ODbL/DbCL, images non utilisées).
+
+### J-04 Journal : UX de la première passe
+
+Écran `journal` depuis Aujourd'hui (lien discret sous les macros, « Facultatif » quand rien n'est saisi), saisi **à côté** de la cible du plan du jour, sans couleur ni jugement. Ajout par feuille : recherche Ciqual et récents, produits OFF (si activé), saisie libre ; quantité en grammes ou en portions personnelles. Suppression avec annulation. Emplacement prévu pour la copy du product owner sur l'exhaustivité (`JOURNAL_TEXT.completenessGuidance`, `null` : rien n'est affiché tant qu'elle n'est pas fournie).
+
+**Scan caméra non livré dans la passe 29** : voir J-05 (passe 30) pour la mesure des replis.
 
 ---
 

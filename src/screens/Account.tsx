@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNav } from '@/app/navigation';
 import { useWheighty } from '@/store/StoreProvider';
-import { ACTIVITY_LABEL, BODY_FAT_METHOD_LABEL, GOAL_LABEL, GOAL_SHORT, OCCUPATION_LABEL, PACE_LABEL, PLAN_ERROR_TEXT } from '@/app/copy';
+import { ACTIVITY_LABEL, BODY_FAT_METHOD_LABEL, DATA_SOURCES_TEXT, GOAL_LABEL, GOAL_SHORT, OCCUPATION_LABEL, PACE_LABEL, PLAN_ERROR_TEXT, PRODUCT_SEARCH_TEXT } from '@/app/copy';
+import { clearProductCache } from '@/persistence/productCache';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Mascot } from '@/components/Mascot';
 import { NavRow, Range, Row, Segmented, Toggle } from '@/components/controls';
@@ -196,9 +197,10 @@ export function GoalSheet() {
 }
 
 export function ParamsScreen() {
-  const { back } = useNav();
-  const { store, update } = useWheighty();
+  const { back, showToast } = useNav();
+  const { store, update, storage } = useWheighty();
   const pwa = usePwa();
+  const [consentOpen, setConsentOpen] = useState(false);
   const prefs = store.preferences;
   const setPrefs = (p: Partial<WheightyStore['preferences']>) => update((s) => ({ ...s, preferences: { ...s.preferences, ...p } }));
 
@@ -251,6 +253,54 @@ export function ParamsScreen() {
         </span>
         <Toggle checked={prefs.showScientificDetails} onChange={(v) => setPrefs({ showScientificDetails: v })} label="Détails scientifiques" />
       </div>
+      <div className="row" style={{ alignItems: 'center', padding: '16px 0' }}>
+        <span style={{ flex: 1 }}>
+          <span style={{ display: 'block', font: '600 14.5px var(--font)' }}>{PRODUCT_SEARCH_TEXT.settingTitle}</span>
+          <span style={{ display: 'block', font: '400 12.5px var(--font)', color: 'var(--ink2)', marginTop: 2 }}>{PRODUCT_SEARCH_TEXT.settingHint}</span>
+        </span>
+        <Toggle checked={prefs.productSearchEnabled} onChange={(v) => (v ? setConsentOpen(true) : setPrefs({ productSearchEnabled: false }))} label={PRODUCT_SEARCH_TEXT.settingTitle} />
+      </div>
+      <button
+        type="button"
+        className="link"
+        style={{ fontSize: 12.5 }}
+        onClick={() => {
+          clearProductCache(storage);
+          showToast(PRODUCT_SEARCH_TEXT.cacheCleared);
+        }}
+      >
+        {PRODUCT_SEARCH_TEXT.clearCache}
+      </button>
+
+      <h2 className="section-label">{DATA_SOURCES_TEXT.title}</h2>
+      <p className="small" style={{ margin: '0 0 10px' }}>
+        {DATA_SOURCES_TEXT.ciqual}
+      </p>
+      <p className="small" style={{ margin: 0 }}>
+        {DATA_SOURCES_TEXT.off}
+      </p>
+
+      <BottomSheet open={consentOpen} onClose={() => setConsentOpen(false)} title={PRODUCT_SEARCH_TEXT.consentTitle} lead={PRODUCT_SEARCH_TEXT.consentLead}>
+        <ul className="small" style={{ margin: '0 0 20px', paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <li>{PRODUCT_SEARCH_TEXT.consentSent}</li>
+          <li>{PRODUCT_SEARCH_TEXT.consentNeverSent}</li>
+          <li>{PRODUCT_SEARCH_TEXT.consentIp}</li>
+          <li>{PRODUCT_SEARCH_TEXT.consentOffline}</li>
+        </ul>
+        <button
+          type="button"
+          className="btn btn--primary"
+          onClick={() => {
+            setPrefs({ productSearchEnabled: true });
+            setConsentOpen(false);
+          }}
+        >
+          {PRODUCT_SEARCH_TEXT.consentConfirm}
+        </button>
+        <button type="button" className="btn btn--ghost" onClick={() => setConsentOpen(false)}>
+          {PRODUCT_SEARCH_TEXT.consentCancel}
+        </button>
+      </BottomSheet>
 
       <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginTop: 34, padding: 18, borderRadius: 22, background: 'var(--surf2)' }}>
         <Mascot variant="clin" width={44} />
@@ -370,7 +420,7 @@ export function DataScreen() {
         title={imported?.ok ? 'Remplacer tes données ?' : 'Import impossible'}
         lead={
           imported?.ok
-            ? `Ce fichier contient ${imported.summary.weights} pesées, ${imported.summary.dailyLogs} jours et ${imported.summary.calibrations} recalibrations. Tes données actuelles seront remplacées.`
+            ? `Ce fichier contient ${imported.summary.weights} pesées, ${imported.summary.dailyLogs} jours, ${imported.summary.calibrations} recalibrations et ${imported.summary.foodEntries} aliments du journal. Tes données actuelles seront remplacées.`
             : imported && !imported.ok
               ? imported.error === 'invalid_json'
                 ? 'Ce fichier n’est pas un JSON lisible.'
@@ -428,7 +478,7 @@ export function DeleteScreen() {
         tes données ?
       </h1>
       <p style={{ margin: '14px 0 0', textAlign: 'center', font: '400 14.5px/1.6 var(--font)', color: 'var(--ink2)' }}>
-        {store.weights.length} pesée{store.weights.length > 1 ? 's' : ''}, {weeks} semaine{weeks > 1 ? 's' : ''} de suivi et {recalibrations} recalibration{recalibrations > 1 ? 's' : ''} seront effacées de cet appareil. C’est définitif et sans retour possible.
+        {store.weights.length} pesée{store.weights.length > 1 ? 's' : ''}, {weeks} semaine{weeks > 1 ? 's' : ''} de suivi et {recalibrations} recalibration{recalibrations > 1 ? 's' : ''}, ton journal alimentaire et les produits consultés seront effacés de cet appareil. C’est définitif et sans retour possible.
       </p>
       <div style={{ margin: '30px 0 0', padding: 18, borderRadius: 20, background: 'var(--surf2)' }}>
         <div className="eyebrow" style={{ marginBottom: 10 }}>

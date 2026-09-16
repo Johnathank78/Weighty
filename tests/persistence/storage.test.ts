@@ -190,7 +190,8 @@ describe('migrations', () => {
     expect(loaded.status).toBe('migrated');
     expect(loaded.dropped).toEqual([]);
     const s = loaded.store;
-    expect(s.schemaVersion).toBe(2);
+    // Loading runs every migration: 1 -> 2 here, then 2 -> 3 (food journal, covered in foodJournalPersistence.test.ts).
+    expect(s.schemaVersion).toBe(SCHEMA_VERSION);
     expect(s.profile?.weeklyRateTarget).toBe(0.0075);
     expect(s.profile).not.toHaveProperty('speedPreset');
     expect(s.plan).toMatchObject({ requestedWeeklyRate: 0.0075, weeklyRateTarget: 0.0025, personalOffsetKcal: 38, scientificModelVersion: '1.0.0', calorieTarget: 2034.02 });
@@ -234,7 +235,7 @@ describe('JSON export / import (07 s14)', () => {
     expect(imported.ok).toBe(true);
     if (imported.ok) {
       expect(imported.store).toEqual(s);
-      expect(imported.summary).toEqual({ weights: 2, dailyLogs: 1, calibrations: 1, hasProfile: true });
+      expect(imported.summary).toEqual({ weights: 2, dailyLogs: 1, calibrations: 1, hasProfile: true, foodEntries: 0 });
     }
   });
 

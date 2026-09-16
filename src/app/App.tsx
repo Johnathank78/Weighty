@@ -18,9 +18,11 @@ import { DataScreen, DeleteScreen, GoalSheet, ParamsScreen, ProfilScreen, Reache
 import { AdherenceSheet, StepsSheet, WeighSheet } from '@/screens/DailySheets';
 import { BalanceSheet } from '@/screens/BalanceSheet';
 import { WhySheet } from '@/screens/WhySheet';
+import { JournalScreen } from '@/screens/Journal';
 
 const TAB_OF: Partial<Record<ScreenId, TabId>> = {
   today: 'today',
+  journal: 'today',
   plan: 'plan',
   macros: 'plan',
   suivi: 'suivi',
@@ -30,7 +32,7 @@ const TAB_OF: Partial<Record<ScreenId, TabId>> = {
   data: 'profil',
 };
 
-const NEEDS_PLAN: ReadonlySet<ScreenId> = new Set(['today', 'plan', 'macros', 'suivi', 'analyse', 'recalibration', 'profil', 'reached']);
+const NEEDS_PLAN: ReadonlySet<ScreenId> = new Set(['today', 'plan', 'macros', 'suivi', 'analyse', 'recalibration', 'profil', 'reached', 'journal']);
 
 function Screens() {
   const { screen, go, toast, dismissToast } = useNav();
@@ -89,6 +91,9 @@ function Screens() {
       break;
     case 'reached':
       content = <ReachedScreen />;
+      break;
+    case 'journal':
+      content = <JournalScreen />;
       break;
   }
 
