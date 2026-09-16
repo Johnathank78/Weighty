@@ -44,6 +44,12 @@ export type MismatchSettings = {
   waterEpisodeStartProbability: number;
   waterEpisodeKg: readonly [number, number];
   waterEpisodeDays: readonly [number, number];
+  /**
+   * Intake benchmark (prompt 26), supplementary scenario S only: the user eats target + shift every day (personal
+   * target) and declares every day as `shiftDeclaredAs`. Defaults (absent) leave the world and the RNG stream unchanged.
+   */
+  plannedIntakeShiftKcal?: number;
+  shiftDeclaredAs?: NonNullable<DailyLog['adherence']>;
 };
 
 export const START_DATE = '2026-02-02';
@@ -59,6 +65,8 @@ export type MismatchRun = {
    * above the day's target (declared deviations and hidden intake) over days [0, throughDay).
    */
   apparentOffsetKcal: (throughDay: number) => number;
+  /** Intake actually eaten by the simulated user on each day, kcal (index = day). */
+  trueIntakeKcal: readonly number[];
 };
 
 export function simulateMismatchUser(profile: UserProfile, s: MismatchSettings, rng: Rng): MismatchRun {
@@ -80,6 +88,7 @@ export function simulateMismatchUser(profile: UserProfile, s: MismatchSettings, 
   const trueWeights: number[] = [];
   const logs: DailyLog[] = [];
   const extras: number[] = [];
+  const trueIntake: number[] = [];
   for (let d = 0; d <= s.days; d++) {
     trueWeights.push(bodyWeightOf(p, state));
     if (d === s.days) break;
@@ -110,8 +119,14 @@ export function simulateMismatchUser(profile: UserProfile, s: MismatchSettings, 
     const trueSteps = Math.max(0, trueBaselineSteps * (1 + 0.2 * rng.normal()));
     const loggedSteps = Math.round(trueSteps * (1 + s.stepCounterBias));
     const stepsLogged = rng.chance(s.stepLogProbability);
-    extras.push(declaredExtra + hidden);
-    const intake = calorieTarget + declaredExtra + hidden;
+    const shift = s.plannedIntakeShiftKcal ?? 0;
+    if (s.shiftDeclaredAs !== undefined) {
+      adherence = s.shiftDeclaredAs;
+      reported = true;
+    }
+    extras.push(shift + declaredExtra + hidden);
+    const intake = calorieTarget + shift + declaredExtra + hidden;
+    trueIntake.push(intake);
     const ratio = intake / calorieTarget;
     const stepDeltaKcal =
       netStepKcal({ steps: trueSteps, pace: profile.walkingPace, weightKg: w0, ageYears: profile.ageYears }) -
@@ -168,6 +183,7 @@ export function simulateMismatchUser(profile: UserProfile, s: MismatchSettings, 
     windowMeanOffsetKcal,
     apparentOffsetKcal: (throughDay) => windowMeanOffsetKcal(throughDay) - extras.slice(0, throughDay).reduce((sum, x) => sum + x, 0) / throughDay,
     endOffsetKcal: (throughDay) => s.trueOffsetKcal + drift(throughDay - 1),
+    trueIntakeKcal: trueIntake,
   };
 }
 

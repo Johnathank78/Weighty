@@ -10,18 +10,18 @@ export const MISMATCH_CRITERIA = { maxMedianAbsErrorKcal: 175, minCoverage80: 0.
 export const MISMATCH_HORIZONS = [42, 84] as const;
 export type MismatchHorizon = (typeof MISMATCH_HORIZONS)[number];
 
-const PROFILES: UserProfile[] = [
+export const PROFILES: UserProfile[] = [
   { ageYears: 34, sexForEquation: 'female', heightCm: 168, currentWeightKg: 74, averageSteps7d: 7500, walkingPace: 'normal', occupation: 'seated', activities: [], goal: 'loss', targetWeightKg: 66, weeklyRateTarget: 0.005 },
   { ageYears: 45, sexForEquation: 'male', heightCm: 180, currentWeightKg: 95, averageSteps7d: 6000, walkingPace: 'normal', occupation: 'mixed', activities: [{ type: 'running', sessionsPerWeek: 2, durationMin: 40, intensity: 'moderate' }], goal: 'loss', targetWeightKg: 85, weeklyRateTarget: 0.005 },
   { ageYears: 27, sexForEquation: 'male', heightCm: 176, currentWeightKg: 70, averageSteps7d: 9000, walkingPace: 'brisk', occupation: 'standing', activities: [{ type: 'strength', sessionsPerWeek: 3, durationMin: 60, intensity: 'moderate' }], goal: 'gain', targetWeightKg: 75, weeklyRateTarget: 0.0025 },
 ];
-const OFFSETS = [-500, -300, -150, 0, 150, 300, 500];
-const FREQUENCIES = [1, 3];
+export const OFFSETS = [-500, -300, -150, 0, 150, 300, 500];
+export const FREQUENCIES = [1, 3];
 const DRIFTS = [100, -150, 150, -100];
 const STEP_BIASES = [0.1, -0.15, 0.15, -0.1];
 
 /** Same declared behaviour and independent noise as the standard benchmark, no mismatch. */
-const BASE: Omit<MismatchSettings, 'trueOffsetKcal' | 'weighEveryDays' | 'days'> = {
+export const BASE: Omit<MismatchSettings, 'trueOffsetKcal' | 'weighEveryDays' | 'days'> = {
   minorDeviationFraction: 0.1,
   majorDeviationFraction: 0.04,
   unreportedFraction: 0.2,
