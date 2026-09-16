@@ -10,15 +10,49 @@ type Props = {
   children: ReactNode;
   /** Visually hide the title (still announced). */
   hideTitle?: boolean;
+  /**
+   * 'fixed': constant height (75 % of the dynamic viewport), capped to the visual viewport so an open
+   * software keyboard never hides the sheet; children are laid out in a flex column (J-07).
+   */
+  size?: 'auto' | 'fixed';
 };
 
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
 
-export function BottomSheet({ open, onClose, title, lead, children, hideTitle }: Props) {
+export function BottomSheet({ open, onClose, title, lead, children, hideTitle, size = 'auto' }: Props) {
   const titleId = useId();
   const sheetRef = useRef<HTMLDivElement>(null);
   const [dragY, setDragY] = useState(0);
   const dragStart = useRef<number | null>(null);
+  const layerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open || size !== 'fixed') return;
+    const vv = window.visualViewport;
+    // Keyboard inset: part of the layout viewport covered by the software keyboard (iOS keeps the layout
+    // viewport and shrinks the visual one; Android resizes both, the inset is then 0).
+    let tallest = Math.max(window.innerHeight, vv?.height ?? 0);
+    const apply = () => {
+      const layer = layerRef.current;
+      if (!layer) return;
+      const height = vv ? vv.height : window.innerHeight;
+      const inset = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+      tallest = Math.max(tallest, height);
+      layer.style.setProperty('--vv-height', `${Math.round(height)}px`);
+      layer.style.setProperty('--kb-inset', `${Math.round(inset)}px`);
+      // Once 75 % of the screen no longer fits (keyboard open), the sheet drops its visible title.
+      layer.dataset.compact = String(height < tallest * 0.75);
+    };
+    apply();
+    vv?.addEventListener('resize', apply);
+    vv?.addEventListener('scroll', apply);
+    window.addEventListener('resize', apply);
+    return () => {
+      vv?.removeEventListener('resize', apply);
+      vv?.removeEventListener('scroll', apply);
+      window.removeEventListener('resize', apply);
+    };
+  }, [open, size]);
 
   useEffect(() => {
     if (!open) return;
@@ -79,11 +113,11 @@ export function BottomSheet({ open, onClose, title, lead, children, hideTitle }:
   };
 
   return createPortal(
-    <div className="sheet-layer">
+    <div className="sheet-layer" ref={layerRef}>
       <button type="button" className="sheet-scrim" aria-label="Fermer" tabIndex={-1} onClick={onClose} />
       <div
         ref={sheetRef}
-        className="sheet"
+        className={size === 'fixed' ? 'sheet sheet--fixed' : 'sheet'}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -95,7 +129,7 @@ export function BottomSheet({ open, onClose, title, lead, children, hideTitle }:
           {title}
         </h3>
         {lead ? <p className="sheet__lead">{lead}</p> : null}
-        {children}
+        {size === 'fixed' ? <div className="sheet__body">{children}</div> : children}
       </div>
     </div>,
     document.body,

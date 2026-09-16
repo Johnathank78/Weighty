@@ -3,7 +3,7 @@
 Journal technique et scientifique de l'implémentation. Toute décision qui n'est pas écrite telle quelle dans `instruct/` est listée ici avec sa justification. Aucune déviation scientifique n'est silencieuse.
 
 - Modèle scientifique : `SCIENTIFIC_MODEL_VERSION = "1.3.0"` (`src/science/constants.ts`) : maintien apparent comme estimande (D-31), plancher calorique sexué (D-32), plancher d'incertitude structurelle de la calibration (D-33), recalibrations espacées d'au moins 7 jours (D-34), calibration hors du fil principal (P-01)
-- Schéma de stockage : `SCHEMA_VERSION = 3` (`src/domain/types.ts`), migrations 1 → 2 et 2 → 3 (journal alimentaire, J-01) dans `src/persistence/migrations.ts`
+- Schéma de stockage : `SCHEMA_VERSION = 4` (`src/domain/types.ts`), migrations 1 → 2, 2 → 3 (journal alimentaire, J-01) et 3 → 4 (heure de consommation, J-06) dans `src/persistence/migrations.ts`
 
 Depuis la passe « science + onboarding + warm start » (modèle 1.1.0), les fichiers `instruct/` ont été mis à jour pour refléter les décisions finales ; ils ne contredisent plus ces notes (`instruct/05` s17 et `instruct/08` réalignés sur le modèle 1.2.0 en P3, D-30). La section 9 résume ce qui a changé par rapport au modèle 1.0.0, la section 10 par rapport au modèle 1.1.0, la section 11 par rapport au modèle 1.2.0 (passe bêta).
 
@@ -594,6 +594,52 @@ Ce contrat casse volontairement « aucune API au runtime » (02, 03 s4), de faç
 Écran `journal` depuis Aujourd'hui (lien discret sous les macros, « Facultatif » quand rien n'est saisi), saisi **à côté** de la cible du plan du jour, sans couleur ni jugement. Ajout par feuille : recherche Ciqual et récents, produits OFF (si activé), saisie libre ; quantité en grammes ou en portions personnelles. Suppression avec annulation. Emplacement prévu pour la copy du product owner sur l'exhaustivité (`JOURNAL_TEXT.completenessGuidance`, `null` : rien n'est affiché tant qu'elle n'est pas fournie).
 
 **Scan caméra non livré dans la passe 29** : voir J-05 (passe 30) pour la mesure des replis.
+
+### J-05 Code-barres : détection native seule, replis mesurés et non embarqués (passe UI 30)
+
+Chaîne livrée : **1** détection native (`BarcodeDetector`, formats EAN-13, EAN-8, UPC-A, UPC-E), **3** correspondance automatique Open Food Facts, **4** saisie du code au clavier, toujours visible sous l'aperçu. L'étape **2** (extraction du texte du code sur l'image) est une passe séparée.
+
+Coûts mesurés le 2026-09-16 (tailles des fichiers publiés, rien n'a été installé), à comparer au précache complet de l'app (1 318 Kio après la passe 29) :
+
+| Repli | Fichiers nécessaires | Poids brut |
+|---|---|---|
+| Détection WASM (`zxing-wasm` 3.1.4, moteur du polyfill `barcode-detector`) | `zxing_reader.wasm` 953 527 o + JS ~40 Ko | ~1 Mo, chargé par défaut depuis un CDN, à héberger soi-même |
+| OCR (`tesseract.js` 7.0.0) | cœur wasm LSTM 2 855 361 o + modèle `eng` best_int 2 952 873 o gzip + worker | ≥ 5,8 Mo |
+
+L'OCR représente plus de 4 fois l'app entière : **disproportionné, non intégré**. Le repli WASM de détection (~1 Mo, surtout utile à Safari iOS) reste une **décision produit ouverte** ; sans lui, iOS passe par la saisie du code au clavier.
+
+Caméra : demandée uniquement quand l'utilisateur ouvre le scanner (`useBarcodeScanner`, dans l'effet), flux arrêté dès qu'un code est lu ou que le panneau se ferme. Refus, absence de caméra ou d'API : message et saisie au clavier, jamais bloquant. Sans l'opt-in réseau (J-03), le bouton code-barres n'ouvre pas la caméra et renvoie vers les préférences, puisque la correspondance exige Open Food Facts.
+
+Vérification : sur Windows l'API native est absente ; les captures de l'aperçu ont été faites avec une caméra simulée et un `BarcodeDetector` de substitution injecté par le script de capture (harnais de test, pas dans l'app). **Lecture réelle à valider sur Android.**
+
+### J-06 Heure de consommation (schéma 4)
+
+- `FoodEntry.consumedTime` (HH:MM local) : heure à laquelle l'aliment a été **mangé**, distincte de `localTime` / `loggedAt` (heure technique de saisie), conservées toutes les deux. La trame du journal trie et affiche `consumedTime`.
+- `FoodEntry.date` = **jour de consommation**, jamais le jour d'enregistrement. Règle de passage de minuit (`consumptionDate`) : sur le journal du jour, une heure postérieure à l'heure actuelle ne peut pas être dans le futur et rattache l'entrée à la veille (mangé à 23 h, saisi à 0 h 30 → veille). Sur le journal d'hier, le jour choisi est conservé.
+- Interaction : « Je viens de le manger » coché par défaut (heure de consommation = instant d'enregistrement, aucune étape de plus). Décoché, un champ d'heure apparaît et devient la valeur retenue. Sur le journal d'hier, la case n'existe pas (on ne peut pas « venir de manger » hier) et l'heure est demandée.
+- État de la case et dernière heure tapée : mémorisés pour la visite de l'écran journal (plusieurs ajouts rétroactifs d'affilée), remis à « coché » en quittant le journal ou au changement de jour. **Jamais persistés** (test statique).
+- **Migration 3 → 4** : `consumedTime = localTime` pour les entrées existantes (seule valeur connue), jour et valeurs inchangés. Testée sur store existant, fichier exporté de schéma 3 et round-trip.
+- Aucune statistique, catégorisation ni dérivation : stocké, non interprété.
+
+### J-07 Feuille d'ajout à hauteur fixe et clavier logiciel
+
+- `BottomSheet size="fixed"` : hauteur `min(75dvh, hauteur du viewport visuel − 12 px)`, en-tête fixe (sélecteur, recherche, aperçu caméra), seule la liste défile. `--vv-height` et `--kb-inset` suivent `visualViewport` (iOS : la mise en page reste, le clavier recouvre, la feuille est remontée de l'encart ; Android : les deux viewports rétrécissent, encart nul). Zones sûres via `--safe-bottom`.
+- **Point remonté, captures à l'appui** : sur petit écran, **75 % ne tient pas clavier ouvert**. 375 × 667 : clavier ≈ 40 %, zone visible ≈ 400 px < 500 px (75 %). Même constat à 360 × 640. Plutôt qu'une feuille tronquée, la hauteur est plafonnée à la zone visible et le titre visible est masqué tant que le clavier est ouvert (il reste annoncé aux lecteurs d'écran) : champ de recherche et premiers résultats visibles, le reste défile. À arbitrer par le product owner ; à valider sur appareils réels iOS et Android (clavier simulé ici par réduction du viewport).
+- Deux sélecteurs : **Produits** et **Libre**. Produits fusionne Ciqual (local, filtré à la frappe) et Open Food Facts (sur validation ou bouton « Chercher aussi les produits emballés », car la limite documentée de 10 recherches/min interdit la recherche à la frappe) dans une seule liste ; la source reste stockée et apparaît en détail de ligne, plus comme catégorie. Recherche vide : message gris explicatif, suivi des récents s'il y en a (réutilisation exigée par la passe 29), jamais de liste vide ni de squelette. Icône code-barres dans la barre de recherche ; aperçu caméra pleine largeur sous le sélecteur.
+- Action d'ajout en footer fixe au-dessus de la navigation, rendue par portail (le conteneur animé de l'écran ancrait sinon l'élément fixe en bas de page).
+
+### J-08 Jauges (décisions du product owner, 2026-09-16)
+
+- Composant existant réutilisé : barre `.progress` / `.progress__bar` (pas saisis sur Aujourd'hui). Aucun nouveau composant de jauge.
+- kcal : remplissage saisi / cible du jour, kcal restantes. **Au-delà de la cible** : la barre reste pleine, même couleur, et le texte devient « N kcal au-delà de la cible ». Ni nombre négatif, ni rouge, ni alerte.
+- Macros : **trois jauges identiques** (option retenue). La nuance « plancher » de la cible de protéines n'est pas représentée, choix assumé.
+- `intakeGauge` (domaine) : fraction bornée à 1, restantes et au-delà arrondis, jamais négatifs.
+
+### Hors périmètre, notés pour plus tard (passe 30)
+
+- Révision du parcours d'entrée dans le journal (lien depuis Aujourd'hui).
+- Icône par famille d'aliment (céréales, liquides, plats cuisinés), quand une entrée de base stable existe (les groupes Ciqual en sont une piste).
+- Étape 2 de la chaîne code-barres (OCR) et repli WASM de détection pour iOS (J-05).
 
 ---
 

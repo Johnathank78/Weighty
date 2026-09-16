@@ -174,7 +174,7 @@ function isEntryQuantity(v: unknown): v is NonNullable<FoodEntry['quantity']> {
 
 export function isFoodEntry(v: unknown): v is FoodEntry {
   if (!isObject(v)) return false;
-  if (!(isStr(v.id) && isStr(v.date) && isIsoDate(v.date) && isStr(v.loggedAt) && isLocalTime(v.localTime) && isStr(v.resolvedAt))) return false;
+  if (!(isStr(v.id) && isStr(v.date) && isIsoDate(v.date) && isStr(v.loggedAt) && isLocalTime(v.localTime) && isLocalTime(v.consumedTime) && isStr(v.resolvedAt))) return false;
   if (!(isStr(v.name) && v.name.trim().length > 0 && v.name.length <= FOOD_NAME_MAX_LENGTH)) return false;
   if (v.brand !== undefined && !(isStr(v.brand) && v.brand.length <= FOOD_NAME_MAX_LENGTH)) return false;
   if (!oneOf(v.source, FOOD_SOURCES)) return false;

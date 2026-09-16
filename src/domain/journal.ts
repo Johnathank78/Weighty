@@ -8,6 +8,7 @@
  */
 import type { FoodEntry, FoodJournal, FoodNutrients, FoodSource, PersonalPortion, WheightyStore } from './types';
 import { isFoodEntry, isPersonalPortion } from '@/persistence/schema';
+import { addDays } from '@/science/dates';
 
 /** A food whose values come from a reference source, ready to be logged. */
 export type ResolvedFood = {
@@ -26,9 +27,15 @@ export type ManualFood = {
   grams: number | null;
 };
 
+/**
+ * `date` is the consumption day and `localTime` the save time. `consumedTime` defaults to the save time
+ * ("je viens de le manger"); use consumptionDate to attribute a past time to the right day.
+ */
+type EntryTiming = { date: string; localTime: string; consumedTime?: string };
+
 export type NewEntryInput =
-  | { kind: 'resolved'; date: string; localTime: string; food: ResolvedFood; grams: number; portion?: { id: string; label: string; count: number; gramsEach: number } }
-  | { kind: 'manual'; date: string; localTime: string; food: ManualFood };
+  | ({ kind: 'resolved'; food: ResolvedFood; grams: number; portion?: { id: string; label: string; count: number; gramsEach: number } } & EntryTiming)
+  | ({ kind: 'manual'; food: ManualFood } & EntryTiming);
 
 export type JournalResult = { ok: true; store: WheightyStore; id: string } | { ok: false; reason: 'invalid_entry' | 'invalid_portion' };
 
@@ -56,6 +63,28 @@ export function localTimeOf(date: Date): string {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
+/**
+ * Consumption day of a food eaten at `consumedTime` (J-06). A time later than now on the selected day
+ * cannot be in the future: it belongs to the day before (eaten at 23:00, saved at 00:30).
+ */
+export function consumptionDate(selectedDate: string, today: string, consumedTime: string, nowLocalTime: string): string {
+  return selectedDate === today && consumedTime > nowLocalTime ? addDays(today, -1) : selectedDate;
+}
+
+export type IntakeGauge = {
+  /** Filled share of the bar, 0 to 1. The bar stays full beyond the target, same colour. */
+  fraction: number;
+  /** Rounded kcal or grams left before the target, 0 once reached. */
+  remaining: number;
+  /** Rounded amount beyond the target, 0 until then. Neutral wording only (no alert, no failure colour). */
+  beyond: number;
+};
+
+export function intakeGauge(logged: number, target: number): IntakeGauge {
+  const diff = Math.round(target) - Math.round(logged);
+  return { fraction: target > 0 ? Math.max(0, Math.min(1, logged / target)) : 0, remaining: Math.max(0, diff), beyond: Math.max(0, -diff) };
+}
+
 function withJournal(store: WheightyStore, journal: FoodJournal): WheightyStore {
   return { ...store, foodJournal: journal };
 }
@@ -70,6 +99,7 @@ export function addFoodEntry(store: WheightyStore, input: NewEntryInput, nowIso:
       date: input.date,
       loggedAt: nowIso,
       localTime: input.localTime,
+      consumedTime: input.consumedTime ?? input.localTime,
       name: food.name.trim(),
       ...(food.brand ? { brand: food.brand } : {}),
       source: food.source,
@@ -87,6 +117,7 @@ export function addFoodEntry(store: WheightyStore, input: NewEntryInput, nowIso:
       date: input.date,
       loggedAt: nowIso,
       localTime: input.localTime,
+      consumedTime: input.consumedTime ?? input.localTime,
       name: food.name.trim() || MANUAL_DEFAULT_NAME,
       source: 'manual',
       sourceId: null,
@@ -149,7 +180,7 @@ export type JournalDay = {
 export function journalDay(store: WheightyStore, date: string): JournalDay {
   const entries = store.foodJournal.entries
     .filter((e) => e.date === date)
-    .sort((a, b) => (a.localTime !== b.localTime ? (a.localTime < b.localTime ? -1 : 1) : a.loggedAt === b.loggedAt ? 0 : a.loggedAt < b.loggedAt ? -1 : 1));
+    .sort((a, b) => (a.consumedTime !== b.consumedTime ? (a.consumedTime < b.consumedTime ? -1 : 1) : a.loggedAt === b.loggedAt ? 0 : a.loggedAt < b.loggedAt ? -1 : 1));
   const sum = (pick: (n: FoodNutrients) => number | null) => round2(entries.reduce((acc, e) => acc + (pick(e.intake) ?? 0), 0));
   return {
     date,

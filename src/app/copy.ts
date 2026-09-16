@@ -191,7 +191,52 @@ export const JOURNAL_TEXT = {
   completenessGuidance: null as string | null,
 } as const;
 
-export const FOOD_SOURCE_LABEL = { ciqual: 'Ciqual', off: 'Open Food Facts', manual: 'Saisie libre' } as const;
+/** Journal UI pass (J-05 to J-08): neutral gauges, time of consumption, merged search, barcode. */
+export const JOURNAL_GAUGE_TEXT = {
+  logged: (kcal: string) => `${kcal} kcal saisies`,
+  target: (kcal: string) => `Cible ${kcal} kcal`,
+  remaining: (kcal: string) => `${kcal} kcal restantes`,
+  // Beyond the target: same bar, same colour, factual wording only.
+  beyond: (kcal: string) => `${kcal} kcal au-delà de la cible`,
+  macros: { proteinG: 'Protéines', carbsG: 'Glucides', fatG: 'Lipides' },
+} as const;
+
+export const JOURNAL_TIME_TEXT = {
+  justAte: 'Je viens de le manger',
+  eatenAt: 'Mangé à',
+  savedYesterday: 'Ajouté au journal d’hier.',
+} as const;
+
+export const FOOD_SEARCH_TEXT = {
+  tabs: { products: 'Produits', manual: 'Libre' },
+  placeholder: 'Pomme, riz cuit, yaourt...',
+  emptyQuery: 'Tape le nom d’un aliment ou d’un produit. Les aliments génériques viennent de la table Ciqual et fonctionnent hors connexion.',
+  emptyQueryOnline: 'Tape le nom d’un aliment ou d’un produit, puis valide pour chercher aussi les produits emballés. Tu peux aussi scanner un code-barres.',
+  recents: 'Récents',
+  noLocalResult: 'Aucun aliment générique trouvé.',
+  searchOnline: 'Chercher aussi les produits emballés',
+  searchingOnline: 'Recherche des produits emballés...',
+  onlineOff: 'Produits emballés et code-barres : active la recherche en ligne dans les préférences.',
+  loadingTable: 'Chargement de la table...',
+  tableFailed: 'La table des aliments n’a pas pu être chargée. La saisie libre reste disponible.',
+  offAttribution: 'Produits emballés : données Open Food Facts, licence ODbL.',
+} as const;
+
+export const BARCODE_TEXT = {
+  open: 'Scanner un code-barres',
+  close: 'Fermer le scanner',
+  starting: 'Ouverture de la caméra...',
+  scanning: 'Vise le code-barres du produit.',
+  unsupported: 'La lecture par caméra n’est pas disponible sur ce navigateur. Tape le code-barres.',
+  denied: 'La caméra n’est pas autorisée. Tu peux taper le code-barres, ou l’autoriser dans les réglages du navigateur.',
+  error: 'La caméra n’a pas pu démarrer. Tape le code-barres.',
+  manualLabel: 'Code-barres',
+  manualPlaceholder: 'Chiffres sous les barres',
+  lookup: 'Chercher',
+  looking: 'Recherche du produit...',
+} as const;
+
+export const FOOD_SOURCE_LABEL ={ ciqual: 'Ciqual', off: 'Open Food Facts', manual: 'Saisie libre' } as const;
 
 export const PRODUCT_SEARCH_TEXT = {
   settingTitle: 'Recherche de produits en ligne',

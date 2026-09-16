@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNav } from '@/app/navigation';
 import { useWheighty } from '@/store/StoreProvider';
-import { FOOD_SOURCE_LABEL, JOURNAL_TEXT, OFF_RESULT_TEXT, PRODUCT_SEARCH_TEXT } from '@/app/copy';
+import { BARCODE_TEXT, FOOD_SEARCH_TEXT, FOOD_SOURCE_LABEL, JOURNAL_GAUGE_TEXT, JOURNAL_TEXT, JOURNAL_TIME_TEXT, OFF_RESULT_TEXT, PRODUCT_SEARCH_TEXT } from '@/app/copy';
 import { BottomSheet } from '@/components/BottomSheet';
 import { NumberField, parseDecimal, Segmented } from '@/components/controls';
 import { formatDayMonth, formatGrams, formatInteger, formatKcal, formatNumber } from '@/domain/format';
-import { addFoodEntry, addPortion, deleteFoodEntry, foodKey, restoreFoodEntry, journalDay, localTimeOf, nutrientsForGrams, portionsFor, recentFoods } from '@/domain/journal';
-import type { ManualFood, RecentFood, ResolvedFood } from '@/domain/journal';
+import { addFoodEntry, addPortion, consumptionDate, deleteFoodEntry, foodKey, intakeGauge, journalDay, localTimeOf, nutrientsForGrams, portionsFor, recentFoods, restoreFoodEntry } from '@/domain/journal';
+import type { ManualFood, NewEntryInput, RecentFood, ResolvedFood } from '@/domain/journal';
 import { loadCiqual, resolveCiqualFood, searchIndex } from '@/domain/foodSearch';
 import type { CiqualFood, CiqualTable, SearchIndex } from '@/domain/foodSearch';
-import type { FoodEntry, FoodNutrients, WheightyStore } from '@/domain/types';
+import type { FoodEntry, FoodNutrients } from '@/domain/types';
 import { offProductToFood } from '@/adapters/openFoodFacts';
 import type { OffFailure, OffProduct } from '@/adapters/openFoodFacts';
+import { useBarcodeScanner } from '@/hooks/useBarcodeScanner';
 import { useOpenFoodFacts } from '@/hooks/useOpenFoodFacts';
 import { addDays } from '@/science/dates';
 
@@ -20,10 +22,18 @@ type DayChoice = 'today' | 'yesterday';
 const kcalText = (kcal: number) => `${formatInteger(Math.round(kcal))} kcal`;
 const gramsText = (g: number | null) => (g === null ? 'n.d.' : `${formatNumber(g, g >= 10 ? 0 : 1)} g`);
 
+/**
+ * Time of consumption chosen in the add sheet (J-06). Kept for the journal screen visit only: leaving the
+ * journal, or a new day, brings "Je viens de le manger" back to checked. Never persisted.
+ */
+type TimingSession = { justAte: boolean; time: string };
+
 export function JournalScreen() {
   const { back, openSheet, sheet, showToast } = useNav();
   const { store, today, update } = useWheighty();
   const [day, setDay] = useState<DayChoice>('today');
+  const [timing, setTiming] = useState<TimingSession>(() => ({ justAte: true, time: localTimeOf(new Date()) }));
+  useEffect(() => setTiming({ justAte: true, time: localTimeOf(new Date()) }), [today]);
   const plan = store.plan;
   if (!plan) return null;
   const date = day === 'today' ? today : addDays(today, -1);
@@ -32,6 +42,7 @@ export function JournalScreen() {
   // The plan target is only shown next to the journal, as it was for that day (never modified here).
   const targetKcal = log?.calorieTargetForDay ?? plan.calorieTarget;
   const targetMacros = log?.macrosForDay ?? plan.macrosDisplay ?? plan.macros;
+  const kcal = intakeGauge(summary.intakeLoggedKcal, targetKcal);
   const guidance = JOURNAL_TEXT.completenessGuidance;
 
   const remove = (entry: FoodEntry) => {
@@ -40,7 +51,7 @@ export function JournalScreen() {
   };
 
   return (
-    <main className="screen">
+    <main className="screen screen--journal">
       <button type="button" className="back" onClick={back}>
         ‹ Aujourd’hui
       </button>
@@ -61,39 +72,43 @@ export function JournalScreen() {
         className="day-picker"
       />
 
-      <section className="card" aria-label="Saisi et cible du plan" style={{ padding: 20, margin: '20px 0 18px' }}>
-        <div style={{ display: 'flex', gap: 20 }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ font: '500 11.5px var(--font)', color: 'var(--ink2)', marginBottom: 4 }}>{JOURNAL_TEXT.logged}</div>
-            <div className="tabular" style={{ font: '600 26px var(--font)' }}>
-              {formatInteger(Math.round(summary.intakeLoggedKcal))} <span className="unit">kcal</span>
-            </div>
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ font: '500 11.5px var(--font)', color: 'var(--ink2)', marginBottom: 4 }}>{JOURNAL_TEXT.planTarget}</div>
-            <div className="tabular" style={{ font: '600 26px var(--font)' }}>
-              {formatKcal(targetKcal)} <span className="unit">kcal</span>
-            </div>
-          </div>
+      <section className="card" aria-label="Saisi et cible du plan" style={{ padding: 20, margin: '20px 0 22px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, marginBottom: 10 }}>
+          <span className="tabular" style={{ font: '600 20px var(--font)' }}>
+            {JOURNAL_GAUGE_TEXT.logged(formatInteger(Math.round(summary.intakeLoggedKcal)))}
+          </span>
+          <span style={{ font: '500 12.5px var(--font)', color: 'var(--ink2)' }}>{JOURNAL_GAUGE_TEXT.target(formatKcal(targetKcal))}</span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginTop: 16 }}>
+        <div className="progress" role="progressbar" aria-label="Calories saisies par rapport à la cible du plan" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(kcal.fraction * 100)}>
+          <div className="progress__bar" style={{ width: `${kcal.fraction * 100}%` }} />
+        </div>
+        <p className="tabular" style={{ margin: '8px 0 0', font: '500 12.5px var(--font)', color: 'var(--ink2)' }} aria-live="polite">
+          {kcal.beyond > 0 ? JOURNAL_GAUGE_TEXT.beyond(formatInteger(kcal.beyond)) : JOURNAL_GAUGE_TEXT.remaining(formatInteger(kcal.remaining))}
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 14, marginTop: 18 }}>
           {(
             [
-              ['Prot.', summary.intakeLoggedProteinG, targetMacros.proteinG],
-              ['Gluc.', summary.intakeLoggedCarbsG, targetMacros.carbsG],
-              ['Lip.', summary.intakeLoggedFatG, targetMacros.fatG],
+              ['proteinG', summary.intakeLoggedProteinG, targetMacros.proteinG],
+              ['carbsG', summary.intakeLoggedCarbsG, targetMacros.carbsG],
+              ['fatG', summary.intakeLoggedFatG, targetMacros.fatG],
             ] as const
-          ).map(([label, logged, target]) => (
-            <div key={label}>
-              <div style={{ font: '500 11.5px var(--font)', color: 'var(--ink2)' }}>{label}</div>
-              <div className="tabular" style={{ font: '600 15px var(--font)' }}>
-                {formatInteger(Math.round(logged))} <span style={{ font: '400 12px var(--font)', color: 'var(--ink2)' }}>/ {formatGrams(target)} g</span>
+          ).map(([key, logged, target]) => {
+            const g = intakeGauge(logged, target);
+            return (
+              <div key={key}>
+                <div style={{ font: '500 11.5px var(--font)', color: 'var(--ink2)', marginBottom: 3 }}>{JOURNAL_GAUGE_TEXT.macros[key]}</div>
+                <div className="tabular" style={{ font: '600 14px var(--font)', marginBottom: 7 }}>
+                  {formatInteger(Math.round(logged))} <span style={{ font: '400 12px var(--font)', color: 'var(--ink2)' }}>/ {formatGrams(target)} g</span>
+                </div>
+                <div className="progress" role="progressbar" aria-label={`${JOURNAL_GAUGE_TEXT.macros[key]} saisis par rapport à la cible`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(g.fraction * 100)}>
+                  <div className="progress__bar" style={{ width: `${g.fraction * 100}%` }} />
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
         {!summary.macrosComplete ? (
-          <p className="small" style={{ margin: '12px 0 0' }}>
+          <p className="small" style={{ margin: '14px 0 0' }}>
             {JOURNAL_TEXT.partialMacros}
           </p>
         ) : null}
@@ -106,34 +121,46 @@ export function JournalScreen() {
       ) : null}
 
       {summary.entries.length === 0 ? (
-        <p className="small" style={{ margin: '0 0 22px' }}>
+        <p className="small" style={{ margin: 0 }}>
           {JOURNAL_TEXT.empty}
         </p>
       ) : (
-        <div className="rows" style={{ marginBottom: 22 }}>
+        <ol className="timeline" aria-label="Aliments du jour, par heure">
           {summary.entries.map((e) => (
-            <div key={e.id} className="row" style={{ alignItems: 'center' }}>
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ display: 'block', font: '500 14px/1.35 var(--font)' }}>{e.name}</span>
-                <span style={{ display: 'block', font: '400 12px var(--font)', color: 'var(--ink2)', marginTop: 2 }}>
-                  {[e.localTime, e.brand, entryQuantityText(e), FOOD_SOURCE_LABEL[e.source]].filter(Boolean).join(' · ')}
-                </span>
-              </span>
-              <span className="tabular" style={{ font: '600 14px var(--font)', whiteSpace: 'nowrap' }}>
-                {kcalText(e.intake.energyKcal)}
-              </span>
-              <button type="button" className="link" style={{ fontSize: 12.5 }} onClick={() => remove(e)} aria-label={`Retirer ${e.name}`}>
-                Retirer
-              </button>
-            </div>
+            <li key={e.id} className="timeline__item">
+              <time className="timeline__time tabular" dateTime={`${e.date}T${e.consumedTime}`}>
+                {e.consumedTime}
+              </time>
+              <span className="timeline__dot" aria-hidden="true" />
+              <div className="timeline__content">
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                  <span style={{ flex: 1, minWidth: 0, font: '500 14px/1.35 var(--font)' }}>{e.name}</span>
+                  <span className="tabular" style={{ font: '600 14px var(--font)', whiteSpace: 'nowrap' }}>
+                    {kcalText(e.intake.energyKcal)}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 2 }}>
+                  <span style={{ flex: 1, minWidth: 0, font: '400 12px var(--font)', color: 'var(--ink2)' }}>{[e.brand, entryQuantityText(e), FOOD_SOURCE_LABEL[e.source]].filter(Boolean).join(' · ')}</span>
+                  <button type="button" className="link" style={{ fontSize: 12.5, minHeight: 32 }} onClick={() => remove(e)} aria-label={`Retirer ${e.name}`}>
+                    Retirer
+                  </button>
+                </div>
+              </div>
+            </li>
           ))}
-        </div>
+        </ol>
       )}
 
-      <button type="button" className="btn btn--primary" onClick={() => openSheet('food')}>
-        {JOURNAL_TEXT.add}
-      </button>
-      {sheet === 'food' ? <FoodSheet date={date} /> : null}
+      {/* Portal: the animated screen container would otherwise anchor this fixed footer to the page end. */}
+      {createPortal(
+        <div className="journal-footer">
+          <button type="button" className="btn btn--primary" onClick={() => openSheet('food')}>
+            {JOURNAL_TEXT.add}
+          </button>
+        </div>,
+        document.body,
+      )}
+      {sheet === 'food' ? <FoodSheet selectedDate={date} today={today} timing={timing} setTiming={setTiming} /> : null}
     </main>
   );
 }
@@ -144,23 +171,32 @@ function entryQuantityText(e: FoodEntry): string | null {
   return p ? `${formatNumber(p.count, p.count % 1 === 0 ? 0 : 1)} × ${p.label} (${gramsText(e.quantity.grams)})` : gramsText(e.quantity.grams);
 }
 
-type Tab = 'foods' | 'products' | 'manual';
+type Tab = 'products' | 'manual';
+type TimingProps = { selectedDate: string; today: string; timing: TimingSession; setTiming: (t: TimingSession) => void };
 
-function FoodSheet({ date }: { date: string }) {
+/** Day and times of a new entry from the sheet's time control (J-06). */
+function entryTiming({ selectedDate, today, timing }: Omit<TimingProps, 'setTiming'>): Pick<NewEntryInput, 'date' | 'localTime' | 'consumedTime'> {
+  const now = localTimeOf(new Date());
+  // "Je viens de le manger" only exists on today's journal; yesterday always takes an explicit time.
+  if (selectedDate === today && timing.justAte) return { date: today, localTime: now, consumedTime: now };
+  return { date: consumptionDate(selectedDate, today, timing.time, now), localTime: now, consumedTime: timing.time };
+}
+
+function FoodSheet(props: TimingProps) {
   const { closeSheet, showToast } = useNav();
   const { store, commit, nowIso } = useWheighty();
-  const [tab, setTab] = useState<Tab>('foods');
+  const [tab, setTab] = useState<Tab>('products');
   const [picked, setPicked] = useState<ResolvedFood | null>(null);
   const [manualPrefill, setManualPrefill] = useState<ManualFood | null>(null);
 
-  const done = () => {
+  const save = (build: (timing: Pick<NewEntryInput, 'date' | 'localTime' | 'consumedTime'>) => NewEntryInput): boolean => {
+    const input = build(entryTiming(props));
+    const r = addFoodEntry(store, input, nowIso());
+    if (!r.ok) return false;
+    commit(r.store);
     closeSheet();
-    showToast(JOURNAL_TEXT.added);
-  };
-  const saveManual = (food: ManualFood): boolean => {
-    const r = addFoodEntry(store, { kind: 'manual', date, localTime: localTimeOf(new Date()), food }, nowIso());
-    if (r.ok) commit(r.store);
-    return r.ok;
+    showToast(input.date < props.selectedDate ? JOURNAL_TIME_TEXT.savedYesterday : JOURNAL_TEXT.added);
+    return true;
   };
   const pickRecent = (r: RecentFood) => {
     if (r.kind === 'resolved') setPicked(r.food);
@@ -170,122 +206,61 @@ function FoodSheet({ date }: { date: string }) {
     }
   };
 
-  const title = picked ? picked.name : 'Ajouter un aliment';
   return (
-    <BottomSheet open onClose={closeSheet} title={title}>
+    <BottomSheet open onClose={closeSheet} title={picked ? picked.name : JOURNAL_TEXT.add} size="fixed">
       {picked ? (
-        <QuantityStep food={picked} date={date} onBack={() => setPicked(null)} onSaved={done} />
+        <div className="sheet__scroll">
+          <QuantityStep food={picked} onBack={() => setPicked(null)} onSave={save} timingProps={props} />
+        </div>
       ) : (
         <>
           <Segmented
-            label="Source"
+            label="Type d’ajout"
             options={[
-              { value: 'foods', label: 'Aliments' },
-              { value: 'products', label: 'Produits' },
-              { value: 'manual', label: 'Libre' },
+              { value: 'products', label: FOOD_SEARCH_TEXT.tabs.products },
+              { value: 'manual', label: FOOD_SEARCH_TEXT.tabs.manual },
             ]}
             value={tab}
             onChange={setTab}
           />
-          <div style={{ marginTop: 18 }}>
-            {tab === 'foods' ? <CiqualTab store={store} onPick={setPicked} onPickRecent={pickRecent} /> : null}
-            {tab === 'products' ? (
-              <ProductsTab
-                onPick={setPicked}
-                onManual={(name) => {
-                  setManualPrefill({ name, intake: { energyKcal: 0, proteinG: null, carbsG: null, fatG: null }, grams: null });
-                  setTab('manual');
-                }}
-              />
-            ) : null}
-            {tab === 'manual' ? <ManualTab key={manualPrefill?.name ?? ''} prefill={manualPrefill} onSave={(f) => saveManual(f) && done()} /> : null}
-          </div>
+          {tab === 'products' ? (
+            <ProductsPanel
+              onPick={setPicked}
+              onPickRecent={pickRecent}
+              onManual={(name) => {
+                setManualPrefill({ name, intake: { energyKcal: 0, proteinG: null, carbsG: null, fatG: null }, grams: null });
+                setTab('manual');
+              }}
+            />
+          ) : (
+            <div className="sheet__scroll">
+              <ManualTab key={manualPrefill?.name ?? ''} prefill={manualPrefill} onSave={(food) => save((t) => ({ kind: 'manual', ...t, food }))} timingProps={props} />
+            </div>
+          )}
         </>
       )}
     </BottomSheet>
   );
 }
 
-function SearchBox({ label, value, onChange, onSubmit, placeholder, inputMode = 'search', action }: { label: string; value: string; onChange: (v: string) => void; onSubmit?: () => void; placeholder: string; inputMode?: 'search' | 'numeric'; action?: string }) {
+function BarcodeIcon() {
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit?.();
-      }}
-      style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}
-    >
-      <label className="value-box value-box--text" style={{ flex: 1 }}>
-        <span className="sr-only">{label}</span>
-        <input type="search" inputMode={inputMode} autoComplete="off" enterKeyHint="search" value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
-      </label>
-      {action ? (
-        <button type="submit" className="btn btn--outline btn--small">
-          {action}
-        </button>
-      ) : null}
-    </form>
+    <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+      <path d="M2.5 6V3.5a1 1 0 0 1 1-1H6M16 2.5h2.5a1 1 0 0 1 1 1V6M19.5 16v2.5a1 1 0 0 1-1 1H16M6 19.5H3.5a1 1 0 0 1-1-1V16" />
+      <path d="M6.5 7v8M9 7v8M11.5 7v8M14.5 7v8M16 7v8" />
+    </svg>
   );
 }
 
-function FoodRow({ name, detail, kcal, onClick, disabled }: { name: string; detail?: string; kcal: string; onClick: () => void; disabled?: boolean }) {
+function FoodRow({ name, detail, kcal, onClick }: { name: string; detail?: string; kcal: string; onClick: () => void }) {
   return (
-    <button type="button" className="opt-row" onClick={onClick} disabled={disabled} style={{ alignItems: 'center', opacity: disabled ? 0.7 : 1 }}>
+    <button type="button" className="opt-row" onClick={onClick} style={{ alignItems: 'center' }}>
       <span style={{ minWidth: 0 }}>
         <span style={{ display: 'block' }}>{name}</span>
         {detail ? <span style={{ display: 'block', font: '400 12px var(--font)', color: 'var(--ink2)', marginTop: 2 }}>{detail}</span> : null}
       </span>
       <span className="opt-row__hint">{kcal}</span>
     </button>
-  );
-}
-
-function CiqualTab({ store, onPick, onPickRecent }: { store: WheightyStore; onPick: (f: ResolvedFood) => void; onPickRecent: (r: RecentFood) => void }) {
-  const { nowIso } = useWheighty();
-  const [query, setQuery] = useState('');
-  const [data, setData] = useState<{ table: CiqualTable; index: SearchIndex<CiqualFood> } | null>(null);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    let alive = true;
-    loadCiqual().then(
-      (d) => alive && setData(d),
-      () => alive && setFailed(true),
-    );
-    return () => {
-      alive = false;
-    };
-  }, []);
-  const recents = useMemo(() => recentFoods(store), [store]);
-  const results = useMemo(() => (data && query.trim() ? searchIndex(data.index, query, 30) : []), [data, query]);
-
-  return (
-    <>
-      <SearchBox label="Rechercher un aliment" value={query} onChange={setQuery} placeholder="Pomme, riz cuit, yaourt..." />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
-        {query.trim() === '' ? (
-          recents.length > 0 ? (
-            <>
-              <div className="eyebrow">Récents</div>
-              {recents.map((r) => (
-                <FoodRow key={r.key} name={r.food.name} detail={r.kind === 'resolved' ? `${FOOD_SOURCE_LABEL[r.food.source]}${r.food.brand ? ` · ${r.food.brand}` : ''}` : FOOD_SOURCE_LABEL.manual} kcal={r.kind === 'resolved' ? `${formatInteger(Math.round(r.food.per100g.energyKcal))} kcal / 100 g` : kcalText(r.food.intake.energyKcal)} onClick={() => onPickRecent(r)} />
-              ))}
-            </>
-          ) : (
-            <p className="small" style={{ margin: 0 }}>
-              Cherche parmi les aliments de la table Ciqual, disponible hors connexion.
-            </p>
-          )
-        ) : failed ? (
-          <p className="small">La table des aliments n’a pas pu être chargée. La saisie libre reste disponible.</p>
-        ) : !data ? (
-          <p className="small">Chargement de la table...</p>
-        ) : results.length === 0 ? (
-          <p className="small">Aucun aliment trouvé. Essaie un autre mot, ou la saisie libre.</p>
-        ) : (
-          results.map((f) => <FoodRow key={f.code} name={f.name} detail={f.group} kcal={`${formatInteger(Math.round(f.kcal))} kcal / 100 g`} onClick={() => onPick(resolveCiqualFood(f, data.table, nowIso()))} />)
-        )}
-      </div>
-    </>
   );
 }
 
@@ -306,90 +281,244 @@ function failureText(r: OffFailure): string {
   }
 }
 
-function ProductsTab({ onPick, onManual }: { onPick: (f: ResolvedFood) => void; onManual: (name: string) => void }) {
+/** One search for generic foods (Ciqual, local, as you type) and packaged products (Open Food Facts, on submit). */
+function ProductsPanel({ onPick, onPickRecent, onManual }: { onPick: (f: ResolvedFood) => void; onPickRecent: (r: RecentFood) => void; onManual: (name: string) => void }) {
   const { go } = useNav();
   const { store, nowIso } = useWheighty();
+  const online = store.preferences.productSearchEnabled;
   const off = useOpenFoodFacts();
-  const [barcode, setBarcode] = useState('');
-  const [terms, setTerms] = useState('');
+  const [query, setQuery] = useState('');
+  const [data, setData] = useState<{ table: CiqualTable; index: SearchIndex<CiqualFood> } | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [remote, setRemote] = useState<{ query: string; products: OffProduct[]; message: string | null } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [products, setProducts] = useState<OffProduct[]>([]);
+  const [scanOpen, setScanOpen] = useState(false);
 
-  if (!store.preferences.productSearchEnabled) {
-    return (
-      <div className="note" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-        <span>{PRODUCT_SEARCH_TEXT.disabledNote}</span>
-        <button type="button" className="link" onClick={() => go('params')}>
-          {PRODUCT_SEARCH_TEXT.openSettings} ›
-        </button>
-      </div>
+  useEffect(() => {
+    let alive = true;
+    loadCiqual().then(
+      (d) => alive && setData(d),
+      () => alive && setFailed(true),
     );
-  }
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const recents = useMemo(() => recentFoods(store), [store]);
+  const trimmed = query.trim();
+  const local = useMemo(() => (data && trimmed ? searchIndex(data.index, trimmed, 30) : []), [data, trimmed]);
+  const remoteForQuery = remote && remote.query === trimmed ? remote : null;
 
   const choose = (p: OffProduct) => {
     const food = offProductToFood(p, nowIso());
     if (food) onPick(food);
   };
-  const runLookup = async () => {
+  const searchOnline = async () => {
+    if (!online || busy || trimmed.length < 2) return;
+    setBusy(true);
+    const r = await off.search(trimmed);
+    setBusy(false);
+    if (r.kind === 'results') setRemote({ query: trimmed, products: r.products, message: r.products.length === 0 ? OFF_RESULT_TEXT.noResults : null });
+    else setRemote({ query: trimmed, products: [], message: r.kind === 'invalid_input' ? OFF_RESULT_TEXT.invalidTerms : failureText(r) });
+  };
+
+  return (
+    <>
+      {scanOpen ? <BarcodePanel onClose={() => setScanOpen(false)} onFound={choose} onManual={onManual} /> : null}
+      <form
+        className="search-box"
+        role="search"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void searchOnline();
+        }}
+      >
+        <label className="sr-only" htmlFor="food-search">
+          Rechercher un aliment ou un produit
+        </label>
+        <input id="food-search" type="search" autoComplete="off" enterKeyHint="search" value={query} placeholder={FOOD_SEARCH_TEXT.placeholder} onChange={(e) => setQuery(e.target.value)} />
+        <button type="button" className="search-box__icon" aria-label={scanOpen ? BARCODE_TEXT.close : BARCODE_TEXT.open} aria-pressed={scanOpen} onClick={() => setScanOpen(!scanOpen)}>
+          <BarcodeIcon />
+        </button>
+      </form>
+
+      <div className="sheet__scroll" aria-live="polite">
+        {trimmed === '' ? (
+          <>
+            <p className="small search-hint">{online ? FOOD_SEARCH_TEXT.emptyQueryOnline : FOOD_SEARCH_TEXT.emptyQuery}</p>
+            {recents.length > 0 ? (
+              <div className="food-list">
+                <div className="eyebrow">{FOOD_SEARCH_TEXT.recents}</div>
+                {recents.map((r) => (
+                  <FoodRow
+                    key={r.key}
+                    name={r.food.name}
+                    detail={r.kind === 'resolved' ? [FOOD_SOURCE_LABEL[r.food.source], r.food.brand].filter(Boolean).join(' · ') : FOOD_SOURCE_LABEL.manual}
+                    kcal={r.kind === 'resolved' ? `${formatInteger(Math.round(r.food.per100g.energyKcal))} kcal / 100 g` : kcalText(r.food.intake.energyKcal)}
+                    onClick={() => onPickRecent(r)}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <div className="food-list">
+            {failed ? <p className="small search-hint">{FOOD_SEARCH_TEXT.tableFailed}</p> : !data ? <p className="small search-hint">{FOOD_SEARCH_TEXT.loadingTable}</p> : null}
+            {local.map((f) => (
+              <FoodRow key={`c${f.code}`} name={f.name} detail={`${FOOD_SOURCE_LABEL.ciqual} · ${f.group}`} kcal={`${formatInteger(Math.round(f.kcal))} kcal / 100 g`} onClick={() => data && onPick(resolveCiqualFood(f, data.table, nowIso()))} />
+            ))}
+            {data && local.length === 0 && !remoteForQuery?.products.length ? <p className="small search-hint">{FOOD_SEARCH_TEXT.noLocalResult}</p> : null}
+            {remoteForQuery?.products.map((p) =>
+              p.per100g ? (
+                <FoodRow key={`o${p.barcode}`} name={p.name} detail={[FOOD_SOURCE_LABEL.off, p.brand].filter(Boolean).join(' · ')} kcal={`${formatInteger(Math.round(p.per100g.energyKcal))} kcal / 100 g`} onClick={() => choose(p)} />
+              ) : (
+                <div key={`o${p.barcode}`} className="opt-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+                  <span>{p.name}</span>
+                  <span style={{ font: '400 12px var(--font)', color: 'var(--ink2)' }}>{OFF_RESULT_TEXT.incomplete}</span>
+                  <button type="button" className="link" onClick={() => onManual(p.name)}>
+                    Saisir à la main ›
+                  </button>
+                </div>
+              ),
+            )}
+            {remoteForQuery?.message ? <p className="small search-hint">{remoteForQuery.message}</p> : null}
+            {online ? (
+              busy ? (
+                <p className="small search-hint">{FOOD_SEARCH_TEXT.searchingOnline}</p>
+              ) : !remoteForQuery && trimmed.length >= 2 ? (
+                <button type="button" className="btn btn--outline btn--small" style={{ alignSelf: 'flex-start' }} onClick={() => void searchOnline()}>
+                  {FOOD_SEARCH_TEXT.searchOnline}
+                </button>
+              ) : null
+            ) : (
+              <button type="button" className="link small" style={{ textAlign: 'left' }} onClick={() => go('params')}>
+                {FOOD_SEARCH_TEXT.onlineOff} ›
+              </button>
+            )}
+            {remoteForQuery?.products.length ? <p className="small search-hint">{FOOD_SEARCH_TEXT.offAttribution}</p> : null}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+/**
+ * Barcode resolution chain (J-05): 1. native detection, 3. automatic Open Food Facts match, 4. keyboard
+ * entry, always visible. Step 2 (text extraction from the image) is not bundled.
+ */
+function BarcodePanel({ onClose, onFound, onManual }: { onClose: () => void; onFound: (p: OffProduct) => void; onManual: (name: string) => void }) {
+  const { go } = useNav();
+  const { store } = useWheighty();
+  const online = store.preferences.productSearchEnabled;
+  const off = useOpenFoodFacts();
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [incomplete, setIncomplete] = useState<OffProduct | null>(null);
+  const [cameraOn, setCameraOn] = useState(online);
+
+  const lookup = async (raw: string) => {
     if (busy) return;
     setBusy(true);
     setMessage(null);
-    setProducts([]);
-    const r = await off.lookup(barcode);
+    setIncomplete(null);
+    const r = await off.lookup(raw);
     setBusy(false);
     if (r.kind === 'found') {
-      if (r.product.per100g) choose(r.product);
+      if (r.product.per100g) onFound(r.product);
       else {
-        setProducts([r.product]);
+        setIncomplete(r.product);
         setMessage(OFF_RESULT_TEXT.incomplete);
       }
     } else if (r.kind === 'not_found') setMessage(OFF_RESULT_TEXT.notFound);
     else setMessage(r.kind === 'invalid_input' ? OFF_RESULT_TEXT.invalidBarcode : failureText(r));
   };
-  const runSearch = async () => {
-    if (busy) return;
-    setBusy(true);
-    setMessage(null);
-    setProducts([]);
-    const r = await off.search(terms);
-    setBusy(false);
-    if (r.kind === 'results') {
-      setProducts(r.products);
-      if (r.products.length === 0) setMessage(OFF_RESULT_TEXT.noResults);
-    } else setMessage(r.kind === 'invalid_input' ? OFF_RESULT_TEXT.invalidTerms : failureText(r));
-  };
+  const scanner = useBarcodeScanner(cameraOn, (detected) => {
+    setCameraOn(false);
+    setCode(detected);
+    void lookup(detected);
+  });
 
-  return (
-    <>
-      <SearchBox label="Code-barres" value={barcode} onChange={(v) => setBarcode(v.replace(/[^\d\s-]/g, '').slice(0, 20))} onSubmit={() => void runLookup()} placeholder="Code-barres (chiffres)" inputMode="numeric" action="Chercher" />
-      <div style={{ height: 10 }} />
-      <SearchBox label="Rechercher un produit" value={terms} onChange={setTerms} onSubmit={() => void runSearch()} placeholder="Marque, nom du produit" action="Rechercher" />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }} aria-live="polite">
-        {busy ? <p className="small">Recherche sur Open Food Facts...</p> : null}
-        {message ? (
-          <p className="small" style={{ margin: 0 }}>
-            {message}
-          </p>
-        ) : null}
-        {products.map((p) =>
-          p.per100g ? (
-            <FoodRow key={p.barcode} name={p.name} detail={[p.brand, p.barcode].filter(Boolean).join(' · ')} kcal={`${formatInteger(Math.round(p.per100g.energyKcal))} kcal / 100 g`} onClick={() => choose(p)} />
-          ) : (
-            <div key={p.barcode} className="opt-row" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-              <span>{p.name}</span>
-              <span style={{ font: '400 12px var(--font)', color: 'var(--ink2)' }}>Calories non renseignées</span>
-              <button type="button" className="link" onClick={() => onManual(p.name)}>
-                Saisir à la main ›
-              </button>
-            </div>
-          ),
-        )}
-        <p className="small" style={{ margin: '6px 0 0' }}>
-          Données Open Food Facts, base collaborative sous licence ODbL.
+  if (!online) {
+    return (
+      <div className="barcode-panel">
+        <p className="small" style={{ margin: 0 }}>
+          {PRODUCT_SEARCH_TEXT.disabledNote}
         </p>
+        <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
+          <button type="button" className="link" onClick={() => go('params')}>
+            {PRODUCT_SEARCH_TEXT.openSettings} ›
+          </button>
+          <button type="button" className="link" style={{ color: 'var(--ink2)' }} onClick={onClose}>
+            {BARCODE_TEXT.close}
+          </button>
+        </div>
       </div>
-    </>
+    );
+  }
+
+  const cameraMessage = { idle: null, starting: BARCODE_TEXT.starting, scanning: BARCODE_TEXT.scanning, unsupported: BARCODE_TEXT.unsupported, denied: BARCODE_TEXT.denied, error: BARCODE_TEXT.error }[scanner.state];
+  const showVideo = cameraOn && (scanner.state === 'starting' || scanner.state === 'scanning');
+  return (
+    <div className="barcode-panel">
+      {showVideo ? (
+        <div className="barcode-panel__camera">
+          <video ref={scanner.videoRef} muted playsInline aria-label="Aperçu de la caméra" />
+          <span className="barcode-panel__frame" aria-hidden="true" />
+        </div>
+      ) : (
+        <video ref={scanner.videoRef} muted playsInline hidden />
+      )}
+      <p className="small" style={{ margin: '0 0 8px' }} aria-live="polite">
+        {busy ? BARCODE_TEXT.looking : (message ?? cameraMessage ?? '')}
+      </p>
+      {incomplete ? (
+        <button type="button" className="link" style={{ marginBottom: 8 }} onClick={() => onManual(incomplete.name)}>
+          Saisir à la main ›
+        </button>
+      ) : null}
+      <form
+        style={{ display: 'flex', gap: 8 }}
+        onSubmit={(e) => {
+          e.preventDefault();
+          setCameraOn(false);
+          void lookup(code);
+        }}
+      >
+        <label className="sr-only" htmlFor="barcode-input">
+          {BARCODE_TEXT.manualLabel}
+        </label>
+        <input id="barcode-input" className="barcode-panel__input" inputMode="numeric" autoComplete="off" enterKeyHint="search" value={code} placeholder={BARCODE_TEXT.manualPlaceholder} onChange={(e) => setCode(e.target.value.replace(/[^\d\s-]/g, '').slice(0, 20))} />
+        <button type="submit" className="btn btn--outline btn--small" disabled={busy}>
+          {BARCODE_TEXT.lookup}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+/** "Je viens de le manger" checked by default on today's journal; unchecked, the time field is the value kept (J-06). */
+function ConsumedTimeField({ selectedDate, today, timing, setTiming }: TimingProps) {
+  const canBeNow = selectedDate === today;
+  const showTime = !canBeNow || !timing.justAte;
+  return (
+    <div style={{ margin: '14px 0 4px' }}>
+      {canBeNow ? (
+        <button type="button" role="checkbox" aria-checked={timing.justAte} className="checkbox" style={{ paddingTop: 0 }} onClick={() => setTiming({ ...timing, justAte: !timing.justAte })}>
+          <span className="checkbox__box" aria-hidden="true">
+            {timing.justAte ? '✓' : ''}
+          </span>
+          <span>{JOURNAL_TIME_TEXT.justAte}</span>
+        </button>
+      ) : null}
+      {showTime ? (
+        <label className="time-field" style={{ marginTop: canBeNow ? 10 : 0 }}>
+          <span>{JOURNAL_TIME_TEXT.eatenAt}</span>
+          <input type="time" required value={timing.time} onChange={(e) => e.target.value && setTiming({ ...timing, time: e.target.value })} />
+        </label>
+      ) : null}
+    </div>
   );
 }
 
@@ -401,7 +530,9 @@ function offRecordDate(food: ResolvedFood): string {
 
 const nutrientsLine = (n: FoodNutrients) => `${kcalText(n.energyKcal)} · P ${gramsText(n.proteinG)} · G ${gramsText(n.carbsG)} · L ${gramsText(n.fatG)}`;
 
-function QuantityStep({ food, date, onBack, onSaved }: { food: ResolvedFood; date: string; onBack: () => void; onSaved: () => void }) {
+type SaveEntry = (build: (timing: Pick<NewEntryInput, 'date' | 'localTime' | 'consumedTime'>) => NewEntryInput) => boolean;
+
+function QuantityStep({ food, onBack, onSave, timingProps }: { food: ResolvedFood; onBack: () => void; onSave: SaveEntry; timingProps: TimingProps }) {
   const { store, commit, nowIso } = useWheighty();
   const key = foodKey(food.source, food.sourceId);
   const portions = portionsFor(store, key);
@@ -423,17 +554,8 @@ function QuantityStep({ food, date, onBack, onSaved }: { food: ResolvedFood; dat
       setError('Indique une quantité entre 1 et 5 000 g.');
       return;
     }
-    const r = addFoodEntry(
-      store,
-      { kind: 'resolved', date, localTime: localTimeOf(new Date()), food, grams, ...(portion && count !== null ? { portion: { id: portion.id, label: portion.label, count, gramsEach: portion.grams } } : {}) },
-      nowIso(),
-    );
-    if (!r.ok) {
-      setError('Cet aliment n’a pas pu être ajouté.');
-      return;
-    }
-    commit(r.store);
-    onSaved();
+    const ok = onSave((t) => ({ kind: 'resolved', ...t, food, grams, ...(portion && count !== null ? { portion: { id: portion.id, label: portion.label, count, gramsEach: portion.grams } } : {}) }));
+    if (!ok) setError('Cet aliment n’a pas pu être ajouté.');
   };
 
   const createPortion = () => {
@@ -456,7 +578,7 @@ function QuantityStep({ food, date, onBack, onSaved }: { food: ResolvedFood; dat
 
   return (
     <>
-      <p className="sheet__lead" style={{ marginTop: -6 }}>
+      <p className="sheet__lead" style={{ margin: '0 0 4px' }}>
         {sourceLine}
       </p>
       <p className="small" style={{ margin: '0 0 16px' }}>
@@ -476,15 +598,12 @@ function QuantityStep({ food, date, onBack, onSaved }: { food: ResolvedFood; dat
         </div>
       ) : null}
 
-      {portion ? (
-        <NumberField label={`Nombre de portions « ${portion.label} »`} value={countRaw} onChange={setCountRaw} unit="×" />
-      ) : (
-        <NumberField label="Quantité" value={gramsRaw} onChange={setGramsRaw} unit="g" />
-      )}
+      {portion ? <NumberField label={`Nombre de portions « ${portion.label} »`} value={countRaw} onChange={setCountRaw} unit="×" /> : <NumberField label="Quantité" value={gramsRaw} onChange={setGramsRaw} unit="g" />}
 
-      <p className="tabular" style={{ margin: '14px 0 4px', font: '600 15px var(--font)' }} aria-live="polite">
+      <p className="tabular" style={{ margin: '12px 0 0', font: '600 15px var(--font)' }} aria-live="polite">
         {preview ? nutrientsLine(preview) : ' '}
       </p>
+      <ConsumedTimeField {...timingProps} />
       {error ? (
         <p className="field-error" role="alert">
           {error}
@@ -527,7 +646,7 @@ function QuantityStep({ food, date, onBack, onSaved }: { food: ResolvedFood; dat
   );
 }
 
-function ManualTab({ prefill, onSave }: { prefill: ManualFood | null; onSave: (food: ManualFood) => void }) {
+function ManualTab({ prefill, onSave, timingProps }: { prefill: ManualFood | null; onSave: (food: ManualFood) => boolean; timingProps: TimingProps }) {
   const [name, setName] = useState(prefill?.name ?? '');
   const [kcal, setKcal] = useState(prefill && prefill.intake.energyKcal > 0 ? String(prefill.intake.energyKcal) : '');
   const [protein, setProtein] = useState(prefill?.intake.proteinG != null ? String(prefill.intake.proteinG) : '');
@@ -555,7 +674,7 @@ function ManualTab({ prefill, onSave }: { prefill: ManualFood | null; onSave: (f
       setError('Une des valeurs n’est pas un nombre valide.');
       return;
     }
-    onSave({ name, intake: { energyKcal: energy, proteinG: p, carbsG: c, fatG: f }, grams: g });
+    if (!onSave({ name, intake: { energyKcal: energy, proteinG: p, carbsG: c, fatG: f }, grams: g })) setError('Cette saisie n’a pas pu être ajoutée.');
   };
 
   return (
@@ -568,13 +687,14 @@ function ManualTab({ prefill, onSave }: { prefill: ManualFood | null; onSave: (f
       </div>
       <div style={{ height: 12 }} />
       <NumberField label="Calories" value={kcal} onChange={setKcal} unit="kcal" inputMode="decimal" />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 12 }}>
         <NumberField label="Prot. (facult.)" value={protein} onChange={setProtein} unit="g" />
         <NumberField label="Gluc. (facult.)" value={carbs} onChange={setCarbs} unit="g" />
         <NumberField label="Lip. (facult.)" value={fat} onChange={setFat} unit="g" />
       </div>
       <div style={{ height: 12 }} />
       <NumberField label="Poids (facultatif)" value={grams} onChange={setGrams} unit="g" />
+      <ConsumedTimeField {...timingProps} />
       {error ? (
         <p className="field-error" role="alert">
           {error}

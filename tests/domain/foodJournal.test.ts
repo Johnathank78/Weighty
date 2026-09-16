@@ -160,7 +160,7 @@ describe('journal is kept apart from the plan and the engine', () => {
     for (const f of files) expect(readFileSync(f, 'utf8'), f).not.toMatch(/foodJournal|intakeLogged|@\/domain\/journal|@\/domain\/foodSearch/);
     const journal = readFileSync('src/domain/journal.ts', 'utf8');
     const imports = [...journal.matchAll(/from '([^']+)'/g)].map((m) => m[1]);
-    expect(imports).toEqual(['./types', '@/persistence/schema']);
+    expect(imports).toEqual(['./types', '@/persistence/schema', '@/science/dates']);
   });
 });
 

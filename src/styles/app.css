@@ -1469,3 +1469,208 @@ img {
 .value-box--text input::-webkit-search-cancel-button {
   display: none;
 }
+
+/*
+ * Journal UI pass (J-07). Fixed height sheet: 75 % of the dynamic viewport, capped to the visual viewport
+ * (--vv-height, set by BottomSheet) and lifted above an iOS software keyboard (--kb-inset). The header stays
+ * in place, only .sheet__scroll scrolls.
+ */
+.sheet--fixed {
+  height: min(75dvh, calc(var(--vv-height, 100dvh) - 12px));
+  max-height: none;
+  margin-bottom: var(--kb-inset, 0px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: calc(12px + var(--safe-bottom));
+  transition: height 0.18s ease, margin-bottom 0.18s ease;
+}
+.sheet--fixed .sheet__title {
+  margin-bottom: 12px;
+}
+.sheet-layer[data-compact='true'] .sheet--fixed .sheet__title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.sheet-layer[data-compact='true'] .sheet--fixed .sheet__handle {
+  margin-bottom: 4px;
+}
+.sheet__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sheet__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0 -24px;
+  padding: 2px 24px 16px;
+}
+.food-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.search-hint {
+  margin: 4px 0 12px;
+  color: var(--ink2);
+}
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--line);
+  background: var(--surf);
+  border-radius: 16px;
+  padding: 4px 4px 4px 16px;
+  min-height: 50px;
+}
+.search-box:focus-within {
+  border-color: var(--acc);
+}
+.search-box input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 10px 0;
+  font: 500 16px var(--font);
+  color: var(--ink);
+}
+.search-box input:focus {
+  outline: none;
+}
+.search-box input::-webkit-search-cancel-button {
+  display: none;
+}
+.search-box__icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--ink2);
+}
+.search-box__icon[aria-pressed='true'] {
+  background: var(--accl);
+  color: var(--acc);
+}
+.barcode-panel {
+  display: flex;
+  flex-direction: column;
+}
+.barcode-panel__camera {
+  position: relative;
+  width: 100%;
+  height: clamp(120px, 24dvh, 190px);
+  border-radius: 16px;
+  overflow: hidden;
+  background: #1c1a18;
+  margin-bottom: 8px;
+}
+.barcode-panel__camera video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.barcode-panel__frame {
+  position: absolute;
+  inset: 28% 12%;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 10px;
+}
+.barcode-panel__input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surf);
+  padding: 0 14px;
+  font: 500 16px var(--font);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.time-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font: 500 13.5px var(--font);
+  color: var(--ink);
+}
+.time-field input {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surf);
+  padding: 8px 12px;
+  font: 600 16px var(--font);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Timeline of the day: the time rail carries the structure, no separators between entries. */
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+.timeline::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 55px;
+  width: 1px;
+  background: var(--line);
+}
+.timeline__item {
+  display: grid;
+  grid-template-columns: 44px 22px minmax(0, 1fr);
+  align-items: start;
+  padding: 6px 0 10px;
+}
+.timeline__time {
+  font: 600 12.5px/20px var(--font);
+  color: var(--ink2);
+  text-align: right;
+}
+.timeline__dot {
+  justify-self: center;
+  width: 9px;
+  height: 9px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--acc);
+  box-shadow: 0 0 0 3px var(--bg);
+  position: relative;
+}
+.timeline__content {
+  min-width: 0;
+}
+
+/* Add action always reachable, above the bottom navigation. */
+.screen--journal {
+  padding-bottom: calc(128px + 72px + var(--safe-bottom));
+}
+.journal-footer {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(14px + 66px + 10px + var(--safe-bottom));
+  width: calc(min(100vw, var(--shell-max)) - 28px);
+  z-index: 9;
+}
+.journal-footer .btn {
+  box-shadow: var(--shadow-nav);
+}

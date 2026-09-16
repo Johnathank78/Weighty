@@ -55,6 +55,16 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
     if (isObject(input.preferences)) out.preferences = { ...input.preferences, productSearchEnabled: false };
     return out;
   },
+  // 3 -> 4 (no model change, J-06): time of consumption. Schema 3 only knew the save time, which is the
+  // best available value; the entry day is kept as it was. Everything else is carried over untouched.
+  3: (input) => {
+    const out: Record<string, unknown> = { ...input, schemaVersion: 4 };
+    const journal = input.foodJournal;
+    if (isObject(journal) && Array.isArray(journal.entries)) {
+      out.foodJournal = { ...journal, entries: journal.entries.map((e) => (isObject(e) && e.consumedTime === undefined && typeof e.localTime === 'string' ? { ...e, consumedTime: e.localTime } : e)) };
+    }
+    return out;
+  },
 };
 
 export type MigrationResult = { ok: true; value: Record<string, unknown>; fromVersion: number } | { ok: false; error: 'not_an_object' | 'future_schema_version' | 'missing_migration' };

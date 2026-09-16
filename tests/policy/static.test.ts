@@ -89,7 +89,9 @@ describe('no network dependency at runtime', () => {
     const users = code.filter(([f, src]) => f !== NETWORK_ADAPTER && /from '@\/adapters\/openFoodFacts'/.test(src)).map(([f]) => f.replace(/\\/g, '/'));
     // Value imports are limited to the hook (client) and the journal screen (pure mapping helper); others are type imports.
     const valueUsers = code.filter(([, src]) => /^import \{[^}]*\} from '@\/adapters\/openFoodFacts'/m.test(src)).map(([f]) => f.replace(/\\/g, '/'));
-    expect(valueUsers.sort()).toEqual(['src/hooks/useOpenFoodFacts.ts', 'src/screens/Journal.tsx']);
+    // useBarcodeScanner only reuses the pure barcode normalisation helper.
+    expect(valueUsers.sort()).toEqual(['src/hooks/useBarcodeScanner.ts', 'src/hooks/useOpenFoodFacts.ts', 'src/screens/Journal.tsx']);
+    expect(read('src/hooks/useBarcodeScanner.ts')).not.toMatch(/createOpenFoodFactsClient|lookupBarcode|searchProducts/);
     expect(users.every((f) => /^src\/(hooks|screens|persistence)\//.test(f))).toBe(true);
     expect(read('src/screens/Journal.tsx')).not.toMatch(/createOpenFoodFactsClient/);
   });

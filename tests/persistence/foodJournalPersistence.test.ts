@@ -70,9 +70,9 @@ function storeWithJournal(): WheightyStore {
 
 const product = (barcode: string, kcal: number | null): OffProduct => ({ barcode, name: `Produit ${barcode}`, lastModified: '1785948506', per100g: kcal === null ? null : { energyKcal: kcal, proteinG: 1, carbsG: 2, fatG: 3 } });
 
-describe('schema 3 migration (food journal)', () => {
-  it('schema version is 3', () => {
-    expect(SCHEMA_VERSION).toBe(3);
+describe('schema 2 -> current migration (food journal)', () => {
+  it('schema version is 4 (3: journal, 4: time of consumption)', () => {
+    expect(SCHEMA_VERSION).toBe(4);
   });
 
   it('migrates a stored schema 2 store: empty journal, opt-in off, everything else untouched', () => {
@@ -82,7 +82,7 @@ describe('schema 3 migration (food journal)', () => {
     const loaded = loadStore(storage, NOW);
     expect(loaded.status).toBe('migrated');
     expect(loaded.dropped).toEqual([]);
-    expect(loaded.store.schemaVersion).toBe(3);
+    expect(loaded.store.schemaVersion).toBe(SCHEMA_VERSION);
     expect(loaded.store.foodJournal).toEqual(emptyFoodJournal());
     expect(loaded.store.preferences).toEqual({ ...(raw.preferences as object), productSearchEnabled: false });
     expect(loaded.store.weights).toEqual(raw.weights);
@@ -105,7 +105,7 @@ describe('schema 3 migration (food journal)', () => {
     const imported = parseImport(text);
     expect(imported.ok).toBe(true);
     if (!imported.ok) return;
-    expect(imported.store.schemaVersion).toBe(3);
+    expect(imported.store.schemaVersion).toBe(SCHEMA_VERSION);
     expect(imported.store.foodJournal).toEqual(emptyFoodJournal());
     expect(imported.summary.foodEntries).toBe(0);
     expect(imported.store.weights).toEqual(baseStore().weights);

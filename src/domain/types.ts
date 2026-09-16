@@ -19,8 +19,9 @@ import type {
  * intake evidence is stored explicitly.
  * Version 3 (food journal, no model change): `foodJournal` and the product search opt-in
  * preference. See persistence/migrations.ts and IMPLEMENTATION_NOTES J-01.
+ * Version 4 (UI journal pass): `FoodEntry.consumedTime`, time of consumption distinct from the save time (J-06).
  */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export type ThemePreference = 'light' | 'dark' | 'system';
 export type UnitPreference = 'metric' | 'imperial';
@@ -54,12 +55,17 @@ export type FoodNutrients = {
 
 export type FoodEntry = {
   id: string;
-  /** Local day the intake belongs to. */
+  /**
+   * Local day the food was EATEN (consumption day), never the save day: a snack eaten at 23:00 and
+   * saved at 00:30 belongs to the previous day (J-06).
+   */
   date: string;
-  /** ISO timestamp of the entry creation. */
+  /** ISO timestamp of the entry creation (technical save time). */
   loggedAt: string;
-  /** Local wall clock time (HH:MM) of the entry creation, kept as a raw observable. */
+  /** Local wall clock time (HH:MM) of the entry creation (save time), kept as a raw observable. */
   localTime: string;
+  /** Local time (HH:MM) at which the food was eaten on `date` (schema 4). Drives the journal timeline. */
+  consumedTime: string;
   name: string;
   brand?: string;
   source: FoodSource;
