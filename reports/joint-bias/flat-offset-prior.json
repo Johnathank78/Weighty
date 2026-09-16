@@ -1,0 +1,53 @@
+{
+  "usersPerCondition": 12,
+  "rows": [
+    {
+      "intakeCv": 0,
+      "days": 42,
+      "populationPrior": {
+        "kWidthRatio": 0.7616975132295822,
+        "correlation": -0.8987467972617826
+      },
+      "flatPrior": {
+        "kWidthRatio": 0.9721580320744032,
+        "correlation": -0.9310184921689996
+      }
+    },
+    {
+      "intakeCv": 0,
+      "days": 84,
+      "populationPrior": {
+        "kWidthRatio": 0.7841404816586511,
+        "correlation": -0.9797087195638319
+      },
+      "flatPrior": {
+        "kWidthRatio": 0.9272800409993587,
+        "correlation": -0.9828599312196299
+      }
+    },
+    {
+      "intakeCv": 0.2,
+      "days": 42,
+      "populationPrior": {
+        "kWidthRatio": 0.7719877118426723,
+        "correlation": -0.891787488585214
+      },
+      "flatPrior": {
+        "kWidthRatio": 0.937032298404277,
+        "correlation": -0.9274127527736719
+      }
+    },
+    {
+      "intakeCv": 0.2,
+      "days": 84,
+      "populationPrior": {
+        "kWidthRatio": 0.7568130218423869,
+        "correlation": -0.9791376263217633
+      },
+      "flatPrior": {
+        "kWidthRatio": 0.9234958548771737,
+        "correlation": -0.9839777945488329
+      }
+    }
+  ]
+}

@@ -1,0 +1,336 @@
+{
+  "cell": {
+    "id": "robust-A-28-P20",
+    "axis": "robustness",
+    "scenario": "A",
+    "days": 28,
+    "coverage": 0.85,
+    "population": "P20",
+    "intakeCv": 0
+  },
+  "replicates": 5,
+  "n": 210,
+  "populationLabel": "vrai biais moyen -20 %, écart-type 10 pts",
+  "priors": [
+    {
+      "label": "centre -10 % (décalage +10, cas prompt 1)",
+      "meanU": -0.1,
+      "sdU": 0.1
+    },
+    {
+      "label": "centre -20 % (bien spécifié)",
+      "meanU": -0.2,
+      "sdU": 0.1
+    }
+  ],
+  "shareUOutsideSupport": 0.06190476190476191,
+  "medianDeclaredCv": 0.10353619462091188,
+  "results": {
+    "metabolic": {
+      "A": {
+        "n": 210,
+        "medianAbsErrorKcal": 101.27602449989334,
+        "meanBiasKcal": -43.12304941884131,
+        "coverage80": {
+          "value": 0.8714285714285714,
+          "low": 0.819398464815287,
+          "high": 0.910113472992885
+        },
+        "coverage95": {
+          "value": 0.9809523809523809,
+          "low": 0.95205587422257,
+          "high": 0.992568558067499
+        },
+        "medianWidth80Kcal": 423.83418531070566,
+        "gateShare": 1,
+        "vsA": null
+      },
+      "C-exact": {
+        "n": 210,
+        "medianAbsErrorKcal": 334.3455977059434,
+        "meanBiasKcal": -330.03846368947103,
+        "coverage80": {
+          "value": 0.3333333333333333,
+          "low": 0.2730730421762493,
+          "high": 0.399581857525212
+        },
+        "coverage95": {
+          "value": 0.5,
+          "low": 0.4329837722928547,
+          "high": 0.5670162277071453
+        },
+        "medianWidth80Kcal": 398.36906137046435,
+        "gateShare": 1,
+        "vsA": {
+          "coverage80": {
+            "mean": -0.5380952380952381,
+            "low": -0.6142131130512931,
+            "high": -0.46197736313918303
+          },
+          "coverage95": {
+            "mean": -0.48095238095238096,
+            "low": -0.5486911919679994,
+            "high": -0.41321356993676245
+          },
+          "medianAbsErrorKcal": {
+            "mean": 233.06957320605008,
+            "low": 172.51961789354976,
+            "high": 271.58220161548223
+          },
+          "widthRatio": 0.9399172487193942
+        }
+      },
+      "D centre -10 % (décalage +10, cas prompt 1)": {
+        "n": 210,
+        "medianAbsErrorKcal": 170.42930602006777,
+        "meanBiasKcal": -105.09867835320698,
+        "coverage80": {
+          "value": 0.7523809523809524,
+          "low": 0.6898172761124045,
+          "high": 0.8058767329110971
+        },
+        "coverage95": {
+          "value": 0.9285714285714286,
+          "low": 0.8855054345225578,
+          "high": 0.9562391091022563
+        },
+        "medianWidth80Kcal": 554.2670379086157,
+        "gateShare": 1,
+        "vsA": {
+          "coverage80": {
+            "mean": -0.11904761904761904,
+            "low": -0.18388143515304445,
+            "high": -0.05421380294219362
+          },
+          "coverage95": {
+            "mean": -0.05238095238095238,
+            "low": -0.08535715729263768,
+            "high": -0.019404747469267083
+          },
+          "medianAbsErrorKcal": {
+            "mean": 69.15328152017443,
+            "low": 42.928488123875425,
+            "high": 93.15627563173882
+          },
+          "widthRatio": 1.3077450029244149
+        }
+      },
+      "D centre -20 % (bien spécifié)": {
+        "n": 210,
+        "medianAbsErrorKcal": 157.66949555282253,
+        "meanBiasKcal": 3.642386591866724,
+        "coverage80": {
+          "value": 0.7666666666666667,
+          "low": 0.7049846504771438,
+          "high": 0.8187675100005183
+        },
+        "coverage95": {
+          "value": 0.9619047619047619,
+          "low": 0.9266409748980289,
+          "high": 0.9805725887864929
+        },
+        "medianWidth80Kcal": 600.9483971053692,
+        "gateShare": 1,
+        "vsA": {
+          "coverage80": {
+            "mean": -0.10476190476190476,
+            "low": -0.17071431458527533,
+            "high": -0.038809494938534195
+          },
+          "coverage95": {
+            "mean": -0.01904761904761905,
+            "low": -0.04538304181413899,
+            "high": 0.007287803718900889
+          },
+          "medianAbsErrorKcal": {
+            "mean": 56.393471052929186,
+            "low": 36.0784475361192,
+            "high": 89.40445924836489
+          },
+          "widthRatio": 1.4178856211535276
+        }
+      }
+    },
+    "loggedUnits": {
+      "A": {
+        "n": 210,
+        "medianAbsErrorKcal": 383.97386981130603,
+        "meanBiasKcal": 379.60734947036667,
+        "coverage80": {
+          "value": 0.28095238095238095,
+          "low": 0.2245163177323186,
+          "high": 0.34525869330388775
+        },
+        "coverage95": {
+          "value": 0.3904761904761905,
+          "low": 0.32702547426795575,
+          "high": 0.4578620312501475
+        },
+        "medianWidth80Kcal": 423.83418531070566,
+        "gateShare": 1,
+        "vsA": null
+      },
+      "C-exact": {
+        "n": 210,
+        "medianAbsErrorKcal": 112.20766676189996,
+        "meanBiasKcal": 92.69193519973699,
+        "coverage80": {
+          "value": 0.7238095238095238,
+          "low": 0.6597265840111558,
+          "high": 0.7798511221040249
+        },
+        "coverage95": {
+          "value": 0.9095238095238095,
+          "low": 0.8630203867444896,
+          "high": 0.9413132882747771
+        },
+        "medianWidth80Kcal": 398.36906137046435,
+        "gateShare": 1,
+        "vsA": {
+          "coverage80": {
+            "mean": 0.44285714285714284,
+            "low": 0.3681207320490335,
+            "high": 0.5175935536652522
+          },
+          "coverage95": {
+            "mean": 0.5190476190476191,
+            "low": 0.4513088080320006,
+            "high": 0.5867864300632376
+          },
+          "medianAbsErrorKcal": {
+            "mean": -271.76620304940604,
+            "low": -309.0103061367738,
+            "high": -234.50940122840785
+          },
+          "widthRatio": 0.9399172487193942
+        }
+      },
+      "D centre -10 % (décalage +10, cas prompt 1)": {
+        "n": 210,
+        "medianAbsErrorKcal": 319.58159216722004,
+        "meanBiasKcal": 317.63172053600096,
+        "coverage80": {
+          "value": 0.3952380952380952,
+          "low": 0.3315643856534103,
+          "high": 0.4626758370160797
+        },
+        "coverage95": {
+          "value": 0.6619047619047619,
+          "low": 0.5955239679595139,
+          "high": 0.7224684151876379
+        },
+        "medianWidth80Kcal": 554.2670379086157,
+        "gateShare": 1,
+        "vsA": {
+          "coverage80": {
+            "mean": 0.11428571428571428,
+            "low": 0.048624654283320454,
+            "high": 0.17994677428810812
+          },
+          "coverage95": {
+            "mean": 0.2714285714285714,
+            "low": 0.2083015507983189,
+            "high": 0.3345555920588239
+          },
+          "medianAbsErrorKcal": {
+            "mean": -64.392277644086,
+            "low": -99.86576307096209,
+            "high": -30.85887834789861
+          },
+          "widthRatio": 1.3077450029244149
+        }
+      },
+      "D centre -20 % (bien spécifié)": {
+        "n": 210,
+        "medianAbsErrorKcal": 427.36185795029917,
+        "meanBiasKcal": 426.37278548107514,
+        "coverage80": {
+          "value": 0.23333333333333334,
+          "low": 0.18123248999948172,
+          "high": 0.29501534952285635
+        },
+        "coverage95": {
+          "value": 0.5047619047619047,
+          "low": 0.4376631156198832,
+          "high": 0.5716896015315036
+        },
+        "medianWidth80Kcal": 600.9483971053692,
+        "gateShare": 1,
+        "vsA": {
+          "coverage80": {
+            "mean": -0.047619047619047616,
+            "low": -0.10643602195437687,
+            "high": 0.011197926716281635
+          },
+          "coverage95": {
+            "mean": 0.11428571428571428,
+            "low": 0.05419285684698437,
+            "high": 0.1743785717244442
+          },
+          "medianAbsErrorKcal": {
+            "mean": 43.38798813899314,
+            "low": 6.490162384168457,
+            "high": 77.66752037978841
+          },
+          "widthRatio": 1.4178856211535276
+        }
+      }
+    }
+  },
+  "identifiability": [
+    {
+      "priorLabel": "centre -10 % (décalage +10, cas prompt 1)",
+      "medianKWidthRatio": 0.898547125663961,
+      "medianCorrelation": -0.6498492876164192,
+      "medianAbsKError": 0.09909316157514797,
+      "medianAbsKErrorPriorOnly": 0.1234680476389336,
+      "kCoverage80": {
+        "value": 0.6523809523809524,
+        "low": 0.5857566286462984,
+        "high": 0.7135303201980799
+      },
+      "meanEdge": {
+        "kLowerBin": 0.024670694266170627,
+        "kUpperBin": 0.0009381319318555147,
+        "kLower3": 0.08073237790167499,
+        "kUpper3": 0.0038187927762478187,
+        "offsetLow5": 0.00045261561528989663,
+        "offsetHigh5": 0.0007310982359124863
+      },
+      "shareEdgeOver5": {
+        "kLower": 0.09047619047619047,
+        "kUpper": 0,
+        "offsetLow5": 0,
+        "offsetHigh5": 0.004761904761904762
+      }
+    },
+    {
+      "priorLabel": "centre -20 % (bien spécifié)",
+      "medianKWidthRatio": 0.7779521316924308,
+      "medianCorrelation": -0.7081166712489021,
+      "medianAbsKError": 0.08664568568705466,
+      "medianAbsKErrorPriorOnly": 0.1039522500955502,
+      "kCoverage80": {
+        "value": 0.7571428571428571,
+        "low": 0.6948636318926094,
+        "high": 0.810183094282279
+      },
+      "meanEdge": {
+        "kLowerBin": 0.008106828998063219,
+        "kUpperBin": 0.004635750978967558,
+        "kLower3": 0.02813293864364543,
+        "kUpper3": 0.017272352687000926,
+        "offsetLow5": 0.0001328560662028054,
+        "offsetHigh5": 0.0008858351448315506
+      },
+      "shareEdgeOver5": {
+        "kLower": 0.014285714285714285,
+        "kUpper": 0,
+        "offsetLow5": 0,
+        "offsetHigh5": 0.004761904761904762
+      }
+    }
+  ],
+  "elapsedMs": 688847.1584000001,
+  "fitsPerUser": 42
+}

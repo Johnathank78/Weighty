@@ -50,6 +50,11 @@ export type MismatchSettings = {
    */
   plannedIntakeShiftKcal?: number;
   shiftDeclaredAs?: NonNullable<DailyLog['adherence']>;
+  /**
+   * Joint bias benchmark (prompt 27), identifiability axis only: multiplicative factor on the true intake of each day
+   * (intra-user intake variation). Absent: world and RNG stream unchanged. Declared adherence is not affected.
+   */
+  intakeFactors?: readonly number[];
 };
 
 export const START_DATE = '2026-02-02';
@@ -124,8 +129,9 @@ export function simulateMismatchUser(profile: UserProfile, s: MismatchSettings, 
       adherence = s.shiftDeclaredAs;
       reported = true;
     }
-    extras.push(shift + declaredExtra + hidden);
-    const intake = calorieTarget + shift + declaredExtra + hidden;
+    const factor = s.intakeFactors?.[d];
+    const intake = factor === undefined ? calorieTarget + shift + declaredExtra + hidden : (calorieTarget + shift + declaredExtra + hidden) * factor;
+    extras.push(factor === undefined ? shift + declaredExtra + hidden : intake - calorieTarget);
     trueIntake.push(intake);
     const ratio = intake / calorieTarget;
     const stepDeltaKcal =

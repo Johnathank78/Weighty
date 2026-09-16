@@ -167,7 +167,7 @@ export function armMetrics(users: readonly UserRows[], arm: ArmKey, truth: Truth
   };
 }
 
-function pairedIndicatorDelta(a: readonly boolean[], b: readonly boolean[]): PairedDelta {
+export function pairedIndicatorDelta(a: readonly boolean[], b: readonly boolean[]): PairedDelta {
   const d = a.map((x, i) => (b[i] ? 1 : 0) - (x ? 1 : 0));
   const mean = d.reduce((s, v) => s + v, 0) / d.length;
   const sd = Math.sqrt(d.reduce((s, v) => s + (v - mean) ** 2, 0) / Math.max(1, d.length - 1));
@@ -176,7 +176,7 @@ function pairedIndicatorDelta(a: readonly boolean[], b: readonly boolean[]): Pai
 }
 
 /** Paired bootstrap percentile interval of median(|err B|) - median(|err A|). Deterministic seed. */
-function pairedMedianDelta(absA: readonly number[], absB: readonly number[], seed: number): PairedDelta {
+export function pairedMedianDelta(absA: readonly number[], absB: readonly number[], seed: number): PairedDelta {
   const rng = createRng(seed);
   const n = absA.length;
   const deltas: number[] = [];
