@@ -19,6 +19,9 @@ import { addDays } from '@/science/dates';
 
 type DayChoice = 'today' | 'yesterday';
 
+/** Same macro colours as the Macros detail screen. */
+const MACRO_COLOR = { proteinG: 'var(--coral)', carbsG: 'var(--peach)', fatG: 'var(--sand)' } as const;
+
 const kcalText = (kcal: number) => `${formatInteger(Math.round(kcal))} kcal`;
 const gramsText = (g: number | null) => (g === null ? 'n.d.' : `${formatNumber(g, g >= 10 ? 0 : 1)} g`);
 
@@ -96,12 +99,15 @@ export function JournalScreen() {
             const g = intakeGauge(logged, target);
             return (
               <div key={key}>
-                <div style={{ font: '500 11.5px var(--font)', color: 'var(--ink2)', marginBottom: 3 }}>{JOURNAL_GAUGE_TEXT.macros[key]}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, font: '500 11.5px var(--font)', color: 'var(--ink2)', marginBottom: 3 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 3, background: MACRO_COLOR[key] }} aria-hidden="true" />
+                  {JOURNAL_GAUGE_TEXT.macros[key]}
+                </div>
                 <div className="tabular" style={{ font: '600 14px var(--font)', marginBottom: 7 }}>
                   {formatInteger(Math.round(logged))} <span style={{ font: '400 12px var(--font)', color: 'var(--ink2)' }}>/ {formatGrams(target)} g</span>
                 </div>
                 <div className="progress" role="progressbar" aria-label={`${JOURNAL_GAUGE_TEXT.macros[key]} saisis par rapport à la cible`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(g.fraction * 100)}>
-                  <div className="progress__bar" style={{ width: `${g.fraction * 100}%` }} />
+                  <div className="progress__bar" style={{ width: `${g.fraction * 100}%`, background: MACRO_COLOR[key] }} />
                 </div>
               </div>
             );
@@ -120,6 +126,9 @@ export function JournalScreen() {
         </div>
       ) : null}
 
+      <h2 className="section-label" style={{ marginTop: 0 }}>
+        {JOURNAL_TEXT.meals}
+      </h2>
       {summary.entries.length === 0 ? (
         <p className="small" style={{ margin: 0 }}>
           {JOURNAL_TEXT.empty}

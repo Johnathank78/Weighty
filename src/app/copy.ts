@@ -174,6 +174,7 @@ export const GATE_CRITERION_LABEL = {
 export const JOURNAL_TEXT = {
   title: 'Journal',
   eyebrow: 'Facultatif, pour information',
+  meals: 'Mes repas',
   logged: 'Saisi',
   planTarget: 'Cible du plan',
   empty: 'Aucun aliment pour ce jour. Le journal est facultatif : rien ne change dans ton plan.',
