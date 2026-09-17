@@ -202,6 +202,26 @@ export const JOURNAL_GAUGE_TEXT = {
   macros: { proteinG: 'Protéines', carbsG: 'Glucides', fatG: 'Lipides' },
 } as const;
 
+/** Portions (J-12): suggested by the product record, or a unit weight typed once and remembered. */
+export const PORTION_TEXT = {
+  serving: 'Portion indiquée',
+  package: 'Paquet entier',
+  unit: '1 unité',
+  sourceNote: 'Portions indiquées par Open Food Facts, à vérifier sur le paquet.',
+  unitQuestion: 'Poids d’une unité ?',
+  remember: 'Retenir',
+} as const;
+
+/** Masking entries on screen (J-11): display only, nothing is changed in the journal. */
+export const JOURNAL_MASK_TEXT = {
+  start: 'Masquer des aliments dans les jauges',
+  done: 'Terminer le masquage',
+  hint: 'Touche l’œil d’un aliment pour le masquer des jauges. Rien n’est modifié, tout réapparaît en quittant le journal.',
+  hide: (name: string) => `Masquer ${name}`,
+  show: (name: string) => `Afficher ${name}`,
+  maskedKcal: (kcal: string) => `${kcal} kcal masquées`,
+} as const;
+
 export const JOURNAL_TIME_TEXT = {
   justAte: 'Je viens de le manger',
   eatenAt: 'Mangé à',
@@ -214,6 +234,7 @@ export const FOOD_SEARCH_TEXT = {
   emptyQuery: 'Tape un aliment, même hors connexion.',
   emptyQueryOnline: 'Tape un aliment ou scanne un code-barres.',
   recents: 'Récents',
+  mine: 'Mes aliments',
   noLocalResult: 'Aucun aliment générique trouvé.',
   searchOnline: 'Chercher aussi les produits emballés',
   searchingOnline: 'Recherche des produits emballés...',
@@ -250,8 +271,8 @@ export const PRODUCT_SEARCH_TEXT = {
   consentOffline: 'Sans connexion, ou si tu la désactives, la table Ciqual et la saisie libre restent disponibles.',
   consentConfirm: 'Activer',
   consentCancel: 'Plus tard',
-  clearCache: 'Oublier les produits consultés',
-  cacheCleared: 'Produits consultés oubliés.',
+  clearCache: 'Vider « Mes aliments »',
+  cacheCleared: '« Mes aliments » vidé. Ton journal ne change pas.',
   disabledNote: 'La recherche de produits emballés est désactivée. Tu peux l’activer dans les préférences.',
   openSettings: 'Ouvrir les préférences',
 } as const;

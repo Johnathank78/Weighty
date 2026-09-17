@@ -1,13 +1,15 @@
 /**
  * Open Food Facts adapter (J-03): opt-in gate, request content, degradation (offline, timeout,
- * not found, incomplete record, rate limit) and the usage cache. No real network is used.
+ * not found, incomplete record, rate limit), serving weights and the lookup through "Mes aliments".
+ * No real network is used.
  */
 import { describe, expect, it, vi } from 'vitest';
 import { createOpenFoodFactsClient, normalizeBarcode, OFF_APP_ID, OFF_HOST, OFF_RATE_LIMITS, offProductToFood, parseOffProduct } from '@/adapters/openFoodFacts';
 import type { OffClientOptions } from '@/adapters/openFoodFacts';
-import { lookupWithCache } from '@/hooks/useOpenFoodFacts';
-import { getCachedProduct, putCachedProduct } from '@/persistence/productCache';
-import { MemoryStorage } from '@/persistence/storage';
+import { rememberProduct } from '@/domain/foodLibrary';
+import type { LibraryFood } from '@/domain/types';
+import { lookupWithLibrary } from '@/hooks/useOpenFoodFacts';
+import { emptyStore } from '@/persistence/schema';
 
 const NOW = '2026-09-16T08:00:00.000Z';
 const NUTELLA = { code: '3017624010701', product_name: 'Nutella', brands: 'Ferrero, Other', last_modified_t: 1785948506, nutriments: { 'energy-kcal_100g': 539, proteins_100g: 6.3, carbohydrates_100g: 57.5, fat_100g: 30.9 } };
@@ -26,8 +28,7 @@ describe('opt-in gate: nothing is sent while product search is off', () => {
     const off = createOpenFoodFactsClient({ isEnabled: () => false, isOnline: () => true, fetchImpl });
     expect(await off.lookupBarcode('3017624010701')).toEqual({ kind: 'disabled' });
     expect(await off.searchProducts('nutella')).toEqual({ kind: 'disabled' });
-    const storage = new MemoryStorage();
-    expect(await lookupWithCache(off, storage, '3017624010701', NOW, () => false)).toEqual({ kind: 'disabled' });
+    expect(await lookupWithLibrary(off, [], '3017624010701', NOW, () => false)).toEqual({ kind: 'disabled' });
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
@@ -127,7 +128,7 @@ describe('degradation', () => {
     expect(offProductToFood(r.product, NOW)).toBeNull();
 
     const partial = parseOffProduct({ code: '5000000000002', nutriments: { 'energy-kcal_100g': '120', fat_100g: -1 } });
-    expect(partial).toEqual({ barcode: '5000000000002', name: 'Produit 5000000000002', lastModified: 'unknown', per100g: { energyKcal: 120, proteinG: null, carbsG: null, fatG: null } });
+    expect(partial).toEqual({ barcode: '5000000000002', name: 'Produit 5000000000002', lastModified: 'unknown', per100g: { energyKcal: 120, proteinG: null, carbsG: null, fatG: null }, servingGrams: null, packageGrams: null });
     expect(parseOffProduct({ code: '5000000000003', nutriments: { 'energy-kcal_100g': 4000 } })?.per100g).toBeNull();
     expect(parseOffProduct('garbage')).toBeNull();
     expect(parseOffProduct({ product_name: 'no code' })).toBeNull();
@@ -164,32 +165,47 @@ describe('degradation', () => {
   });
 });
 
-describe('usage cache', () => {
-  it('stores found products, reuses a fresh copy without the network, falls back to a stale copy offline', async () => {
-    const storage = new MemoryStorage();
+describe('serving and package weights (J-12)', () => {
+  it('reads grams only, as suggestions', () => {
+    const skyr = parseOffProduct({ code: '3033490004743', product_name: 'Skyr', nutriments: { 'energy-kcal_100g': 47.9 }, serving_quantity: 140, serving_quantity_unit: 'g', product_quantity: '140', product_quantity_unit: 'g' });
+    expect(skyr).toMatchObject({ servingGrams: 140, packageGrams: 140 });
+    expect(offProductToFood(skyr as NonNullable<typeof skyr>, NOW)).toMatchObject({ servingGrams: 140, packageGrams: 140 });
+    const drink = parseOffProduct({ code: '5000000000004', nutriments: { 'energy-kcal_100g': 40 }, serving_quantity: 250, serving_quantity_unit: 'ml', product_quantity: 1000 });
+    expect(drink).toMatchObject({ servingGrams: null, packageGrams: 1000 });
+    expect(parseOffProduct({ code: '5000000000005', serving_quantity: 0, product_quantity: 90000 })).toMatchObject({ servingGrams: null, packageGrams: null });
+  });
+});
+
+describe('lookup through "Mes aliments" (J-09)', () => {
+  const stored = (savedAt: string): LibraryFood[] => {
+    const product = parseOffProduct(NUTELLA);
+    if (!product) throw new Error('parse');
+    return rememberProduct(emptyStore(), product, savedAt).foodJournal.library;
+  };
+
+  it('uses a fresh stored product without the network, refreshes a stale one, falls back to it offline', async () => {
     const fetchImpl = vi.fn(async () => jsonResponse(200, { status: 'success', product: NUTELLA }));
     let online = true;
     const off = client(fetchImpl, { isOnline: () => online });
-    const first = await lookupWithCache(off, storage, '3017624010701', NOW, () => true);
-    expect(first.kind).toBe('found');
-    expect(getCachedProduct(storage, '3017624010701')?.fetchedAt).toBe(NOW);
+    expect(await lookupWithLibrary(off, [], '3017624010701', NOW, () => false)).toEqual({ kind: 'disabled' });
 
-    const again = await lookupWithCache(off, storage, '3017624010701', '2026-09-18T08:00:00.000Z', () => true);
-    expect(again).toMatchObject({ kind: 'found', fromCache: NOW });
+    const fresh = await lookupWithLibrary(off, stored(NOW), '3017624010701', '2026-09-18T08:00:00.000Z', () => true);
+    expect(fresh).toMatchObject({ kind: 'found', fromLibrary: NOW });
+    expect(fetchImpl).not.toHaveBeenCalled();
+
+    const stale = await lookupWithLibrary(off, stored(NOW), '3017624010701', '2026-12-01T08:00:00.000Z', () => true);
+    expect(stale.kind).toBe('found');
+    expect(stale).not.toHaveProperty('fromLibrary');
     expect(fetchImpl).toHaveBeenCalledTimes(1);
 
     online = false;
-    const stale = await lookupWithCache(off, storage, '3017624010701', '2026-12-01T08:00:00.000Z', () => true);
-    expect(stale).toMatchObject({ kind: 'found', fromCache: NOW });
+    expect(await lookupWithLibrary(off, stored(NOW), '3017624010701', '2026-12-01T08:00:00.000Z', () => true)).toMatchObject({ kind: 'found', fromLibrary: NOW });
+    expect(await lookupWithLibrary(off, stored(NOW), '5000000000001', NOW, () => true)).toEqual({ kind: 'offline' });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-    expect(await lookupWithCache(off, storage, '5000000000001', NOW, () => true)).toEqual({ kind: 'offline' });
   });
 
-  it('a not found answer is not cached', async () => {
-    const storage = new MemoryStorage();
-    putCachedProduct(storage, { barcode: '1', name: 'x', lastModified: '1', per100g: null }, NOW);
+  it('a not found answer is passed through', async () => {
     const off = client(async () => jsonResponse(404, { status: 'failure', result: { id: 'product_not_found' } }));
-    expect(await lookupWithCache(off, storage, '5000000000001', NOW, () => true)).toEqual({ kind: 'not_found' });
-    expect(getCachedProduct(storage, '5000000000001')).toBeNull();
+    expect(await lookupWithLibrary(off, stored(NOW), '5000000000001', NOW, () => true)).toEqual({ kind: 'not_found' });
   });
 });

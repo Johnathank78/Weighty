@@ -1,11 +1,13 @@
 /**
- * Camera barcode reading (IMPLEMENTATION_NOTES J-05): native BarcodeDetector only. No WASM detection
- * fallback and no OCR are bundled (measured cost, see J-05); where the native API is missing, the
- * keyboard entry of the code stays available. The camera is requested when the user opens the scanner,
- * never before, and released as soon as a code is read or the panel closes.
+ * Camera barcode reading (IMPLEMENTATION_NOTES J-05, J-10): the native BarcodeDetector when the platform has
+ * one, otherwise the lightweight bundled reader (src/vision/eanDecoder, a few kB) on canvas frames. No WASM
+ * detector and no OCR engine are bundled. The keyboard entry of the code stays available in every case. The
+ * camera is requested when the user opens the scanner, never before, and released as soon as a code is read
+ * or the panel closes.
  */
 import { useEffect, useRef, useState } from 'react';
 import { normalizeBarcode } from '@/adapters/openFoodFacts';
+import { decodeFrame } from '@/vision/eanDecoder';
 
 type DetectedBarcode = { rawValue: string; format?: string };
 type DetectorInstance = { detect: (source: HTMLVideoElement) => Promise<DetectedBarcode[]> };
@@ -43,6 +45,34 @@ export function pickBarcode(results: readonly DetectedBarcode[]): string | null 
   return null;
 }
 
+type FrameReader = (video: HTMLVideoElement) => Promise<string | null>;
+
+function nativeReader(formats: string[]): FrameReader {
+  const Detector = (globalThis as ScannerEnvironment).BarcodeDetector as DetectorConstructor;
+  const detector = new Detector({ formats });
+  return async (video) => pickBarcode(await detector.detect(video));
+}
+
+/** Frames are scaled to this width before decoding: enough pixels per module at arm's length, 0.1 ms per frame. */
+const LIGHT_READER_WIDTH = 640;
+
+function lightReader(): FrameReader {
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  return async (video) => {
+    if (!context || video.videoWidth === 0) return null;
+    const scale = Math.min(1, LIGHT_READER_WIDTH / video.videoWidth);
+    const width = Math.round(video.videoWidth * scale);
+    const height = Math.round(video.videoHeight * scale);
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+    context.drawImage(video, 0, 0, width, height);
+    return normalizeBarcode(decodeFrame(context.getImageData(0, 0, width, height).data, width, height) ?? '');
+  };
+}
+
 export function useBarcodeScanner(active: boolean, onDetected: (barcode: string) => void) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [state, setState] = useState<ScannerState>('idle');
@@ -68,7 +98,8 @@ export function useBarcodeScanner(active: boolean, onDetected: (barcode: string)
       setState('starting');
       const formats = await nativeRetailFormats();
       if (cancelled) return;
-      if (formats.length === 0) {
+      // Without the native detector, the lightweight reader decodes the frames itself (J-10).
+      if (typeof navigator === 'undefined' || typeof navigator.mediaDevices?.getUserMedia !== 'function') {
         setState('unsupported');
         return;
       }
@@ -89,13 +120,12 @@ export function useBarcodeScanner(active: boolean, onDetected: (barcode: string)
       } catch {
         /* autoplay of a muted inline video may resolve late; detection still runs */
       }
-      const Detector = (globalThis as ScannerEnvironment).BarcodeDetector as DetectorConstructor;
-      const detector = new Detector({ formats });
+      const read = formats.length > 0 ? nativeReader(formats) : lightReader();
       setState('scanning');
       const tick = async () => {
         if (cancelled) return;
         try {
-          const code = video.readyState >= 2 ? pickBarcode(await detector.detect(video)) : null;
+          const code = video.readyState >= 2 ? await read(video) : null;
           if (code && !cancelled) {
             stop();
             onDetectedRef.current(code);

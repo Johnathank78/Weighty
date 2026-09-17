@@ -20,8 +20,9 @@ import type {
  * Version 3 (food journal, no model change): `foodJournal` and the product search opt-in
  * preference. See persistence/migrations.ts and IMPLEMENTATION_NOTES J-01.
  * Version 4 (UI journal pass): `FoodEntry.consumedTime`, time of consumption distinct from the save time (J-06).
+ * Version 5: `FoodJournal.library`, the user's food library "Mes aliments" (J-09).
  */
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export type ThemePreference = 'light' | 'dark' | 'system';
 export type UnitPreference = 'metric' | 'imperial';
@@ -92,12 +93,41 @@ export type PersonalPortion = {
   createdAt: string;
 };
 
+/**
+ * "Mes aliments" (schema 5, J-09): the user's own food library, filled automatically with the free entries
+ * they named and the Open Food Facts products they fetched. It is a reuse aid only: journal entries keep
+ * their own snapshot and never read the library back.
+ */
+export type LibraryFood = {
+  /** `off:<barcode>` or `manual:<normalised name>`. */
+  key: string;
+  source: 'off' | 'manual';
+  name: string;
+  brand?: string;
+  /** Barcode for a product, null for a free entry. */
+  sourceId: string | null;
+  /** Open Food Facts last_modified_t of the stored record, null for a free entry. */
+  sourceVersion: string | null;
+  /** Product values per 100 g (null when Open Food Facts gives no kcal, or for a free entry). */
+  per100g: FoodNutrients | null;
+  /** Free entry values as typed, for the grams given (null for a product). */
+  manual: { intake: FoodNutrients; grams: number | null } | null;
+  /** Serving and package weight announced by the product record, grams, when given. */
+  servingGrams: number | null;
+  packageGrams: number | null;
+  /** ISO timestamps: when the values were stored (fetched or typed), and last use. */
+  savedAt: string;
+  lastUsedAt: string;
+};
+
 export type FoodJournal = {
   journalVersion: 1;
   /** Local day of the first entry ever saved, null before any use. */
   startedOn: string | null;
   entries: FoodEntry[];
   portions: PersonalPortion[];
+  /** "Mes aliments" (schema 5). */
+  library: LibraryFood[];
 };
 
 export type CurrentPlan = {
@@ -201,7 +231,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
 };
 
 export function emptyFoodJournal(): FoodJournal {
-  return { journalVersion: 1, startedOn: null, entries: [], portions: [] };
+  return { journalVersion: 1, startedOn: null, entries: [], portions: [], library: [] };
 }
 
 export const DEFAULT_META: AppMeta = {

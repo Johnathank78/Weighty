@@ -11,7 +11,7 @@ import { addFoodEntry, addPortion, foodKey, journalDay, portionsFor, recentFoods
 import { exportStore, parseImport } from '@/persistence/exportImport';
 import { emptyStore } from '@/persistence/schema';
 import { loadStore, MemoryStorage, saveStore } from '@/persistence/storage';
-import { lookupWithCache } from '@/hooks/useOpenFoodFacts';
+import { lookupWithLibrary } from '@/hooks/useOpenFoodFacts';
 import { makeProfile } from '../helpers/profiles';
 
 const TODAY = '2026-09-16';
@@ -82,7 +82,7 @@ describe('offline food journal journey', () => {
 
     // 6. Product search is off: even an explicit lookup sends nothing.
     const off = createOpenFoodFactsClient({ isEnabled: () => store.preferences.productSearchEnabled });
-    expect(await lookupWithCache(off, storage, '3017624010701', NOW, () => store.preferences.productSearchEnabled)).toEqual({ kind: 'disabled' });
+    expect(await lookupWithLibrary(off, store.foodJournal.library, '3017624010701', NOW, () => store.preferences.productSearchEnabled)).toEqual({ kind: 'disabled' });
     expect(await off.searchProducts('riz')).toEqual({ kind: 'disabled' });
 
     expect(trapped).not.toHaveBeenCalled();

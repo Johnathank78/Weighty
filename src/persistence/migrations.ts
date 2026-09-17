@@ -65,6 +65,13 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
     }
     return out;
   },
+  // 4 -> 5 (no model change, J-09): empty "Mes aliments" library. Entries, portions and all other data untouched.
+  4: (input) => {
+    const out: Record<string, unknown> = { ...input, schemaVersion: 5 };
+    const journal = input.foodJournal;
+    if (isObject(journal) && journal.library === undefined) out.foodJournal = { ...journal, library: [] };
+    return out;
+  },
 };
 
 export type MigrationResult = { ok: true; value: Record<string, unknown>; fromVersion: number } | { ok: false; error: 'not_an_object' | 'future_schema_version' | 'missing_migration' };

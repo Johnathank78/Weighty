@@ -3,7 +3,7 @@
 Journal technique et scientifique de l'implémentation. Toute décision qui n'est pas écrite telle quelle dans `instruct/` est listée ici avec sa justification. Aucune déviation scientifique n'est silencieuse.
 
 - Modèle scientifique : `SCIENTIFIC_MODEL_VERSION = "1.3.0"` (`src/science/constants.ts`) : maintien apparent comme estimande (D-31), plancher calorique sexué (D-32), plancher d'incertitude structurelle de la calibration (D-33), recalibrations espacées d'au moins 7 jours (D-34), calibration hors du fil principal (P-01)
-- Schéma de stockage : `SCHEMA_VERSION = 4` (`src/domain/types.ts`), migrations 1 → 2, 2 → 3 (journal alimentaire, J-01) et 3 → 4 (heure de consommation, J-06) dans `src/persistence/migrations.ts`
+- Schéma de stockage : `SCHEMA_VERSION = 5` (`src/domain/types.ts`), migrations 1 → 2, 2 → 3 (journal alimentaire, J-01), 3 → 4 (heure de consommation, J-06) et 4 → 5 (« Mes aliments », J-09) dans `src/persistence/migrations.ts`
 
 Depuis la passe « science + onboarding + warm start » (modèle 1.1.0), les fichiers `instruct/` ont été mis à jour pour refléter les décisions finales ; ils ne contredisent plus ces notes (`instruct/05` s17 et `instruct/08` réalignés sur le modèle 1.2.0 en P3, D-30). La section 9 résume ce qui a changé par rapport au modèle 1.0.0, la section 10 par rapport au modèle 1.1.0, la section 11 par rapport au modèle 1.2.0 (passe bêta).
 
@@ -586,7 +586,7 @@ Ce contrat casse volontairement « aucune API au runtime » (02, 03 s4), de faç
   - la recherche plein texte n'est pas dans l'API v2 ; la doc renvoie à Search-a-licious, mais ses réponses **n'ont pas d'en-tête CORS** pour une origine navigateur (vérifié). La recherche utilise donc `/cgi/search.pl` ;
   - la convention `User-Agent: AppName/Version (contact)` ne peut pas être appliquée depuis un navigateur (en-tête interdit). La valeur part dans `X-User-Agent`, explicitement autorisé par les en-têtes CORS d'OFF (vérifié). Contact actuel : l'URL du dépôt ; **une adresse de contact produit reste à fournir**.
 - **Dégradation** : hors ligne (aucune requête), échec réseau/CORS → indisponible, timeout 8 s (requête annulée, jamais de spinner infini), 404 / `product_not_found`, 429 ou 503 → limite de débit avec délai, réponse illisible → indisponible. Fiche sans kcal pour 100 g : cas normal, produit affiché comme non ajoutable avec renvoi vers la saisie libre (pas de conversion depuis les kJ). Ciqual et la saisie libre restent intégralement disponibles.
-- **Cache d'usage** (`persistence/productCache.ts`, clé `wheighty:off-products`) : 100 produits consultés au plus, les plus récents d'abord, frais 7 jours, réutilisé périmé en cas d'échec réseau. Jamais exporté. Effaçable depuis les Préférences et par la suppression totale. Le service worker ne met aucune réponse tierce en cache (`runtimeCaching: []` inchangé).
+- **Cache d'usage** (remplacé par « Mes aliments », J-09) (`persistence/productCache.ts`, clé `wheighty:off-products`) : 100 produits consultés au plus, les plus récents d'abord, frais 7 jours, réutilisé périmé en cas d'échec réseau. Jamais exporté. Effaçable depuis les Préférences et par la suppression totale. Le service worker ne met aucune réponse tierce en cache (`runtimeCaching: []` inchangé).
 - **Attributions** visibles dans Préférences, section « Sources des données » (Ciqual, Etalab 2.0 ; OFF, ODbL/DbCL, images non utilisées).
 
 ### J-04 Journal : UX de la première passe
@@ -639,7 +639,55 @@ Vérification : sur Windows l'API native est absente ; les captures de l'aperçu
 
 - Révision du parcours d'entrée dans le journal (lien depuis Aujourd'hui).
 - Icône par famille d'aliment (céréales, liquides, plats cuisinés), quand une entrée de base stable existe (les groupes Ciqual en sont une piste).
-- Étape 2 de la chaîne code-barres (OCR) et repli WASM de détection pour iOS (J-05).
+- ~~Étape 2 de la chaîne code-barres (OCR) et repli WASM de détection pour iOS (J-05).~~ Traité par le lecteur léger (J-10), sans OCR ni WASM.
+
+### J-09 « Mes aliments » : base personnelle d'aliments (schéma 5)
+
+- `FoodJournal.library: LibraryFood[]`, dans le journal : exportée avec lui, effacée avec lui, retirée du store envoyé au moteur comme le reste du journal. Nom UI : « Mes aliments ».
+- **Enregistrement automatique** : chaque produit Open Food Facts récupéré (scan ou choix dans les résultats en ligne, y compris sans kcal) et chaque saisie libre **nommée** (une saisie sans nom n'a rien par quoi la retrouver). Clés : `off:<code-barres>`, `manual:<nom normalisé>` (sans casse ni accents) ; une nouvelle saisie du même nom remplace les valeurs.
+- Réutilisation : les aliments enregistrés apparaissent en tête de la recherche (hors ligne), marqués « Mes aliments ». Un produit repris garde ses valeurs et sa date d'enregistrement ; au scan, un produit de moins de 7 jours est servi sans réseau, un plus ancien est rafraîchi, et reste servi si Open Food Facts est injoignable.
+- **Remplace le cache d'usage** `persistence/productCache.ts` (J-03), supprimé : une seule source locale au lieu de deux. Ce cache n'a jamais été déployé (la passe 29 n'a pas été poussée), aucune clé orpheline à nettoyer.
+- Borne : 500 aliments ; au-delà, les moins récemment utilisés partent. Préférences : « Vider « Mes aliments » » (le journal ne change pas).
+- **Snapshot inchangé** : les entrées gardent leurs propres valeurs ; rafraîchir, retirer ou vider un aliment enregistré ne modifie aucun jour.
+- **Migration 4 → 5** : `library: []`, entrées et portions intactes. Testée sur store existant et fichier importé.
+
+### J-10 Lecteur code-barres léger, sans OCR (remplace l'étape 2 de J-05)
+
+Demande : « mini OCR si le lecteur code-barres ne marche pas ». **Choix : lire les barres, pas les chiffres.** Un OCR des chiffres imprimés sous le code exigerait un moteur de reconnaissance (≥ 5,8 Mo mesurés en J-05) ou des gabarits de police OCR-B, et resterait moins fiable. Lire les barres résout le même problème (pas de `BarcodeDetector` sur Safari iOS et Windows) en quelques ko, avec la clé de contrôle du code comme garde-fou.
+
+`src/vision/eanDecoder.ts` (fonctions pures, EAN-13, UPC-A via EAN-13, EAN-8) : 7 lignes horizontales puis 7 verticales, chacune moyennée sur une bande ; deux binarisations (brute, puis renforcement 3 points) ; bords sous-pixel sur seuil local, zones plates forcées en clair ; chiffres reconnus sur les distances bord à bord semblable (norme EAN, insensibles au flou et à l'engraissement), 1/7 et 2/8 départagés par la largeur des barres ; gardes, zones de silence, sens de lecture et clé de contrôle vérifiés ; **deux lignes de l'image doivent donner le même code**. `useBarcodeScanner` : détecteur natif s'il existe, sinon ce lecteur sur une image réduite à 640 px de large, toutes les 250 ms. Caméra toujours demandée à l'ouverture seulement.
+
+**Bench** (`tests/vision/eanDecoder.test.ts`, images 640 × 480 synthétiques, 60 codes par condition, dont 1 sur 5 en EAN-8) :
+
+| Condition | Lus | Erronés |
+|---|---|---|
+| net, 3,4 px/module | 60/60 | 0 |
+| courant, 3 px/module, flou 1 | 60/60 | 0 |
+| plus loin, 2,5 px/module, flou 1 | 60/60 | 0 |
+| à l'envers, 3 px/module, flou 1 | 60/60 | 0 |
+| bruité (±30), 3 px/module | 24/60 | 0 |
+| texture de capteur, modules 5 px | 60/60 | 0 |
+| texture de capteur, 3 px/module | 33/60 | 0 |
+| extrême : 2,2 px/module, flou 1 | 23/60 | 0 |
+| extrême : flou 2 | 0/60 | 0 |
+
+Temps par image : **médiane 0,11 ms, p95 0,56 ms** (Node, PC). Faux positifs : **0 sur 300 images sans code** (bruit et rayures). Les taux sont **par image** : à 4 images par seconde, un taux de 40 % lit en moins d'une seconde dans la grande majorité des cas.
+
+**Vérification en navigateur** (Edge, pipeline réel canvas → pixels → lecteur, 45 images 1280 × 720 réduites à 640 × 360 : 5 tailles, 3 flous, droit, incliné de 2,5°, à l'envers, dégradé d'éclairage, texture et bruit) : **42/45, 0 erroné, 0,28 ms par image**. Ce test a révélé un défaut que le bench synthétique masquait : le renforcement seul coupait les barres larges sur la texture de capteur (26/45) ; sans renforcement, les petits modules échouaient (21/45). D'où les deux binarisations, et une condition « texture » ajoutée au bench.
+
+**Non vérifié** : lecture sur de vrais téléphones (iOS Safari en priorité), angles au-delà de quelques degrés, codes courbés (bouteilles), reflets. À valider sur appareil.
+
+### J-11 Trame horaire et masquage à l'écran
+
+- **Trame** : les entrées de la même heure (HH) sont regroupées sous un seul point « 12 h » ; l'heure exacte de consommation reste sur chaque ligne (`hourGroups`).
+- **Masquage** (œil en haut à droite) : active un mode où chaque aliment a un œil ; un aliment masqué est grisé. Les jauges (kcal et macros) montrent en couleur la part des aliments visibles, puis en gris strié de blanc la part des aliments masqués (`maskedGaugeParts`, bornée à la barre). Les textes suivent les aliments visibles, avec « N kcal masquées ».
+- **Affichage seulement** : état React de l'écran, jamais écrit dans le store (test statique), remis à zéro en quittant le journal. L'œil du haut reste coloré tant qu'un aliment est masqué.
+
+### J-12 Poids d'une unité et portions
+
+- **Ciqual** : aucun poids d'unité ni de portion dans la table 2025 (feuilles « composition nutritionnelle » et « codes INFOODS » seulement, vérifié). Pour un aliment sans aucun poids connu, l'écran de quantité demande une fois « Poids d'une unité ? » ; la valeur devient une portion personnelle « 1 unité » liée à cet aliment et est reproposée ensuite.
+- **Open Food Facts** : `serving_quantity` et `product_quantity` (grammes seulement, 1 à 5 000 g ; `ml` non converti) deviennent les puces « Portion indiquée » et « Paquet entier », avec la mention « à vérifier sur le paquet » : données collaboratives de qualité variable (relevé : biscuits Prince, portion de 250 g annoncée pour un paquet de 300 g).
+- Ces poids voyagent avec l'aliment (`ResolvedFood.servingGrams` / `packageGrams`, stockés dans « Mes aliments ») ; l'entrée du journal ne garde que la portion choisie, comme avant.
 
 ---
 

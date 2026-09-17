@@ -19,6 +19,9 @@ export type ResolvedFood = {
   name: string;
   brand?: string;
   per100g: FoodNutrients;
+  /** Serving and package weight suggested by the source (Open Food Facts), grams. Ciqual has none. */
+  servingGrams?: number;
+  packageGrams?: number;
 };
 
 export type ManualFood = {
@@ -181,16 +184,45 @@ export function journalDay(store: WheightyStore, date: string): JournalDay {
   const entries = store.foodJournal.entries
     .filter((e) => e.date === date)
     .sort((a, b) => (a.consumedTime !== b.consumedTime ? (a.consumedTime < b.consumedTime ? -1 : 1) : a.loggedAt === b.loggedAt ? 0 : a.loggedAt < b.loggedAt ? -1 : 1));
-  const sum = (pick: (n: FoodNutrients) => number | null) => round2(entries.reduce((acc, e) => acc + (pick(e.intake) ?? 0), 0));
+  const totals = intakeTotals(entries);
   return {
     date,
     entries,
-    intakeLoggedKcal: sum((n) => n.energyKcal),
-    intakeLoggedProteinG: sum((n) => n.proteinG),
-    intakeLoggedCarbsG: sum((n) => n.carbsG),
-    intakeLoggedFatG: sum((n) => n.fatG),
+    intakeLoggedKcal: totals.energyKcal,
+    intakeLoggedProteinG: totals.proteinG,
+    intakeLoggedCarbsG: totals.carbsG,
+    intakeLoggedFatG: totals.fatG,
     macrosComplete: entries.every((e) => e.intake.proteinG !== null && e.intake.carbsG !== null && e.intake.fatG !== null),
   };
+}
+
+/** Sums of a set of entries (unknown macros count as 0). */
+export function intakeTotals(entries: readonly FoodEntry[]): { energyKcal: number; proteinG: number; carbsG: number; fatG: number } {
+  const sum = (pick: (n: FoodNutrients) => number | null) => round2(entries.reduce((acc, e) => acc + (pick(e.intake) ?? 0), 0));
+  return { energyKcal: sum((n) => n.energyKcal), proteinG: sum((n) => n.proteinG), carbsG: sum((n) => n.carbsG), fatG: sum((n) => n.fatG) };
+}
+
+/** Timeline checkpoints: consecutive entries of the same hour (HH) under one checkpoint, in day order. */
+export function hourGroups(entries: readonly FoodEntry[]): Array<{ hour: string; entries: FoodEntry[] }> {
+  const groups: Array<{ hour: string; entries: FoodEntry[] }> = [];
+  for (const e of entries) {
+    const hour = e.consumedTime.slice(0, 2);
+    const last = groups[groups.length - 1];
+    if (last && last.hour === hour) last.entries.push(e);
+    else groups.push({ hour, entries: [e] });
+  }
+  return groups;
+}
+
+/**
+ * Gauge split when some entries are masked on screen (J-11, display only): the coloured part is the visible
+ * entries, the striped part the masked ones, both as shares of the bar and never beyond it together.
+ */
+export function maskedGaugeParts(visibleLogged: number, totalLogged: number, target: number): { visible: number; masked: number } {
+  if (target <= 0) return { visible: 0, masked: 0 };
+  const visible = Math.max(0, Math.min(1, visibleLogged / target));
+  const all = Math.max(0, Math.min(1, totalLogged / target));
+  return { visible, masked: Math.max(0, all - visible) };
 }
 
 export type RecentFood = { key: string; lastEntry: FoodEntry } & ({ kind: 'resolved'; food: ResolvedFood } | { kind: 'manual'; food: ManualFood });

@@ -22,7 +22,7 @@ export const OFF_APP_ID = 'Wheighty/1.0.0 (https://github.com/Johnathank78/Weigh
 export const OFF_RATE_LIMITS = { product: 15, search: 10 } as const;
 export const OFF_TIMEOUT_MS = 8000;
 const WINDOW_MS = 60_000;
-const PRODUCT_FIELDS = 'code,product_name,product_name_fr,brands,nutriments,last_modified_t';
+const PRODUCT_FIELDS = 'code,product_name,product_name_fr,brands,nutriments,last_modified_t,serving_quantity,serving_quantity_unit,product_quantity,product_quantity_unit';
 
 export type OffProduct = {
   barcode: string;
@@ -32,6 +32,12 @@ export type OffProduct = {
   lastModified: string;
   /** Null when the energy in kcal per 100 g is missing or implausible: the product cannot be logged as is. */
   per100g: FoodNutrients | null;
+  /**
+   * Serving and package weight announced by the record, in grams. Collaborative data of uneven quality:
+   * offered as suggestions only. Null when absent, not in grams (ml is not converted) or implausible.
+   */
+  servingGrams: number | null;
+  packageGrams: number | null;
 };
 
 export type OffFailure =
@@ -77,6 +83,14 @@ const num = (v: unknown): number | null => {
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const text = (v: unknown): string => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : '');
 
+/** A weight in grams between 1 g and 5 kg; the unit must be grams (absent unit is read as grams, the API default). */
+function gramsField(quantity: unknown, unit: unknown): number | null {
+  const n = num(quantity);
+  const u = typeof unit === 'string' ? unit.trim().toLowerCase() : '';
+  if (n === null || (u !== '' && u !== 'g')) return null;
+  return n >= 1 && n <= 5000 ? Math.round(n * 10) / 10 : null;
+}
+
 /** Maps a raw product record. Missing fields are a normal case, not an error. */
 export function parseOffProduct(raw: unknown, fallbackBarcode = ''): OffProduct | null {
   if (!isRecord(raw)) return null;
@@ -98,6 +112,8 @@ export function parseOffProduct(raw: unknown, fallbackBarcode = ''): OffProduct 
     ...(brand ? { brand: brand.slice(0, 200) } : {}),
     lastModified: modified === null ? 'unknown' : String(Math.trunc(modified)),
     per100g,
+    servingGrams: gramsField(raw.serving_quantity, raw.serving_quantity_unit),
+    packageGrams: gramsField(raw.product_quantity, raw.product_quantity_unit),
   };
 }
 
@@ -112,6 +128,8 @@ export function offProductToFood(product: OffProduct, resolvedAt: string): Resol
     name: product.name,
     ...(product.brand ? { brand: product.brand } : {}),
     per100g: { ...product.per100g },
+    ...(product.servingGrams !== null ? { servingGrams: product.servingGrams } : {}),
+    ...(product.packageGrams !== null ? { packageGrams: product.packageGrams } : {}),
   };
 }
 

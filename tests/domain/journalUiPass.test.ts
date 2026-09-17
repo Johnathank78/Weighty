@@ -134,8 +134,10 @@ describe('neutral gauges (J-08)', () => {
 
   it('the same gauge is used for the three macros and for kcal, with the existing progress style only', () => {
     const src = readFileSync('src/screens/Journal.tsx', 'utf8');
-    expect(src.match(/intakeGauge\(/g)).toHaveLength(2);
-    expect(src.match(/className="progress"/g)).toHaveLength(2);
+    // One bar component, built on the app's progress bar, used for kcal and the three macros (J-08, J-11).
+    expect(src.match(/<JournalBar /g)).toHaveLength(2);
+    expect(src.match(/className="progress progress--split"/g)).toHaveLength(1);
+    expect(src).toMatch(/className="progress__bar"/);
     expect(src).not.toMatch(/--danger|danger|#[0-9a-f]{3,6}|échec|dépass|trop mangé|excès/i);
     const copy = readFileSync('src/app/copy.ts', 'utf8');
     const gaugeCopy = copy.slice(copy.indexOf('JOURNAL_GAUGE_TEXT'), copy.indexOf('JOURNAL_TIME_TEXT'));

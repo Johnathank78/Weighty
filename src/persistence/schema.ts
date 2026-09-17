@@ -5,7 +5,7 @@
 import { isIsoDate } from '@/science/dates';
 import { SCIENTIFIC_MODEL_VERSION } from '@/science/constants';
 import type { CalibrationSnapshot, DailyLog, HistoricalIntakeEvidence, StructuredActivity, UserProfile, WeightEntry } from '@/science/types';
-import type { AppMeta, CurrentPlan, FoodEntry, FoodJournal, FoodNutrients, PersonalPortion, Preferences, WheightyStore } from '@/domain/types';
+import type { AppMeta, CurrentPlan, FoodEntry, FoodJournal, FoodNutrients, LibraryFood, PersonalPortion, Preferences, WheightyStore } from '@/domain/types';
 import { DEFAULT_META, DEFAULT_PREFERENCES, emptyFoodJournal, SCHEMA_VERSION } from '@/domain/types';
 
 type Obj = Record<string, unknown>;
@@ -185,6 +185,23 @@ export function isFoodEntry(v: unknown): v is FoodEntry {
   return isStr(v.sourceId) && v.sourceId.length > 0 && isStr(v.sourceVersion) && isFoodNutrients(v.per100g, FOOD_KCAL_PER_100G_MAX, 100) && v.quantity !== null;
 }
 
+const isNullableGrams = (v: unknown): boolean => v === null || (isNum(v) && v > 0 && v <= FOOD_ENTRY_GRAMS_MAX);
+
+export function isLibraryFood(v: unknown): v is LibraryFood {
+  if (!isObject(v)) return false;
+  if (!(isStr(v.key) && v.key.length > 0 && isStr(v.name) && v.name.trim().length > 0 && v.name.length <= FOOD_NAME_MAX_LENGTH && isStr(v.savedAt) && isStr(v.lastUsedAt))) return false;
+  if (v.brand !== undefined && !(isStr(v.brand) && v.brand.length <= FOOD_NAME_MAX_LENGTH)) return false;
+  if (!(isNullableGrams(v.servingGrams) && isNullableGrams(v.packageGrams))) return false;
+  if (v.source === 'off') {
+    return v.key === `off:${String(v.sourceId)}` && isStr(v.sourceId) && isStr(v.sourceVersion) && v.manual === null && (v.per100g === null || isFoodNutrients(v.per100g, FOOD_KCAL_PER_100G_MAX, 100));
+  }
+  if (v.source === 'manual') {
+    const m = v.manual;
+    return v.key.startsWith('manual:') && v.sourceId === null && v.sourceVersion === null && v.per100g === null && isObject(m) && isFoodNutrients(m.intake, FOOD_ENTRY_KCAL_MAX, FOOD_ENTRY_GRAMS_MAX) && isNullableGrams(m.grams);
+  }
+  return false;
+}
+
 export function isPersonalPortion(v: unknown): v is PersonalPortion {
   return (
     isObject(v) &&
@@ -268,6 +285,7 @@ export function validateStore(v: unknown): StoreValidation | { error: string } {
       startedOn,
       entries: collectFrom<FoodEntry>(rawJournal, 'entries', 'foodJournal.entries', isFoodEntry),
       portions: collectFrom<PersonalPortion>(rawJournal, 'portions', 'foodJournal.portions', isPersonalPortion),
+      library: collectFrom<LibraryFood>(rawJournal, 'library', 'foodJournal.library', isLibraryFood),
     };
   } else if (rawJournal !== undefined) {
     dropped.push({ path: 'foodJournal', reason: 'invalid' });

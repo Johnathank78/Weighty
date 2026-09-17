@@ -25,8 +25,6 @@ type StoreContextValue = {
   calibration: CalibrationState | null;
   /** A calibration for the current store is being computed (off the main thread). */
   calibrationPending: boolean;
-  /** Local key-value storage, for side caches that are not part of the store (product cache, J-03). */
-  storage: KeyValueStorage | null;
 };
 
 /** Debounce of the calibration after a store change, so a burst of edits runs a single fit. */
@@ -118,7 +116,7 @@ export function StoreProvider({ children, storage: injected }: { children: React
   const calibrationPending = needsCalibration && calibration?.key !== calibrationKey;
 
   const value = useMemo<StoreContextValue>(
-    () => ({ store, today, nowIso, loadStatus: initial.status, saveError, commit, update, wipe, calibration: calibrationState, calibrationPending, storage: storageRef.current }),
+    () => ({ store, today, nowIso, loadStatus: initial.status, saveError, commit, update, wipe, calibration: calibrationState, calibrationPending }),
     [store, today, nowIso, initial.status, saveError, commit, update, wipe, calibrationState, calibrationPending],
   );
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

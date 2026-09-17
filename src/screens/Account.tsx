@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNav } from '@/app/navigation';
 import { useWheighty } from '@/store/StoreProvider';
 import { ACTIVITY_LABEL, BODY_FAT_METHOD_LABEL, DATA_SOURCES_TEXT, GOAL_LABEL, GOAL_SHORT, OCCUPATION_LABEL, PACE_LABEL, PLAN_ERROR_TEXT, PRODUCT_SEARCH_TEXT } from '@/app/copy';
-import { clearProductCache } from '@/persistence/productCache';
+import { clearLibrary } from '@/domain/foodLibrary';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Mascot } from '@/components/Mascot';
 import { NavRow, Range, Row, Segmented, Toggle } from '@/components/controls';
@@ -198,7 +198,7 @@ export function GoalSheet() {
 
 export function ParamsScreen() {
   const { back, showToast } = useNav();
-  const { store, update, storage } = useWheighty();
+  const { store, update } = useWheighty();
   const pwa = usePwa();
   const [consentOpen, setConsentOpen] = useState(false);
   const prefs = store.preferences;
@@ -265,7 +265,7 @@ export function ParamsScreen() {
         className="link"
         style={{ fontSize: 12.5 }}
         onClick={() => {
-          clearProductCache(storage);
+          update((s) => clearLibrary(s));
           showToast(PRODUCT_SEARCH_TEXT.cacheCleared);
         }}
       >

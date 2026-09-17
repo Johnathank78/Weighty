@@ -1,16 +1,16 @@
 /**
  * Food journal persistence (J-01, J-03): schema 2 -> 3 migration on a stored store and on an
  * exported file, validated import, rejection of invalid files, total local deletion including
- * the journal and the product cache.
+ * the journal and "Mes aliments" (schema 5, J-09).
  */
 import { describe, expect, it } from 'vitest';
 import type { OffProduct } from '@/adapters/openFoodFacts';
+import { rememberManualFood, rememberProduct } from '@/domain/foodLibrary';
 import { addFoodEntry, addPortion } from '@/domain/journal';
 import type { WheightyStore } from '@/domain/types';
 import { emptyFoodJournal, SCHEMA_VERSION } from '@/domain/types';
 import { exportStore, parseImport } from '@/persistence/exportImport';
 import { migrateToCurrent } from '@/persistence/migrations';
-import { clearProductCache, getCachedProduct, PRODUCT_CACHE_KEY, PRODUCT_CACHE_MAX, putCachedProduct, readProductCache } from '@/persistence/productCache';
 import { emptyStore } from '@/persistence/schema';
 import { deleteAllData, loadStore, MemoryStorage, saveStore, STORE_KEY } from '@/persistence/storage';
 
@@ -68,11 +68,11 @@ function storeWithJournal(): WheightyStore {
   return portion.store;
 }
 
-const product = (barcode: string, kcal: number | null): OffProduct => ({ barcode, name: `Produit ${barcode}`, lastModified: '1785948506', per100g: kcal === null ? null : { energyKcal: kcal, proteinG: 1, carbsG: 2, fatG: 3 } });
+const product = (barcode: string, kcal: number | null): OffProduct => ({ barcode, name: `Produit ${barcode}`, lastModified: '1785948506', per100g: kcal === null ? null : { energyKcal: kcal, proteinG: 1, carbsG: 2, fatG: 3 }, servingGrams: null, packageGrams: null });
 
 describe('schema 2 -> current migration (food journal)', () => {
-  it('schema version is 4 (3: journal, 4: time of consumption)', () => {
-    expect(SCHEMA_VERSION).toBe(4);
+  it('schema version is 5 (3: journal, 4: time of consumption, 5: Mes aliments)', () => {
+    expect(SCHEMA_VERSION).toBe(5);
   });
 
   it('migrates a stored schema 2 store: empty journal, opt-in off, everything else untouched', () => {
@@ -182,38 +182,62 @@ describe('journal persistence, export and import', () => {
   });
 });
 
-describe('product cache and total deletion', () => {
-  it('total local deletion removes the store, the journal and the product cache', () => {
+describe('"Mes aliments" persistence and total deletion', () => {
+  it('total local deletion removes the store, the journal and "Mes aliments"', () => {
     const storage = new MemoryStorage();
-    saveStore(storage, storeWithJournal());
-    putCachedProduct(storage, product('3017624010701', 539), NOW);
+    saveStore(storage, rememberProduct(storeWithJournal(), product('3017624010701', 539), NOW));
     storage.setItem('other-app', 'keep');
-    expect(storage.getItem(PRODUCT_CACHE_KEY)).not.toBeNull();
     deleteAllData(storage);
     expect(storage.getItem(STORE_KEY)).toBeNull();
-    expect(storage.getItem(PRODUCT_CACHE_KEY)).toBeNull();
     expect(loadStore(storage, NOW).store.foodJournal).toEqual(emptyFoodJournal());
     expect(storage.getItem('other-app')).toBe('keep');
   });
 
-  it('is a bounded, most recently used usage cache, never part of the export', () => {
+  it('round-trips stored products and free entries through storage and export, and rejects invalid ones', () => {
+    let s = rememberProduct(storeWithJournal(), product('3017624010701', 539), NOW);
+    s = rememberProduct(s, product('5000000000001', null), NOW);
+    s = rememberManualFood(s, { name: 'Soupe de ma mère', intake: { energyKcal: 180, proteinG: 6, carbsG: null, fatG: null }, grams: 300 }, NOW);
+    expect(s.foodJournal.library.map((f) => f.key)).toEqual(['manual:soupe de ma mere', 'off:5000000000001', 'off:3017624010701']);
     const storage = new MemoryStorage();
-    for (let i = 0; i < PRODUCT_CACHE_MAX + 20; i++) putCachedProduct(storage, product(String(10000000 + i), 100), NOW);
-    const cached = readProductCache(storage);
-    expect(cached).toHaveLength(PRODUCT_CACHE_MAX);
-    expect(cached[0]?.product.barcode).toBe(String(10000000 + PRODUCT_CACHE_MAX + 19));
-    putCachedProduct(storage, product('10000050', null), NOW);
-    expect(readProductCache(storage)[0]?.product).toEqual(product('10000050', null));
-    expect(exportStore(storeWithJournal(), NOW)).not.toContain('10000050');
-    clearProductCache(storage);
-    expect(getCachedProduct(storage, '10000050')).toBeNull();
+    expect(saveStore(storage, s)).toEqual({ ok: true });
+    expect(loadStore(storage, NOW).store.foodJournal.library).toEqual(s.foodJournal.library);
+    const imported = parseImport(exportStore(s, NOW));
+    expect(imported.ok && imported.store.foodJournal.library).toEqual(s.foodJournal.library);
+
+    const bad = JSON.parse(exportStore(s, NOW)) as { store: { foodJournal: { library: Array<Record<string, unknown>> } } };
+    (bad.store.foodJournal.library[1] as Record<string, unknown>).key = 'off:9999';
+    const rejected = parseImport(JSON.stringify(bad));
+    expect(rejected.ok).toBe(false);
+    if (!rejected.ok) expect(rejected.details).toEqual([{ path: 'foodJournal.library.1', reason: 'invalid' }]);
+  });
+});
+
+describe('schema 4 -> 5 migration ("Mes aliments")', () => {
+  function schema4Raw(): Record<string, unknown> {
+    const s = storeWithJournal() as unknown as Record<string, unknown>;
+    const { library: _library, ...journal } = s.foodJournal as Record<string, unknown>;
+    return { ...s, schemaVersion: 4, foodJournal: journal };
+  }
+
+  it('adds an empty library to a stored schema 4 store, entries and portions untouched', () => {
+    const raw = schema4Raw();
+    const storage = new MemoryStorage();
+    storage.setItem(STORE_KEY, JSON.stringify(raw));
+    const loaded = loadStore(storage, NOW);
+    expect(loaded.status).toBe('migrated');
+    expect(loaded.dropped).toEqual([]);
+    expect(loaded.store.schemaVersion).toBe(5);
+    expect(loaded.store.foodJournal.library).toEqual([]);
+    expect(loaded.store.foodJournal.entries).toEqual((raw.foodJournal as { entries: unknown[] }).entries);
+    expect(loaded.store.foodJournal.portions).toEqual((raw.foodJournal as { portions: unknown[] }).portions);
   });
 
-  it('treats an unreadable cache as empty', () => {
-    const storage = new MemoryStorage();
-    storage.setItem(PRODUCT_CACHE_KEY, '{broken');
-    expect(readProductCache(storage)).toEqual([]);
-    storage.setItem(PRODUCT_CACHE_KEY, JSON.stringify([{ product: { barcode: 1 }, fetchedAt: NOW }]));
-    expect(readProductCache(storage)).toEqual([]);
+  it('imports a schema 4 export file through the same migration', () => {
+    const imported = parseImport(JSON.stringify({ format: 'wheighty-export', formatVersion: 1, exportedAt: NOW, store: schema4Raw() }));
+    expect(imported.ok).toBe(true);
+    if (!imported.ok) return;
+    expect(imported.store.schemaVersion).toBe(5);
+    expect(imported.store.foodJournal.library).toEqual([]);
+    expect(imported.summary.foodEntries).toBe(2);
   });
 });
