@@ -699,6 +699,9 @@ function QuantityStep({ food, onBack, onSave, timingProps }: { food: ResolvedFoo
   const [countRaw, setCountRaw] = useState('1');
   const [error, setError] = useState<string | null>(null);
   const [newPortion, setNewPortion] = useState<{ label: string; grams: string; forAll: boolean } | null>(null);
+  // Each message sits next to the field it is about, rather than all of them far below the form.
+  const [portionError, setPortionError] = useState<string | null>(null);
+  const [unitError, setUnitError] = useState<string | null>(null);
   const [unitRaw, setUnitRaw] = useState('');
 
   const portion = portions.find((p) => p.id === portionId) ?? null;
@@ -717,38 +720,47 @@ function QuantityStep({ food, onBack, onSave, timingProps }: { food: ResolvedFoo
     if (!ok) setError('Cet aliment n’a pas pu être ajouté.');
   };
 
+  /**
+   * The creation form is opened and closed by its own chip, next to the portions it adds to, and can be
+   * left by the chip, by "Annuler" or by saving. Nothing traps the panel any more.
+   */
+  const togglePortionForm = () => {
+    setPortionError(null);
+    setNewPortion((open) => (open ? null : { label: '', grams: grams !== null && grams > 0 ? String(Math.round(grams)) : '', forAll: false }));
+  };
+
   const createPortion = () => {
     if (!newPortion) return;
     const g = parseDecimal(newPortion.grams);
     if (!newPortion.label.trim() || g === null || g <= 0) {
-      setError('Donne un nom et un poids à la portion.');
+      setPortionError('Donne un nom et un poids à la portion.');
       return;
     }
     const r = addPortion(store, { label: newPortion.label, grams: g, foodKey: newPortion.forAll ? null : key }, nowIso());
     if (!r.ok) {
-      setError('Cette portion n’a pas pu être enregistrée.');
+      setPortionError('Cette portion n’a pas pu être enregistrée.');
       return;
     }
     commit(r.store);
     setNewPortion(null);
-    setError(null);
+    setPortionError(null);
     setPortionId(r.id);
   };
 
   const rememberUnit = () => {
     const g = parseDecimal(unitRaw);
     if (g === null || g <= 0 || g > 5000) {
-      setError('Indique le poids d’une unité en grammes.');
+      setUnitError('Indique le poids d’une unité en grammes.');
       return;
     }
     const r = addPortion(store, { label: PORTION_TEXT.unit, grams: g, foodKey: key }, nowIso());
     if (!r.ok) {
-      setError('Ce poids n’a pas pu être enregistré.');
+      setUnitError('Ce poids n’a pas pu être enregistré.');
       return;
     }
     commit(r.store);
     setUnitRaw('');
-    setError(null);
+    setUnitError(null);
     setPortionId(r.id);
   };
 
@@ -761,16 +773,56 @@ function QuantityStep({ food, onBack, onSave, timingProps }: { food: ResolvedFoo
         Pour 100 g : {nutrientsLine(food.per100g)}
       </p>
 
-      {portions.length > 0 ? (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }} role="radiogroup" aria-label="Portion">
-          <button type="button" role="radio" aria-checked={portion === null} className="chip" onClick={() => setPortionId(null)}>
-            En grammes
-          </button>
-          {portions.map((p) => (
-            <button key={p.id} type="button" role="radio" aria-checked={portionId === p.id} className="chip" onClick={() => setPortionId(p.id)}>
-              {p.label} ({formatInteger(Math.round(p.grams))} g)
+      {/*
+        J-12, rework: the portions and the button that adds one live on the same row. That button is a
+        toggle (`aria-expanded`), so the form closes exactly where it opened.
+      */}
+      <div className="chips" style={{ marginBottom: 14 }}>
+        {portions.length > 0 ? (
+          <div role="radiogroup" aria-label="Portion" style={{ display: 'contents' }}>
+            <button type="button" role="radio" aria-checked={portion === null} className="chip" onClick={() => setPortionId(null)}>
+              En grammes
             </button>
-          ))}
+            {portions.map((p) => (
+              <button key={p.id} type="button" role="radio" aria-checked={portionId === p.id} className="chip" onClick={() => setPortionId(p.id)}>
+                {p.label} ({formatInteger(Math.round(p.grams))} g)
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <button type="button" className="chip chip--add" aria-expanded={newPortion !== null} aria-controls="portion-form" onClick={togglePortionForm}>
+          {newPortion ? PORTION_TEXT.createClose : PORTION_TEXT.createOpen}
+        </button>
+      </div>
+
+      {newPortion ? (
+        <div className="card portion-form" id="portion-form" style={{ padding: 16, margin: '0 0 14px' }}>
+          <label className="label" htmlFor="portion-label">
+            Nom de la portion
+          </label>
+          <div className="value-box value-box--text">
+            <input id="portion-label" value={newPortion.label} maxLength={40} placeholder="Mon bol, une tranche..." onChange={(e) => setNewPortion({ ...newPortion, label: e.target.value })} />
+          </div>
+          <div style={{ height: 10 }} />
+          <NumberField label="Poids d’une portion" value={newPortion.grams} onChange={(v) => setNewPortion({ ...newPortion, grams: v })} unit="g" placeholder="150" />
+          <button type="button" role="checkbox" aria-checked={newPortion.forAll} className="checkbox" style={{ paddingTop: 12 }} onClick={() => setNewPortion({ ...newPortion, forAll: !newPortion.forAll })}>
+            <span className="checkbox__box" aria-hidden="true">
+              {newPortion.forAll ? '✓' : ''}
+            </span>
+            <span>Utilisable pour tous les aliments</span>
+          </button>
+          {/* D4: reserved slot, the message never moves the two actions under it. */}
+          <p className="field-error field-error--slot" role="alert">
+            {portionError ?? ''}
+          </p>
+          <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+            <button type="button" className="btn btn--outline" onClick={createPortion}>
+              {PORTION_TEXT.createSave}
+            </button>
+            <button type="button" className="btn btn--ghost" onClick={togglePortionForm}>
+              {PORTION_TEXT.createCancel}
+            </button>
+          </div>
         </div>
       ) : null}
       {sourcePortions.length > 0 ? (
@@ -797,6 +849,11 @@ function QuantityStep({ food, onBack, onSave, timingProps }: { food: ResolvedFoo
           </button>
         </form>
       ) : null}
+      {!knowsUnit ? (
+        <p className="field-error field-error--slot" role="alert" style={{ margin: '-8px 0 10px' }}>
+          {unitError ?? ''}
+        </p>
+      ) : null}
 
       {portion ? <NumberField label={`Nombre de portions « ${portion.label} »`} value={countRaw} onChange={setCountRaw} unit="×" placeholder="1" /> : <NumberField label="Quantité" value={gramsRaw} onChange={setGramsRaw} unit="g" placeholder="100" />}
 
@@ -808,32 +865,6 @@ function QuantityStep({ food, onBack, onSave, timingProps }: { food: ResolvedFoo
       <p className="field-error field-error--slot" role="alert">
         {error ?? ''}
       </p>
-
-      {newPortion ? (
-        <div className="card" style={{ padding: 16, margin: '12px 0' }}>
-          <label className="label" htmlFor="portion-label">
-            Nom de la portion
-          </label>
-          <div className="value-box value-box--text">
-            <input id="portion-label" value={newPortion.label} maxLength={40} placeholder="Mon bol, une tranche..." onChange={(e) => setNewPortion({ ...newPortion, label: e.target.value })} />
-          </div>
-          <div style={{ height: 10 }} />
-          <NumberField label="Poids d’une portion" value={newPortion.grams} onChange={(v) => setNewPortion({ ...newPortion, grams: v })} unit="g" placeholder="150" />
-          <button type="button" role="checkbox" aria-checked={newPortion.forAll} className="checkbox" style={{ paddingTop: 12 }} onClick={() => setNewPortion({ ...newPortion, forAll: !newPortion.forAll })}>
-            <span className="checkbox__box" aria-hidden="true">
-              {newPortion.forAll ? '✓' : ''}
-            </span>
-            <span>Utilisable pour tous les aliments</span>
-          </button>
-          <button type="button" className="btn btn--outline" style={{ marginTop: 12 }} onClick={createPortion}>
-            Enregistrer la portion
-          </button>
-        </div>
-      ) : (
-        <button type="button" className="link" style={{ margin: '8px 0 4px' }} onClick={() => setNewPortion({ label: '', grams: grams !== null && grams > 0 ? String(Math.round(grams)) : '', forAll: false })}>
-          Créer une portion ›
-        </button>
-      )}
 
       <button type="button" className="btn btn--primary" style={{ marginTop: 14 }} onClick={save} disabled={!valid}>
         Ajouter au journal
@@ -861,19 +892,24 @@ function ManualTab({ prefill, onSave, timingProps }: { prefill: ManualFood | nul
   };
   const submit = () => {
     const energy = parseDecimal(kcal);
-    const p = optional(protein);
-    const c = optional(carbs);
-    const f = optional(fat);
+    // The three macros are required here: a free entry is the one place where nothing can be looked up,
+    // so leaving them out would silently turn the day's macro totals into floors (B3).
+    const macros = { proteinG: optional(protein), carbsG: optional(carbs), fatG: optional(fat) };
     const g = optional(grams);
     if (energy === null || energy < 0 || energy > 20000) {
       setError('Indique les calories (kcal) de ce que tu as mangé.');
       return;
     }
-    if (p === 'invalid' || c === 'invalid' || f === 'invalid' || g === 'invalid' || g === 0) {
+    const missing = MACRO_KEYS.filter((k) => macros[k] === null);
+    if (missing.length > 0) {
+      setError(JOURNAL_TEXT.manualMacrosRequired(missing.map((k) => JOURNAL_GAUGE_TEXT.macrosLower[k])));
+      return;
+    }
+    if (macros.proteinG === 'invalid' || macros.carbsG === 'invalid' || macros.fatG === 'invalid' || g === 'invalid' || g === 0) {
       setError('Une des valeurs n’est pas un nombre valide.');
       return;
     }
-    if (!onSave({ name, intake: { energyKcal: energy, proteinG: p, carbsG: c, fatG: f }, grams: g })) setError('Cette saisie n’a pas pu être ajoutée.');
+    if (!onSave({ name, intake: { energyKcal: energy, proteinG: macros.proteinG, carbsG: macros.carbsG, fatG: macros.fatG }, grams: g })) setError('Cette saisie n’a pas pu être ajoutée.');
   };
 
   return (
@@ -887,10 +923,13 @@ function ManualTab({ prefill, onSave, timingProps }: { prefill: ManualFood | nul
       <div style={{ height: 12 }} />
       <NumberField label="Calories" value={kcal} onChange={setKcal} unit="kcal" inputMode="decimal" placeholder="450" />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 12 }}>
-        <NumberField label="Prot. (facult.)" value={protein} onChange={setProtein} unit="g" placeholder="20" />
-        <NumberField label="Gluc. (facult.)" value={carbs} onChange={setCarbs} unit="g" placeholder="50" />
-        <NumberField label="Lip. (facult.)" value={fat} onChange={setFat} unit="g" placeholder="15" />
+        <NumberField label="Protéines" value={protein} onChange={setProtein} unit="g" placeholder="20" />
+        <NumberField label="Glucides" value={carbs} onChange={setCarbs} unit="g" placeholder="50" />
+        <NumberField label="Lipides" value={fat} onChange={setFat} unit="g" placeholder="15" />
       </div>
+      <p className="small" style={{ margin: '6px 0 0' }}>
+        {JOURNAL_TEXT.manualMacrosNote}
+      </p>
       <div style={{ height: 12 }} />
       <NumberField label="Poids (facultatif)" value={grams} onChange={setGrams} unit="g" placeholder="250" />
       <ConsumedTimeField {...timingProps} />

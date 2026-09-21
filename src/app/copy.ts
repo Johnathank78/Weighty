@@ -220,6 +220,12 @@ export const JOURNAL_TEXT = {
    * for an incomplete one.
    */
   partialMacros: (macros: readonly string[]) => `Certains aliments n’indiquent pas ${macros.join(' ni ')} : ${macros.length > 1 ? 'ces totaux sont des minimums' : 'ce total est un minimum'}.`,
+  /**
+   * Free entry: the three macros are required. Nothing can be looked up here, so an entry left incomplete
+   * would turn the whole day's macro totals into floors without the user being able to do anything about it.
+   */
+  manualMacrosNote: 'Les trois macros sont demandées, au besoin une estimation. Mets 0 si l’aliment n’en contient pas.',
+  manualMacrosRequired: (macros: readonly string[]) => `Indique ${macros.join(' et ')}. Mets 0 si l’aliment n’en contient pas.`,
   add: 'Ajouter un aliment',
   added: 'Ajouté au journal.',
   removed: 'Aliment retiré.',
@@ -330,7 +336,6 @@ export const PRODUCT_SEARCH_TEXT = {
   clearConfirm: 'Vider',
   clearCancel: 'Annuler',
   clearCount: (n: number) => `${n} aliment${n > 1 ? 's' : ''} enregistré${n > 1 ? 's' : ''}`,
-  clearEmpty: 'Aucun aliment enregistré pour l’instant.',
   disabledNote: 'La recherche de produits emballés est désactivée. Tu peux l’activer dans les préférences.',
   openSettings: 'Ouvrir les préférences',
 } as const;

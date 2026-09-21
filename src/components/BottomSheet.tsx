@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { PointerEvent, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -19,12 +19,41 @@ type Props = {
 
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
 
+/** Pulled further than this, the sheet is dismissed; released before, it slides back into place. */
+const DISMISS_AFTER_PX = 110;
+/** Kept in step with the transition of `.sheet` in app.css; 0 when motion is reduced (no transition then). */
+const SLIDE_OUT_MS = 260;
+const slideOutMs = () => (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 0 : SLIDE_OUT_MS);
+
 export function BottomSheet({ open, onClose, title, lead, children, hideTitle, size = 'auto' }: Props) {
   const titleId = useId();
   const sheetRef = useRef<HTMLDivElement>(null);
-  const [dragY, setDragY] = useState(0);
+  /** `grabbed` follows the finger with no transition; released, the same transform animates back or out. */
+  const [drag, setDrag] = useState<{ y: number; grabbed: boolean }>({ y: 0, grabbed: false });
+  const [closing, setClosing] = useState(false);
   const dragStart = useRef<number | null>(null);
   const layerRef = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setClosing(false);
+      setDrag({ y: 0, grabbed: false });
+    }
+    return () => {
+      if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+    };
+  }, [open]);
+
+  /** Slides the sheet out, then closes it, so a dismissed panel never disappears on the spot. */
+  const closeWithSlide = useCallback(() => {
+    setClosing((already) => {
+      if (already) return already;
+      closeTimer.current = window.setTimeout(onClose, slideOutMs());
+      return true;
+    });
+    setDrag((d) => ({ ...d, grabbed: false }));
+  }, [onClose]);
 
   useEffect(() => {
     if (!open || size !== 'fixed') return;
@@ -67,7 +96,7 @@ export function BottomSheet({ open, onClose, title, lead, children, hideTitle, s
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
+        closeWithSlide();
       } else if (e.key === 'Tab' && sheetRef.current) {
         const nodes = Array.from(sheetRef.current.querySelectorAll<HTMLElement>(FOCUSABLE));
         if (nodes.length === 0) return;
@@ -89,32 +118,42 @@ export function BottomSheet({ open, onClose, title, lead, children, hideTitle, s
       root.style.overflow = previousOverflow;
       previouslyFocused?.focus?.({ preventScroll: true });
     };
-  }, [open, onClose]);
+  }, [open, closeWithSlide]);
 
   if (!open) return null;
 
-  const onHandleDown = (e: PointerEvent<HTMLButtonElement>) => {
+  const onHandleDown = (e: PointerEvent<HTMLElement>) => {
+    if (closing) return;
     dragStart.current = e.clientY;
+    setDrag({ y: 0, grabbed: true });
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {
       /* ignore */
     }
   };
-  const onHandleMove = (e: PointerEvent<HTMLButtonElement>) => {
+  const onHandleMove = (e: PointerEvent<HTMLElement>) => {
     if (dragStart.current === null) return;
-    setDragY(Math.max(0, e.clientY - dragStart.current));
+    const travelled = e.clientY - dragStart.current;
+    // Pulling up goes nowhere: the resistance says so instead of the sheet simply not moving.
+    setDrag({ y: travelled >= 0 ? travelled : travelled / 6, grabbed: true });
   };
   const onHandleUp = () => {
     if (dragStart.current === null) return;
     dragStart.current = null;
-    if (dragY > 110) onClose();
-    setDragY(0);
+    if (drag.y > DISMISS_AFTER_PX) closeWithSlide();
+    // Released short of the threshold: the transform animates back to place (no `grabbed`, so the
+    // stylesheet's transition applies again).
+    else setDrag({ y: 0, grabbed: false });
   };
+  const dragHandlers = { onPointerDown: onHandleDown, onPointerMove: onHandleMove, onPointerUp: onHandleUp, onPointerCancel: onHandleUp };
+  const offset = closing ? '100%' : `${Math.round(drag.y)}px`;
+  // The scrim thins out as the sheet is pulled away, and is gone by the time it leaves.
+  const scrimOpacity = closing ? 0 : drag.y > 0 ? Math.max(0, 1 - drag.y / (DISMISS_AFTER_PX * 3)) : 1;
 
   return createPortal(
-    <div className="sheet-layer" ref={layerRef}>
-      <button type="button" className="sheet-scrim" aria-label="Fermer" tabIndex={-1} onClick={onClose} />
+    <div className="sheet-layer" ref={layerRef} data-closing={closing}>
+      <button type="button" className="sheet-scrim" aria-label="Fermer" tabIndex={-1} style={{ opacity: scrimOpacity }} onClick={closeWithSlide} />
       <div
         ref={sheetRef}
         className={size === 'fixed' ? 'sheet sheet--fixed' : 'sheet'}
@@ -122,10 +161,11 @@ export function BottomSheet({ open, onClose, title, lead, children, hideTitle, s
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        style={dragY > 0 ? { transform: `translateY(${dragY}px)`, transition: 'none' } : undefined}
+        data-grabbed={drag.grabbed}
+        style={{ transform: `translateY(${offset})` }}
       >
-        <button type="button" className="sheet__handle" aria-label="Fermer la fenêtre" onPointerDown={onHandleDown} onPointerMove={onHandleMove} onPointerUp={onHandleUp} onPointerCancel={onHandleUp} onClick={() => dragY === 0 && onClose()} />
-        <h3 id={titleId} className={hideTitle ? 'sr-only' : 'sheet__title'}>
+        <button type="button" className="sheet__handle" aria-label="Fermer la fenêtre" {...dragHandlers} onClick={() => drag.y === 0 && closeWithSlide()} />
+        <h3 id={titleId} className={hideTitle ? 'sr-only' : 'sheet__title'} {...dragHandlers}>
           {title}
         </h3>
         {lead ? <p className="sheet__lead">{lead}</p> : null}

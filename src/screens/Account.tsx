@@ -403,17 +403,18 @@ export function DataScreen() {
         }}
       />
       <div className="divider" style={{ marginBottom: 22 }} />
-      <div className="row" style={{ alignItems: 'center', padding: '0 0 18px', border: 0 }}>
-        <span style={{ flex: 1 }}>
-          <span style={{ display: 'block', font: '600 14.5px var(--font)' }}>{PRODUCT_SEARCH_TEXT.clearCache}</span>
-          <span style={{ display: 'block', font: '400 12.5px var(--font)', color: 'var(--ink2)', marginTop: 2 }}>
-            {libraryCount > 0 ? PRODUCT_SEARCH_TEXT.clearCount(libraryCount) : PRODUCT_SEARCH_TEXT.clearEmpty}
+      {/* Nothing stored, nothing to empty: the row is not shown at all rather than shown inert. */}
+      {libraryCount > 0 ? (
+        <div className="row" style={{ alignItems: 'center', padding: '0 0 18px', border: 0 }}>
+          <span style={{ flex: 1 }}>
+            <span style={{ display: 'block', font: '600 14.5px var(--font)' }}>{PRODUCT_SEARCH_TEXT.clearCache}</span>
+            <span style={{ display: 'block', font: '400 12.5px var(--font)', color: 'var(--ink2)', marginTop: 2 }}>{PRODUCT_SEARCH_TEXT.clearCount(libraryCount)}</span>
           </span>
-        </span>
-        <button type="button" className="btn btn--outline btn--small" disabled={libraryCount === 0} onClick={() => setClearOpen(true)}>
-          {PRODUCT_SEARCH_TEXT.clearConfirm}
-        </button>
-      </div>
+          <button type="button" className="btn btn--outline btn--small" onClick={() => setClearOpen(true)}>
+            {PRODUCT_SEARCH_TEXT.clearConfirm}
+          </button>
+        </div>
+      ) : null}
       <button type="button" className="btn" style={{ background: 'transparent', color: 'var(--danger)', textAlign: 'left', fontSize: 15 }} onClick={() => go('delete')}>
         Supprimer toutes mes données
       </button>

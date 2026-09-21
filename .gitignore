@@ -15,3 +15,4 @@ Thumbs.db
 tools/hall-reference/__pycache__/
 .claude/
 .instruct/
+/reports

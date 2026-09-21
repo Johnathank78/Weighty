@@ -998,7 +998,12 @@ img {
   inset: 0;
   border: 0;
   background: var(--scrim);
-  animation: wScrim 0.25s ease both;
+  /*
+   * `backwards`, never `both`: a filled animation keeps its last keyframe applied and wins over the
+   * inline style, which is what kept the drag from moving anything on screen.
+   */
+  animation: wScrim 0.25s ease backwards;
+  transition: opacity 0.26s ease;
   cursor: default;
 }
 .sheet {
@@ -1014,8 +1019,21 @@ img {
   background: var(--surf);
   border-radius: 28px 28px 0 0;
   padding: 10px 24px calc(28px + var(--safe-bottom));
-  animation: wSheet 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+  /* See .sheet-scrim: `backwards` leaves the transform to the drag once the panel has opened. */
+  animation: wSheet 0.38s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  /* Released, the panel slides back into place or out of the screen; under the finger it follows it. */
+  transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
   box-shadow: 0 -10px 40px -20px rgba(0, 0, 0, 0.35);
+}
+.sheet[data-grabbed='true'] {
+  transition: none;
+}
+/* Grab zones of the pull down: they must not scroll or select text under the finger. */
+.sheet__handle,
+.sheet__title {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 .sheet__handle {
   display: block;
@@ -1525,7 +1543,7 @@ img {
   flex-direction: column;
   overflow: hidden;
   padding-bottom: calc(12px + var(--safe-bottom) + var(--kb-inset, 0px));
-  transition: height 0.18s ease, padding-bottom 0.18s ease;
+  transition: height 0.18s ease, padding-bottom 0.18s ease, transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .sheet--fixed .sheet__title {
   margin-bottom: 12px;
