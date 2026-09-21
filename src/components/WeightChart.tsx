@@ -1,93 +1,260 @@
-import { useId } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { chartScale, FUTURE_WIDTH_SHARE } from '@/domain/chartScale';
+import type { ChartScale, DayBand, DayPoint, Marker } from '@/domain/chartScale';
 
-export type ChartPoint = { day: number; kg: number };
-export type BandPoint = { day: number; lo: number; hi: number };
+export type ChartPoint = DayPoint;
+export type BandPoint = DayBand;
 
 type Props = {
-  width: number;
   height: number;
-  trend?: ChartPoint[];
-  raw?: ChartPoint[];
-  projection?: ChartPoint[];
-  band?: BandPoint[];
-  markers?: Array<{ day: number; kg: number; kind: 'start' | 'today' | 'target' }>;
-  /** Solid main line (projection chart) instead of dashed projection. */
-  projectionSolid?: boolean;
+  trend?: readonly DayPoint[];
+  raw?: readonly DayPoint[];
+  projection?: readonly DayPoint[];
+  band?: readonly DayBand[];
+  markers?: readonly Marker[];
+  /** Read out in place of the drawing. */
   label: string;
-  domainDays?: [number, number];
-  baselineKg?: number | undefined;
+  /** Longer text alternative: what the curve says, in words. */
+  summary?: string;
+  /** Labels under the chart. "today" is placed on the junction, the same one the drawing uses. */
+  axis?: { start: string; today: string; future?: string };
 };
 
-/** Lightweight SVG weight chart (no chart library). Data come from the engine; this only maps to pixels. */
-export function WeightChart({ width, height, trend = [], raw = [], projection = [], band = [], markers = [], projectionSolid = false, label, domainDays, baselineKg }: Props) {
-  const gradId = useId().replace(/:/g, '');
-  const allKg = [...trend.map((p) => p.kg), ...raw.map((p) => p.kg), ...projection.map((p) => p.kg), ...band.flatMap((b) => [b.lo, b.hi]), ...markers.map((m) => m.kg), ...(baselineKg !== undefined ? [baselineKg] : [])];
-  const allDays = [...trend, ...raw, ...projection].map((p) => p.day).concat(band.map((b) => b.day), markers.map((m) => m.day));
-  if (allKg.length === 0) return null;
-  const pad = 8;
-  let minKg = Math.min(...allKg);
-  let maxKg = Math.max(...allKg);
-  if (maxKg - minKg < 1) {
-    const mid = (maxKg + minKg) / 2;
-    minKg = mid - 0.5;
-    maxKg = mid + 0.5;
-  }
-  const spanKg = maxKg - minKg;
-  minKg -= spanKg * 0.08;
-  maxKg += spanKg * 0.08;
-  const d0 = domainDays?.[0] ?? Math.min(...allDays);
-  const d1 = domainDays?.[1] ?? Math.max(...allDays, d0 + 1);
-  const x = (day: number) => pad + ((day - d0) / (d1 - d0 || 1)) * (width - 2 * pad);
-  const y = (kg: number) => pad + ((maxKg - kg) / (maxKg - minKg)) * (height - 2 * pad);
-  const path = (pts: ChartPoint[]) => pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(p.day).toFixed(1)},${y(p.kg).toFixed(1)}`).join(' ');
-  const bandPath =
-    band.length > 1
-      ? `${band.map((b, i) => `${i === 0 ? 'M' : 'L'}${x(b.day).toFixed(1)},${y(b.hi).toFixed(1)}`).join(' ')} ${[...band]
-          .reverse()
-          .map((b) => `L${x(b.day).toFixed(1)},${y(b.lo).toFixed(1)}`)
-          .join(' ')} Z`
-      : '';
-  const areaUnderTrend = trend.length > 1 ? `${path(trend)} L${x(trend[trend.length - 1]!.day).toFixed(1)},${height} L${x(trend[0]!.day).toFixed(1)},${height} Z` : '';
+const REVEAL_MS = 900;
 
+/** Weight chart on a canvas (A3). The geometry comes from `chartScale`; this only paints it. */
+export function WeightChart({ height, trend = [], raw = [], projection = [], band = [], markers = [], label, summary, axis }: Props) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [width, setWidth] = useState(0);
+  const [theme, setTheme] = useState<string>(() => (typeof document === 'undefined' ? 'light' : (document.documentElement.dataset.theme ?? 'light')));
+  const [scale, setScale] = useState<ChartScale | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const measure = () => setWidth(canvas.clientWidth);
+    measure();
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    ro?.observe(canvas);
+    window.addEventListener('resize', measure);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, []);
+
+  // The drawing does not inherit CSS: colours are re-read whenever the theme changes.
+  useEffect(() => {
+    const root = document.documentElement;
+    const observer = new MutationObserver(() => setTheme(root.dataset.theme ?? 'light'));
+    observer.observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || width <= 0) return;
+    const geometry = chartScale({ width, height, trend, raw, projection, band, markers });
+    setScale(geometry);
+    const ctx = canvas.getContext('2d');
+    if (!ctx || !geometry) return;
+    const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    const css = getComputedStyle(canvas);
+    const colors = {
+      coral: css.getPropertyValue('--coral').trim() || '#ff8162',
+      peach: css.getPropertyValue('--peach').trim() || '#ffb28f',
+      ink2: css.getPropertyValue('--ink2').trim() || '#736d67',
+      line: css.getPropertyValue('--line-strong').trim() || 'rgba(32,32,30,.14)',
+    };
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    let raf = 0;
+    const t0 = performance.now();
+    const frame = () => {
+      const progress = reduced ? 1 : Math.min(1, (performance.now() - t0) / REVEAL_MS);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+      paint(ctx, geometry, colors, 1 - Math.pow(1 - progress, 3));
+      if (progress < 1) raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [width, height, theme, trend, raw, projection, band, markers]);
+
+  const todayRatio = scale?.todayRatio ?? 1 - FUTURE_WIDTH_SHARE;
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="chart" role="img" aria-label={label} style={{ height }}>
-      <defs>
-        <linearGradient id={`${gradId}a`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#FF8162" stopOpacity=".22" />
-          <stop offset="1" stopColor="#FF8162" stopOpacity="0" />
-        </linearGradient>
-        <linearGradient id={`${gradId}l`} x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#FFB28F" />
-          <stop offset="1" stopColor="#FF8162" />
-        </linearGradient>
-      </defs>
-      <line x1="0" y1={height - 1} x2={width} y2={height - 1} stroke="var(--line-strong)" strokeWidth="1" />
-      {baselineKg !== undefined ? <line x1="0" y1={y(baselineKg)} x2={width} y2={y(baselineKg)} stroke="var(--line-strong)" strokeWidth="1" strokeDasharray="3 5" /> : null}
-      {areaUnderTrend ? <path d={areaUnderTrend} fill={`url(#${gradId}a)`} /> : null}
-      {bandPath ? <path d={bandPath} fill="#FF8162" opacity=".12" /> : null}
-      {projection.length > 1 ? (
-        projectionSolid ? (
-          <path d={path(projection)} fill="none" stroke={`url(#${gradId}l)`} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" pathLength={1} strokeDasharray="1" style={{ ['--dash' as string]: 1, animation: 'wDash 1.2s ease both' }} />
-        ) : (
-          <path d={path(projection)} fill="none" stroke="#FF8162" strokeWidth="2" strokeDasharray="4 5" opacity=".6" strokeLinecap="round" />
-        )
+    <>
+      <canvas ref={canvasRef} className="chart" style={{ height }} role="img" aria-label={label}>
+        {summary ?? label}
+      </canvas>
+      {summary ? <p className="sr-only">{summary}</p> : null}
+      {axis ? (
+        <div className="chart-axis" aria-hidden="true">
+          <span>{axis.start}</span>
+          {axis.future ? (
+            <>
+              <span className="chart-axis__today" style={{ left: `${(todayRatio * 100).toFixed(1)}%` }}>
+                {axis.today}
+              </span>
+              <span style={{ opacity: 0.6 }}>{axis.future}</span>
+            </>
+          ) : (
+            <span>{axis.today}</span>
+          )}
+        </div>
       ) : null}
-      {raw.map((p, i) => (
-        <circle key={`r${i}`} cx={x(p.day)} cy={y(p.kg)} r="2.4" fill="var(--ink2)" opacity=".35" />
-      ))}
-      {trend.length > 1 ? <path d={path(trend)} fill="none" stroke={`url(#${gradId}l)`} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" pathLength={1} strokeDasharray="1" style={{ ['--dash' as string]: 1, animation: 'wDash 1.2s ease both' }} /> : null}
-      {markers.map((m, i) =>
-        m.kind === 'target' ? (
-          <circle key={`m${i}`} cx={x(m.day)} cy={y(m.kg)} r="5" fill="none" stroke="#FF8162" strokeWidth="2.4" />
-        ) : m.kind === 'today' ? (
-          <g key={`m${i}`}>
-            <circle cx={x(m.day)} cy={y(m.kg)} r="9" fill="#FF8162" opacity=".18" />
-            <circle cx={x(m.day)} cy={y(m.kg)} r="5" fill="#FF8162" />
-          </g>
-        ) : (
-          <circle key={`m${i}`} cx={x(m.day)} cy={y(m.kg)} r="5" fill="#FF8162" />
-        ),
-      )}
-    </svg>
+    </>
   );
+}
+
+type Colors = { coral: string; peach: string; ink2: string; line: string };
+
+/** One frame. `progress` reveals the trend then the projection, left to right. */
+function paint(ctx: CanvasRenderingContext2D, s: ChartScale, colors: Colors, progress: number): void {
+  const { width, height } = s;
+  const line = ctx.createLinearGradient(0, 0, width, 0);
+  line.addColorStop(0, colors.peach);
+  line.addColorStop(1, colors.coral);
+
+  ctx.strokeStyle = colors.line;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, height - 0.5);
+  ctx.lineTo(width, height - 0.5);
+  ctx.stroke();
+
+  // Junction between the days behind and the days ahead: they do not share the same days per pixel.
+  if (s.projection.length > 1) {
+    ctx.save();
+    ctx.setLineDash([2, 4]);
+    ctx.beginPath();
+    ctx.moveTo(s.todayX, 2);
+    ctx.lineTo(s.todayX, height - 1);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  if (s.band.top.length > 1) {
+    ctx.save();
+    ctx.globalAlpha = 0.12;
+    ctx.fillStyle = colors.coral;
+    ctx.beginPath();
+    trace(ctx, s.band.top, 1);
+    for (let i = s.band.bottom.length - 1; i >= 0; i--) {
+      const p = s.band.bottom[i] as { x: number; y: number };
+      ctx.lineTo(p.x, p.y);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  if (s.trend.length > 1) {
+    const area = ctx.createLinearGradient(0, 0, 0, height);
+    area.addColorStop(0, withAlpha(colors.coral, 0.22));
+    area.addColorStop(1, withAlpha(colors.coral, 0));
+    ctx.fillStyle = area;
+    ctx.beginPath();
+    trace(ctx, s.trend, 1);
+    const last = s.trend[s.trend.length - 1] as { x: number; y: number };
+    const first = s.trend[0] as { x: number; y: number };
+    ctx.lineTo(last.x, height);
+    ctx.lineTo(first.x, height);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  ctx.save();
+  ctx.globalAlpha = 0.35;
+  ctx.fillStyle = colors.ink2;
+  for (const p of s.raw) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  if (s.projection.length > 1) {
+    ctx.save();
+    ctx.strokeStyle = colors.coral;
+    ctx.globalAlpha = 0.6;
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.setLineDash([4, 5]);
+    ctx.beginPath();
+    trace(ctx, s.projection, progress);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  if (s.trend.length > 1) {
+    ctx.strokeStyle = line;
+    ctx.lineWidth = 3.2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    trace(ctx, s.trend, progress);
+    ctx.stroke();
+  }
+
+  for (const m of s.markers) {
+    if (m.kind === 'target') {
+      ctx.strokeStyle = colors.coral;
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, 5, 0, Math.PI * 2);
+      ctx.stroke();
+      continue;
+    }
+    if (m.kind === 'today') {
+      ctx.save();
+      ctx.globalAlpha = 0.18;
+      ctx.fillStyle = colors.coral;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, 9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.fillStyle = colors.coral;
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/** Polyline up to `progress` of its length, cutting the last segment where it falls. */
+function trace(ctx: CanvasRenderingContext2D, points: ReadonlyArray<{ x: number; y: number }>, progress: number): void {
+  if (points.length === 0) return;
+  const first = points[0] as { x: number; y: number };
+  ctx.moveTo(first.x, first.y);
+  const reach = Math.max(0, Math.min(1, progress)) * (points.length - 1);
+  for (let i = 1; i < points.length; i++) {
+    const p = points[i] as { x: number; y: number };
+    if (i <= reach) {
+      ctx.lineTo(p.x, p.y);
+      continue;
+    }
+    const prev = points[i - 1] as { x: number; y: number };
+    const t = reach - (i - 1);
+    if (t > 0) ctx.lineTo(prev.x + (p.x - prev.x) * t, prev.y + (p.y - prev.y) * t);
+    return;
+  }
+}
+
+/** Alpha variant of a token colour (hex or rgb/rgba as the theme defines them). */
+function withAlpha(color: string, alpha: number): string {
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color);
+  if (hex) {
+    const c = hex[1] as string;
+    const full = c.length === 3 ? [...c].map((d) => d + d).join('') : c;
+    const n = Number.parseInt(full, 16);
+    return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+  }
+  const rgb = /^rgba?\(([^)]+)\)$/i.exec(color);
+  if (rgb) {
+    const parts = (rgb[1] as string).split(',').map((p) => p.trim());
+    return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${alpha})`;
+  }
+  return color;
 }

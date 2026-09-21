@@ -8,7 +8,7 @@ import {
   INTENSITY_LABEL,
   LIMITING_RULE_TEXT,
   MAINTENANCE_SOURCE_TEXT,
-  OCCUPATION_LABEL,
+  occupationLabel,
   PAL_CATEGORY_TITLE,
   PROTEIN_RULE_TEXT,
   REE_METHOD_LABEL,
@@ -172,7 +172,7 @@ export function ResultExplanationDigest({ x, units }: { x: ResultExplanation; un
       <Block title="Activité prise en compte">
         <div className="why-tiles">
           <Tile label="Pas" value={`${formatInteger(x.activity.stepsPerDay)} / jour`} />
-          <Tile label="Travail" value={OCCUPATION_LABEL[x.activity.occupation]} />
+          <Tile label="Travail" value={occupationLabel(x.activity.occupation, x.sex)} />
           <Tile label="Catégorie" value={PAL_CATEGORY_TITLE[x.population.palCategory]} />
           {x.activity.activities.length === 0 ? <Tile wide label="Entraînement" value="Aucun entraînement structuré" /> : null}
           {x.activity.activities.map((a, i) => (

@@ -168,6 +168,20 @@ export function portionsFor(store: WheightyStore, key: string | null): PersonalP
   return [...own, ...store.foodJournal.portions.filter((p) => p.foodKey === null)];
 }
 
+export type MacroKey = 'proteinG' | 'carbsG' | 'fatG';
+/** One flag per macro (B3): an entry can give the protein without the fat, so the signal cannot be global. */
+export type MacrosMissing = Record<MacroKey, boolean>;
+
+export const MACRO_KEYS: readonly MacroKey[] = ['proteinG', 'carbsG', 'fatG'];
+
+/**
+ * True for a macro when at least one of these entries does not give it. Its sum is then a floor, not an
+ * exact total: nothing is invented for the missing values, they are simply not counted.
+ */
+export function missingMacros(entries: readonly FoodEntry[]): MacrosMissing {
+  return { proteinG: entries.some((e) => e.intake.proteinG === null), carbsG: entries.some((e) => e.intake.carbsG === null), fatG: entries.some((e) => e.intake.fatG === null) };
+}
+
 export type JournalDay = {
   date: string;
   entries: FoodEntry[];
@@ -176,6 +190,8 @@ export type JournalDay = {
   intakeLoggedProteinG: number;
   intakeLoggedCarbsG: number;
   intakeLoggedFatG: number;
+  /** Per macro, whether at least one entry of the day leaves it out (B3). */
+  macrosMissing: MacrosMissing;
   /** False when at least one entry has no value for a macronutrient (sums then cover the known values only). */
   macrosComplete: boolean;
 };
@@ -185,6 +201,7 @@ export function journalDay(store: WheightyStore, date: string): JournalDay {
     .filter((e) => e.date === date)
     .sort((a, b) => (a.consumedTime !== b.consumedTime ? (a.consumedTime < b.consumedTime ? -1 : 1) : a.loggedAt === b.loggedAt ? 0 : a.loggedAt < b.loggedAt ? -1 : 1));
   const totals = intakeTotals(entries);
+  const macrosMissing = missingMacros(entries);
   return {
     date,
     entries,
@@ -192,7 +209,8 @@ export function journalDay(store: WheightyStore, date: string): JournalDay {
     intakeLoggedProteinG: totals.proteinG,
     intakeLoggedCarbsG: totals.carbsG,
     intakeLoggedFatG: totals.fatG,
-    macrosComplete: entries.every((e) => e.intake.proteinG !== null && e.intake.carbsG !== null && e.intake.fatG !== null),
+    macrosMissing,
+    macrosComplete: !MACRO_KEYS.some((k) => macrosMissing[k]),
   };
 }
 

@@ -5,8 +5,8 @@
  * snapshot: updating or removing a library food never changes a logged day.
  */
 import type { FoodNutrients, LibraryFood, WheightyStore } from './types';
-import type { ManualFood, ResolvedFood } from './journal';
-import { MANUAL_DEFAULT_NAME } from './journal';
+import type { ManualFood, RecentFood, ResolvedFood } from './journal';
+import { MANUAL_DEFAULT_NAME, recentFoods } from './journal';
 import { normalizeForSearch } from './foodSearch';
 import { isLibraryFood } from '@/persistence/schema';
 
@@ -121,3 +121,32 @@ export function libraryFoodToManual(food: LibraryFood): ManualFood | null {
 }
 
 export const isFreshProduct = (food: LibraryFood, nowIso: string) => Date.parse(nowIso) - Date.parse(food.savedAt) < LIBRARY_PRODUCT_FRESH_MS;
+
+/**
+ * One list of everything already used (B5): the foods of the last journal entries and the products stored
+ * automatically when they were scanned or fetched, merged and deduplicated, most recently used first.
+ * Available offline. A food logged from the journal wins over its stored copy: it carries the values and
+ * the portion actually used.
+ */
+export type PreviousFood = { key: string; usedAt: string } & ({ kind: 'recent'; food: RecentFood } | { kind: 'stored'; food: LibraryFood });
+
+export function previousFoods(store: WheightyStore, limit = 12): PreviousFood[] {
+  const out: PreviousFood[] = [];
+  const seen = new Set<string>();
+  for (const r of recentFoods(store, limit)) {
+    // Journal keys already match the library ones for products (`off:<barcode>`); free entries are keyed
+    // by their name so the same dish typed twice with different values is one row.
+    const key = r.kind === 'manual' ? manualLibraryKey(r.food.name) : r.key;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ key, usedAt: r.lastEntry.loggedAt, kind: 'recent', food: r });
+  }
+  for (const f of store.foodJournal.library) {
+    if (seen.has(f.key)) continue;
+    // A stored product without values cannot be logged: it stays out of the list.
+    if (f.source === 'off' && f.per100g === null) continue;
+    seen.add(f.key);
+    out.push({ key: f.key, usedAt: f.lastUsedAt, kind: 'stored', food: f });
+  }
+  return out.sort((a, b) => (a.usedAt < b.usedAt ? 1 : a.usedAt > b.usedAt ? -1 : 0)).slice(0, limit);
+}

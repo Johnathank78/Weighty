@@ -111,6 +111,8 @@ export type ResultExplanation = {
     calorieDiffKcal: number;
     offset: null | { storedKcal: number; recomputedKcal: number; diffKcal: number; toleranceKcal: number; matches: boolean };
   };
+  /** Physiological sex of the profile, for the copy that has to agree with it (lot F). Never a calculation input here. */
+  sex: UserProfile['sexForEquation'];
   ree: {
     kcal: number;
     method: ReeMethod;
@@ -385,6 +387,7 @@ function build(
     gate: gateProgressFromGate(options.gate),
     signals,
     integrity,
+    sex: profile.sexForEquation,
     ree: { kcal: a.ree.reeKcalDay, method: a.ree.method, reason: reeReason(a), measuredRmr: a.ree.measuredRmrStatus.kind, athleteLike: a.ree.athleteLike, disagreementFlag: a.ree.reeModelDisagreement },
     activity: {
       stepsPerDay: profile.averageSteps7d,

@@ -1,5 +1,19 @@
 /** French UI copy and label maps. Never use the em dash character in this file. */
-import type { ActivityIntensity, BodyFatMethod, ConfidenceLevel, Goal, OccupationActivity, ReeMethod, SpeedZone, StructuredActivityType, TrackingQuality, WalkingPace } from '@/science/types';
+import type { ActivityIntensity, BodyFatMethod, ConfidenceLevel, Goal, OccupationActivity, ReeMethod, SexForEquation, SpeedZone, StructuredActivityType, TrackingQuality, WalkingPace } from '@/science/types';
+
+/**
+ * Lot F, gender agreement. Everything the app says about the user is written epicene wherever that reads
+ * naturally; what cannot be, agrees with the physiological sex of the profile through `agree`.
+ *
+ * `null` is the onboarding before the sex screen, and any state where the profile has no sex yet: there is
+ * no agreed form to choose then, so only epicene copy may be shown, never a masculine default dressed up as
+ * neutral. No inclusive dots and no full i18n layer: one function is enough for the handful of strings left.
+ */
+export type SexForCopy = SexForEquation | null;
+
+export function agree(sex: SexForCopy, masculine: string, feminine: string): string {
+  return sex === 'female' ? feminine : masculine;
+}
 
 export const GOAL_LABEL: Record<Goal, string> = { loss: 'Perte de poids', maintenance: 'Maintien', gain: 'Prise de poids' };
 export const GOAL_SHORT: Record<Goal, string> = { loss: 'Perte', maintenance: 'Maintien', gain: 'Prise' };
@@ -7,7 +21,15 @@ export const GOAL_SHORT: Record<Goal, string> = { loss: 'Perte', maintenance: 'M
 export const SPEED_LABEL: Record<SpeedZone, string> = { gentle: 'Douce', moderate: 'Modérée', fast: 'Rapide' };
 export const CONFIDENCE_LABEL: Record<ConfidenceLevel, string> = { low: 'Faible', medium: 'Moyenne', good: 'Bonne', high: 'Élevée' };
 export const PACE_LABEL: Record<WalkingPace, string> = { slow: 'Lente', normal: 'Normale', brisk: 'Rapide' };
-export const OCCUPATION_LABEL: Record<OccupationActivity, string> = { seated: 'Assis', mixed: 'Mixte', standing: 'Debout', physical: 'Physique' };
+const OCCUPATION_LABEL: Record<OccupationActivity, string> = { seated: 'Assis', mixed: 'Mixte', standing: 'Debout', physical: 'Physique' };
+/**
+ * Answer to "Au travail, tu es surtout..." and "Emploi" row of the profile. Only "Assis" describes the user
+ * and has to agree; the three others are the same for everyone. The sex screen comes before this question,
+ * so the profile always has one by the time this label is shown (lot F).
+ */
+export function occupationLabel(occupation: OccupationActivity, sex: SexForCopy): string {
+  return occupation === 'seated' ? agree(sex, 'Assis', 'Assise') : OCCUPATION_LABEL[occupation];
+}
 export const INTENSITY_LABEL: Record<ActivityIntensity, string> = { light: 'Légère', moderate: 'Modérée', vigorous: 'Intense' };
 export const ACTIVITY_LABEL: Record<StructuredActivityType, string> = {
   strength: 'Musculation',
@@ -34,6 +56,11 @@ export const REE_METHOD_LABEL: Record<ReeMethod, string> = {
   ten_haaf_weight: 'équation de ten Haaf (sportifs)',
   mifflin_st_jeor: 'équation de Mifflin-St Jeor',
 };
+/**
+ * Not shown anywhere today. These forms describe the user, so wiring them to a screen as they are would
+ * break the agreement of lot F: route them through `agree` first (PAL_CATEGORY_TITLE, which agrees with
+ * the feminine noun "catégorie", is what the details screen actually displays).
+ */
 export const PAL_LABEL = { inactive: 'inactif', low_active: 'peu actif', active: 'actif', very_active: 'très actif' } as const;
 export const ADHERENCE_LABEL = { on_plan: 'Plan respecté', minor_deviation: 'Léger écart', major_deviation: 'Écart important' } as const;
 
@@ -61,6 +88,15 @@ export const TRACKING_QUALITY_LABEL: Record<TrackingQuality, string> = {
 };
 
 export const ONBOARDING_SECTION_LABEL = { profil: 'Profil', corps: 'Corps', activite: 'Activité', historique: 'Historique', objectif: 'Objectif' } as const;
+
+/**
+ * Scope of the app, asked on the age screen, before the sex screen (lot F): the wording has to hold for
+ * everyone. The situations are named as situations, so nothing has to agree with the reader.
+ */
+export const SCOPE_TEXT = {
+  label: 'Je ne suis dans aucune de ces situations : grossesse, allaitement, trouble alimentaire, condition médicale nécessitant un suivi nutritionnel spécifique.',
+  outOfScope: 'Wheighty n’est pas adapté à ces situations. Parles-en plutôt à un professionnel de santé.',
+} as const;
 
 export const WARM_START_TEXT = {
   used: 'Ton historique récent a été utilisé pour affiner cette première estimation.',
@@ -178,7 +214,12 @@ export const JOURNAL_TEXT = {
   logged: 'Saisi',
   planTarget: 'Cible du plan',
   empty: 'Aucun aliment pour ce jour. Le journal est facultatif : rien ne change dans ton plan.',
-  partialMacros: 'Certains aliments n’indiquent pas toutes les macros : les totaux couvrent les valeurs connues.',
+  /**
+   * B3: only the macros actually missing are named, and their gauge is announced as a floor. A food can give
+   * the protein without the fat, so one global sentence said too much for a complete macro and not enough
+   * for an incomplete one.
+   */
+  partialMacros: (macros: readonly string[]) => `Certains aliments n’indiquent pas ${macros.join(' ni ')} : ${macros.length > 1 ? 'ces totaux sont des minimums' : 'ce total est un minimum'}.`,
   add: 'Ajouter un aliment',
   added: 'Ajouté au journal.',
   removed: 'Aliment retiré.',
@@ -200,6 +241,9 @@ export const JOURNAL_GAUGE_TEXT = {
   // Beyond the target: same bar, same colour, factual wording only.
   beyond: (kcal: string) => `${kcal} kcal au-delà de la cible`,
   macros: { proteinG: 'Protéines', carbsG: 'Glucides', fatG: 'Lipides' },
+  /** B3: how an incomplete macro is named in the sentence under the gauges, and read out on its number. */
+  macrosLower: { proteinG: 'les protéines', carbsG: 'les glucides', fatG: 'les lipides' },
+  atLeast: 'au moins',
 } as const;
 
 /** Portions (J-12): suggested by the product record, or a unit weight typed once and remembered. */
@@ -222,6 +266,12 @@ export const JOURNAL_MASK_TEXT = {
   maskedKcal: (kcal: string) => `${kcal} kcal masquées`,
 } as const;
 
+/** Weigh-in note (C-01): journaling only, no effect on the trend, the calibration or the plan. */
+export const PERIOD_TEXT = {
+  label: 'J’ai mes règles',
+  hint: 'Noté avec la pesée. Aucun effet sur ta tendance ni sur ton plan.',
+} as const;
+
 export const JOURNAL_TIME_TEXT = {
   justAte: 'Je viens de le manger',
   eatenAt: 'Mangé à',
@@ -233,7 +283,8 @@ export const FOOD_SEARCH_TEXT = {
   placeholder: 'Pomme, riz cuit, yaourt...',
   emptyQuery: 'Tape un aliment, même hors connexion.',
   emptyQueryOnline: 'Tape un aliment ou scanne un code-barres.',
-  recents: 'Récents',
+  /** One list of everything already used: journal entries and stored products merged (B5). */
+  previous: 'Déjà utilisés',
   mine: 'Mes aliments',
   noLocalResult: 'Aucun aliment générique trouvé.',
   searchOnline: 'Chercher aussi les produits emballés',
@@ -273,6 +324,13 @@ export const PRODUCT_SEARCH_TEXT = {
   consentCancel: 'Plus tard',
   clearCache: 'Vider « Mes aliments »',
   cacheCleared: '« Mes aliments » vidé. Ton journal ne change pas.',
+  /** Confirmation before clearing (E1). Scope: the product library only, journals stay as they are. */
+  clearConfirmTitle: 'Vider « Mes aliments » ?',
+  clearConfirmLead: 'Les produits scannés et les aliments libres enregistrés pour être réutilisés seront supprimés de cet appareil. Tes journées déjà enregistrées ne changent pas : chaque aliment du journal garde ses propres valeurs.',
+  clearConfirm: 'Vider',
+  clearCancel: 'Annuler',
+  clearCount: (n: number) => `${n} aliment${n > 1 ? 's' : ''} enregistré${n > 1 ? 's' : ''}`,
+  clearEmpty: 'Aucun aliment enregistré pour l’instant.',
   disabledNote: 'La recherche de produits emballés est désactivée. Tu peux l’activer dans les préférences.',
   openSettings: 'Ouvrir les préférences',
 } as const;

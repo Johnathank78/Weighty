@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNav } from '@/app/navigation';
 import { useWheighty } from '@/store/StoreProvider';
-import { ACTIVITY_LABEL, BODY_FAT_METHOD_LABEL, INTENSITY_LABEL, OCCUPATION_LABEL, ONBOARDING_SECTION_LABEL, PACE_LABEL, TRACKING_QUALITY_LABEL, WARM_START_TEXT } from '@/app/copy';
+import { ACTIVITY_LABEL, BODY_FAT_METHOD_LABEL, INTENSITY_LABEL, occupationLabel, ONBOARDING_SECTION_LABEL, PACE_LABEL, SCOPE_TEXT, TRACKING_QUALITY_LABEL, WARM_START_TEXT } from '@/app/copy';
 import { BottomSheet } from '@/components/BottomSheet';
 import { NumberField, OptionRows, Range, Segmented, Toggle, parseDecimal } from '@/components/controls';
 import { SpeedSlider } from '@/components/SpeedSlider';
@@ -239,9 +239,9 @@ export function StepAge({ draft, patch, errors, scopeOk, setScopeOk, scopeError 
         <span className="checkbox__box" aria-hidden="true">
           {scopeOk ? '✓' : ''}
         </span>
-        <span>Je ne suis pas enceinte ni allaitante, et je n’ai pas de trouble alimentaire ou de condition médicale nécessitant un suivi nutritionnel spécifique.</span>
+        <span>{SCOPE_TEXT.label}</span>
       </button>
-      {scopeError && !scopeOk ? <FieldError text="Wheighty n’est pas adapté à ces situations. Parles-en plutôt à un professionnel de santé." /> : null}
+      {scopeError && !scopeOk ? <FieldError text={SCOPE_TEXT.outOfScope} /> : null}
     </>
   );
 }
@@ -390,11 +390,10 @@ function MeasuredRmrSheet({ open, onClose, value, onSave, defaultWeight }: { ope
         <span className="row__label">À jeun et au repos lors du test</span>
         <Toggle checked={conditions} onChange={setConditions} label="Conditions du test connues" />
       </div>
-      {error ? (
-        <p className="field-error" role="alert">
-          {error}
-        </p>
-      ) : null}
+      {/* D4: reserved slot, so a validation message never moves the buttons of the panel. */}
+      <p className="field-error field-error--slot" role="alert">
+        {error ?? ''}
+      </p>
       <button type="button" className="btn btn--primary" style={{ marginTop: 20 }} onClick={save}>
         Utiliser cette valeur
       </button>
@@ -417,7 +416,8 @@ export function StepOccupation({ draft, patch, errors }: StepProps) {
     <>
       <h2 className="h-flow">Au travail, tu es surtout…</h2>
       <p className="lead">La posture de la journée compte, ta marche est gérée à part.</p>
-      <Segmented label="Au travail, je suis surtout" options={(['seated', 'mixed', 'standing', 'physical'] as const).map((o) => ({ value: o, label: OCCUPATION_LABEL[o] }))} value={draft.occupation} onChange={(v) => patch({ occupation: v })} />
+      {/* Lot F: the sex screen comes before this one, so the answers agree with it. */}
+      <Segmented label="Au travail, je suis surtout" options={(['seated', 'mixed', 'standing', 'physical'] as const).map((o) => ({ value: o, label: occupationLabel(o, draft.sex) }))} value={draft.occupation} onChange={(v) => patch({ occupation: v })} />
       <FieldError text={errors.occupation} />
       {draft.occupation === 'physical' ? (
         <p className="small" style={{ margin: '10px 0 0' }}>

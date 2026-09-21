@@ -157,7 +157,7 @@ export function ResultScreen() {
         {warm.conflict ? <ResultNote>{WARM_START_TEXT.conflict}</ResultNote> : null}
         {goalPlan.rateAdjusted ? <ResultNote warn>Vitesse ajustée à {formatRatePercent(goalPlan.weeklyRateTarget)} par semaine pour respecter les limites de sécurité.</ResultNote> : null}
         {goalPlan.warnings.belowRee ? <ResultNote>Cet apport est inférieur à ton métabolisme au repos estimé. Ce n’est pas dangereux en soi, mais c’est un rythme exigeant.</ResultNote> : null}
-        {goalPlan.warnings.lowEnergyAvailability ? <ResultNote warn>Avec ton volume d’entraînement, l’énergie disponible serait basse. Préfère une vitesse plus douce et reste attentif à la fatigue.</ResultNote> : null}
+        {goalPlan.warnings.lowEnergyAvailability ? <ResultNote warn>Avec ton volume d’entraînement, l’énergie disponible serait basse. Préfère une vitesse plus douce et surveille ta fatigue.</ResultNote> : null}
         {goalPlan.warnings.gainWithoutResistance ? <ResultNote>Une prise de poids rapide sans entraînement de résistance favorise moins la prise de masse maigre.</ResultNote> : null}
 
         <button type="button" className="link" style={{ width: '100%', textAlign: 'center' }} onClick={() => openSheet('why', 'estimate')}>

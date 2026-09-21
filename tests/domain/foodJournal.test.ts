@@ -7,7 +7,8 @@ import { describe, expect, it } from 'vitest';
 import { offProductToFood, parseOffProduct } from '@/adapters/openFoodFacts';
 import { completeOnboarding, computeCalibrationState, addWeight, setAdherence } from '@/domain/engine';
 import { buildSearchIndex, loadCiqual, normalizeForSearch, resolveCiqualFood, searchIndex } from '@/domain/foodSearch';
-import { addFoodEntry, addPortion, deleteFoodEntry, deletePortion, journalDay, localTimeOf, MANUAL_DEFAULT_NAME, nutrientsForGrams, portionsFor, recentFoods, restoreFoodEntry } from '@/domain/journal';
+import { addFoodEntry, addPortion, deleteFoodEntry, deletePortion, journalDay, localTimeOf, MACRO_KEYS, MANUAL_DEFAULT_NAME, missingMacros, nutrientsForGrams, portionsFor, recentFoods, restoreFoodEntry } from '@/domain/journal';
+import { JOURNAL_GAUGE_TEXT, JOURNAL_TEXT } from '@/app/copy';
 import type { ResolvedFood } from '@/domain/journal';
 import type { WheightyStore } from '@/domain/types';
 import { emptyStore } from '@/persistence/schema';
@@ -132,6 +133,36 @@ describe('manual entries, portions and day totals', () => {
     expect(journalDay(removed, '2026-09-16').entries).toHaveLength(1);
     expect(journalDay(restoreFoodEntry(removed, entry), '2026-09-16')).toEqual(day);
     expect(journalDay(s, '2026-09-17')).toMatchObject({ entries: [], intakeLoggedKcal: 0, macrosComplete: true });
+  });
+
+  it('flags the missing macros one by one, never globally (B3)', () => {
+    // A free entry that gives the protein but neither the carbs nor the fat.
+    const partial = addFoodEntry(emptyStore(), { kind: 'manual', date: '2026-09-16', localTime: '12:00', food: { name: 'Repas', intake: { energyKcal: 650, proteinG: 30, carbsG: null, fatG: null }, grams: null } }, NOW);
+    if (!partial.ok) throw new Error('partial');
+    const s = add(partial.store, APPLE, '2026-09-16', 100);
+    const day = journalDay(s, '2026-09-16');
+    expect(day.macrosMissing).toEqual({ proteinG: false, carbsG: true, fatG: true });
+    expect(day.macrosComplete).toBe(false);
+    // The protein total is exact (both entries give it); the other two are floors.
+    expect(day.intakeLoggedProteinG).toBe(30.25);
+    expect(day.intakeLoggedCarbsG).toBe(11.6);
+    expect(MACRO_KEYS.filter((k) => day.macrosMissing[k]).map((k) => JOURNAL_GAUGE_TEXT.macrosLower[k])).toEqual(['les glucides', 'les lipides']);
+
+    // Complete entries only: nothing is flagged, and the sentence never appears.
+    const complete = journalDay(add(emptyStore(), APPLE, '2026-09-16', 100), '2026-09-16');
+    expect(complete.macrosMissing).toEqual({ proteinG: false, carbsG: false, fatG: false });
+    expect(complete.macrosComplete).toBe(true);
+    expect(missingMacros([])).toEqual({ proteinG: false, carbsG: false, fatG: false });
+  });
+
+  it('names only the incomplete macros and marks their total as a floor (B3)', () => {
+    expect(JOURNAL_TEXT.partialMacros(['les lipides'])).toBe('Certains aliments n’indiquent pas les lipides : ce total est un minimum.');
+    expect(JOURNAL_TEXT.partialMacros(['les glucides', 'les lipides'])).toBe('Certains aliments n’indiquent pas les glucides ni les lipides : ces totaux sont des minimums.');
+    // The screen reads the flags of the entries actually summed in the gauges (masking included).
+    const src = readFileSync('src/screens/Journal.tsx', 'utf8');
+    expect(src).toMatch(/const missing = missingMacros\(visibleEntries\)/);
+    expect(src).toMatch(/missing\[key\] \? \(/);
+    expect(src).toMatch(/JOURNAL_GAUGE_TEXT\.atLeast/);
   });
 
   it('nutrient scaling and local time format', () => {

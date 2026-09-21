@@ -6,14 +6,16 @@ import { BARCODE_TEXT, FOOD_SEARCH_TEXT, FOOD_SOURCE_LABEL, JOURNAL_GAUGE_TEXT, 
 import { BottomSheet } from '@/components/BottomSheet';
 import { NumberField, parseDecimal, Segmented } from '@/components/controls';
 import { formatDayMonth, formatGrams, formatInteger, formatKcal, formatNumber } from '@/domain/format';
-import { addFoodEntry, addPortion, consumptionDate, deleteFoodEntry, foodKey, hourGroups, intakeGauge, intakeTotals, journalDay, maskedGaugeParts, localTimeOf, nutrientsForGrams, portionsFor, recentFoods, restoreFoodEntry } from '@/domain/journal';
+import { addFoodEntry, addPortion, consumptionDate, deleteFoodEntry, foodKey, hourGroups, intakeGauge, intakeTotals, journalDay, MACRO_KEYS, maskedGaugeParts, missingMacros, localTimeOf, nutrientsForGrams, portionsFor, restoreFoodEntry } from '@/domain/journal';
 import type { ManualFood, NewEntryInput, RecentFood, ResolvedFood } from '@/domain/journal';
 import { buildSearchIndex, loadCiqual, resolveCiqualFood, searchIndex } from '@/domain/foodSearch';
-import { libraryFoodToManual, libraryFoodToResolved, productLibraryKey, rememberManualFood, rememberProduct, touchLibraryFood } from '@/domain/foodLibrary';
+import { libraryFoodToManual, libraryFoodToResolved, previousFoods, productLibraryKey, rememberManualFood, rememberProduct, touchLibraryFood } from '@/domain/foodLibrary';
 import type { CiqualFood, CiqualTable, SearchIndex } from '@/domain/foodSearch';
 import type { FoodEntry, FoodNutrients, LibraryFood } from '@/domain/types';
 import { offProductToFood } from '@/adapters/openFoodFacts';
 import type { OffFailure, OffProduct } from '@/adapters/openFoodFacts';
+import { isMasked, MASK_OFF, resetMask, toggleMasked, toggleMaskMode } from './journalMask';
+import type { MaskState } from './journalMask';
 import { useBarcodeScanner } from '@/hooks/useBarcodeScanner';
 import { useOpenFoodFacts } from '@/hooks/useOpenFoodFacts';
 import { addDays } from '@/science/dates';
@@ -38,8 +40,9 @@ export function JournalScreen() {
   const [day, setDay] = useState<DayChoice>('today');
   const [timing, setTiming] = useState<TimingSession>(() => ({ justAte: true, time: localTimeOf(new Date()) }));
   useEffect(() => setTiming({ justAte: true, time: localTimeOf(new Date()) }), [today]);
-  const [maskMode, setMaskMode] = useState(false);
-  const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set());
+  const [mask, setMask] = useState<MaskState>(MASK_OFF);
+  // Changing day leaves the masking mode: its ids belong to the day they were chosen on (A2).
+  useEffect(() => setMask(resetMask()), [day, today]);
   const plan = store.plan;
   if (!plan) return null;
   const date = day === 'today' ? today : addDays(today, -1);
@@ -49,17 +52,14 @@ export function JournalScreen() {
   const targetKcal = log?.calorieTargetForDay ?? plan.calorieTarget;
   const targetMacros = log?.macrosForDay ?? plan.macrosDisplay ?? plan.macros;
   // Masking is a view of the screen only: nothing is written, and it resets when the journal is left (J-11).
-  const visible = intakeTotals(summary.entries.filter((e) => !hidden.has(e.id)));
+  const visibleEntries = summary.entries.filter((e) => !isMasked(mask, e.id));
+  const visible = intakeTotals(visibleEntries);
+  // B3: the gauges sum the visible entries, so their completeness is read on that same set.
+  const missing = missingMacros(visibleEntries);
+  const incomplete = MACRO_KEYS.filter((k) => missing[k]);
   const maskedKcal = Math.max(0, summary.intakeLoggedKcal - visible.energyKcal);
   const kcal = intakeGauge(visible.energyKcal, targetKcal);
   const guidance = JOURNAL_TEXT.completenessGuidance;
-  const toggleHidden = (id: string) =>
-    setHidden((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
 
   const remove = (entry: FoodEntry) => {
     update((s) => deleteFoodEntry(s, entry.id));
@@ -78,13 +78,13 @@ export function JournalScreen() {
         <button
           type="button"
           className="icon-button"
-          aria-pressed={maskMode}
-          data-active={hidden.size > 0}
-          aria-label={maskMode ? JOURNAL_MASK_TEXT.done : JOURNAL_MASK_TEXT.start}
-          onClick={() => setMaskMode(!maskMode)}
-          disabled={summary.entries.length === 0 && hidden.size === 0}
+          aria-pressed={mask.active}
+          data-active={mask.active}
+          aria-label={mask.active ? JOURNAL_MASK_TEXT.done : JOURNAL_MASK_TEXT.start}
+          onClick={() => setMask(toggleMaskMode)}
+          disabled={summary.entries.length === 0 && !mask.active}
         >
-          <EyeIcon off={hidden.size > 0} />
+          <EyeIcon off={mask.ids.size > 0} />
         </button>
       </div>
       <p className="eyebrow" style={{ margin: '0 0 20px' }}>
@@ -128,6 +128,13 @@ export function JournalScreen() {
                   {JOURNAL_GAUGE_TEXT.macros[key]}
                 </div>
                 <div className="tabular" style={{ font: '600 14px var(--font)', marginBottom: 7 }}>
+                  {/* B3: a macro that some foods leave out is a floor, never an exact total. */}
+                  {missing[key] ? (
+                    <>
+                      <span aria-hidden="true">≥ </span>
+                      <span className="sr-only">{JOURNAL_GAUGE_TEXT.atLeast} </span>
+                    </>
+                  ) : null}
                   {formatInteger(Math.round(logged))} <span style={{ font: '400 12px var(--font)', color: 'var(--ink2)' }}>/ {formatGrams(target)} g</span>
                 </div>
                 <JournalBar label={`${JOURNAL_GAUGE_TEXT.macros[key]} saisis par rapport à la cible`} parts={maskedGaugeParts(logged, total, target)} color={MACRO_COLOR[key]} />
@@ -135,9 +142,9 @@ export function JournalScreen() {
             );
           })}
         </div>
-        {!summary.macrosComplete ? (
+        {incomplete.length > 0 ? (
           <p className="small" style={{ margin: '14px 0 0' }}>
-            {JOURNAL_TEXT.partialMacros}
+            {JOURNAL_TEXT.partialMacros(incomplete.map((k) => JOURNAL_GAUGE_TEXT.macrosLower[k]))}
           </p>
         ) : null}
       </section>
@@ -157,7 +164,7 @@ export function JournalScreen() {
         </p>
       ) : (
         <>
-          {maskMode ? (
+          {mask.active ? (
             <p className="small" style={{ margin: '0 0 10px' }}>
               {JOURNAL_MASK_TEXT.hint}
             </p>
@@ -165,13 +172,16 @@ export function JournalScreen() {
           <ol className="timeline" aria-label="Aliments du jour, par heure">
             {hourGroups(summary.entries).map((group) => (
               <li key={group.hour} className="timeline__item">
-                <time className="timeline__time tabular" dateTime={`${date}T${group.hour}:00`}>
-                  {Number(group.hour)} h
-                </time>
-                <span className="timeline__dot" aria-hidden="true" />
+                <div className="timeline__head">
+                  <span className="timeline__dot" aria-hidden="true" />
+                  <time className="timeline__time tabular" dateTime={`${date}T${group.hour}:00`}>
+                    {Number(group.hour)} h
+                  </time>
+                  <span className="timeline__rule" aria-hidden="true" />
+                </div>
                 <ul className="timeline__entries">
                   {group.entries.map((e) => {
-                    const isHidden = hidden.has(e.id);
+                    const isHidden = isMasked(mask, e.id);
                     return (
                       <li key={e.id} className="timeline__content" data-hidden={isHidden}>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
@@ -182,8 +192,8 @@ export function JournalScreen() {
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 2 }}>
                           <span style={{ flex: 1, minWidth: 0, font: '400 12px var(--font)', color: 'var(--ink2)' }}>{[e.consumedTime, e.brand, entryQuantityText(e), FOOD_SOURCE_LABEL[e.source]].filter(Boolean).join(' · ')}</span>
-                          {maskMode ? (
-                            <button type="button" className="icon-button icon-button--small" aria-pressed={isHidden} aria-label={isHidden ? JOURNAL_MASK_TEXT.show(e.name) : JOURNAL_MASK_TEXT.hide(e.name)} onClick={() => toggleHidden(e.id)}>
+                          {mask.active ? (
+                            <button type="button" className="icon-button icon-button--small" aria-pressed={isHidden} aria-label={isHidden ? JOURNAL_MASK_TEXT.show(e.name) : JOURNAL_MASK_TEXT.hide(e.name)} onClick={() => setMask((m) => toggleMasked(m, e.id))}>
                               <EyeIcon off={isHidden} />
                             </button>
                           ) : (
@@ -385,7 +395,7 @@ function ProductsPanel({ onPick, onPickRecent, onPickManual, onManual }: { onPic
       alive = false;
     };
   }, []);
-  const recents = useMemo(() => recentFoods(store), [store]);
+  const previous = useMemo(() => previousFoods(store), [store]);
   const trimmed = query.trim();
   const local = useMemo(() => (data && trimmed ? searchIndex(data.index, trimmed, 30) : []), [data, trimmed]);
   const remoteForQuery = remote && remote.query === trimmed ? remote : null;
@@ -442,18 +452,29 @@ function ProductsPanel({ onPick, onPickRecent, onPickManual, onManual }: { onPic
         {trimmed === '' ? (
           <>
             <p className="small search-hint">{online ? FOOD_SEARCH_TEXT.emptyQueryOnline : FOOD_SEARCH_TEXT.emptyQuery}</p>
-            {recents.length > 0 ? (
+            {/* B4: in scan mode only the camera and its fallback fields stay on screen. */}
+            {!scanOpen && previous.length > 0 ? (
               <div className="food-list">
-                <div className="eyebrow">{FOOD_SEARCH_TEXT.recents}</div>
-                {recents.map((r) => (
-                  <FoodRow
-                    key={r.key}
-                    name={r.food.name}
-                    detail={r.kind === 'resolved' ? [FOOD_SOURCE_LABEL[r.food.source], r.food.brand].filter(Boolean).join(' · ') : FOOD_SOURCE_LABEL.manual}
-                    kcal={r.kind === 'resolved' ? `${formatInteger(Math.round(r.food.per100g.energyKcal))} kcal / 100 g` : kcalText(r.food.intake.energyKcal)}
-                    onClick={() => onPickRecent(r)}
-                  />
-                ))}
+                <div className="eyebrow">{FOOD_SEARCH_TEXT.previous}</div>
+                {previous.map((p) =>
+                  p.kind === 'recent' ? (
+                    <FoodRow
+                      key={p.key}
+                      name={p.food.food.name}
+                      detail={p.food.kind === 'resolved' ? [FOOD_SOURCE_LABEL[p.food.food.source], p.food.food.brand].filter(Boolean).join(' · ') : FOOD_SOURCE_LABEL.manual}
+                      kcal={p.food.kind === 'resolved' ? `${formatInteger(Math.round(p.food.food.per100g.energyKcal))} kcal / 100 g` : kcalText(p.food.food.intake.energyKcal)}
+                      onClick={() => onPickRecent(p.food as RecentFood)}
+                    />
+                  ) : (
+                    <FoodRow
+                      key={p.key}
+                      name={p.food.name}
+                      detail={[p.food.source === 'off' ? FOOD_SOURCE_LABEL.off : FOOD_SOURCE_LABEL.manual, p.food.brand].filter(Boolean).join(' · ')}
+                      kcal={p.food.per100g ? `${formatInteger(Math.round(p.food.per100g.energyKcal))} kcal / 100 g` : kcalText(p.food.manual?.intake.energyKcal ?? 0)}
+                      onClick={() => chooseStored(p.food as LibraryFood)}
+                    />
+                  ),
+                )}
               </div>
             ) : null}
           </>
@@ -575,11 +596,12 @@ function BarcodePanel({ onClose, onFound, onManual }: { onClose: () => void; onF
   // code already read), the code field sits under the search bar and the message under the code field.
   const showVideo = cameraOn && scanner.state !== 'unsupported' && scanner.state !== 'denied' && scanner.state !== 'error';
   const status = busy ? BARCODE_TEXT.looking : (message ?? cameraMessage);
-  const statusLine = status ? (
-    <p className="small" style={{ margin: showVideo ? '0 0 8px' : '8px 0 0' }} aria-live="polite">
-      {status}
+  // D4: one line is always reserved, so the camera state messages do not move the code field.
+  const statusLine = (
+    <p className="small hint-slot" style={{ margin: showVideo ? '0 0 8px' : '8px 0 0' }} aria-live="polite">
+      {status ?? ''}
     </p>
-  ) : null;
+  );
   const incompleteLink = incomplete ? (
     <button type="button" className="link" style={{ margin: '8px 0 0', alignSelf: 'flex-start' }} onClick={() => onManual(incomplete.name)}>
       Saisir à la main ›
@@ -624,22 +646,28 @@ function BarcodePanel({ onClose, onFound, onManual }: { onClose: () => void; onF
 function ConsumedTimeField({ selectedDate, today, timing, setTiming }: TimingProps) {
   const canBeNow = selectedDate === today;
   const showTime = !canBeNow || !timing.justAte;
+  const field = showTime ? (
+    <label className="time-field" style={{ width: '100%' }}>
+      <span>{JOURNAL_TIME_TEXT.eatenAt}</span>
+      <input type="time" required value={timing.time} onChange={(e) => e.target.value && setTiming({ ...timing, time: e.target.value })} />
+    </label>
+  ) : null;
   return (
     <div style={{ margin: '14px 0 4px' }}>
       {canBeNow ? (
-        <button type="button" role="checkbox" aria-checked={timing.justAte} className="checkbox" style={{ paddingTop: 0 }} onClick={() => setTiming({ ...timing, justAte: !timing.justAte })}>
-          <span className="checkbox__box" aria-hidden="true">
-            {timing.justAte ? '✓' : ''}
-          </span>
-          <span>{JOURNAL_TIME_TEXT.justAte}</span>
-        </button>
-      ) : null}
-      {showTime ? (
-        <label className="time-field" style={{ marginTop: canBeNow ? 10 : 0 }}>
-          <span>{JOURNAL_TIME_TEXT.eatenAt}</span>
-          <input type="time" required value={timing.time} onChange={(e) => e.target.value && setTiming({ ...timing, time: e.target.value })} />
-        </label>
-      ) : null}
+        <>
+          <button type="button" role="checkbox" aria-checked={timing.justAte} className="checkbox" style={{ paddingTop: 0 }} onClick={() => setTiming({ ...timing, justAte: !timing.justAte })}>
+            <span className="checkbox__box" aria-hidden="true">
+              {timing.justAte ? '✓' : ''}
+            </span>
+            <span>{JOURNAL_TIME_TEXT.justAte}</span>
+          </button>
+          {/* D4: the slot is always there, so unticking the box never pushes the rest of the panel down. */}
+          <div className="time-slot">{field}</div>
+        </>
+      ) : (
+        field
+      )}
     </div>
   );
 }
@@ -776,11 +804,10 @@ function QuantityStep({ food, onBack, onSave, timingProps }: { food: ResolvedFoo
         {preview ? nutrientsLine(preview) : ' '}
       </p>
       <ConsumedTimeField {...timingProps} />
-      {error ? (
-        <p className="field-error" role="alert">
-          {error}
-        </p>
-      ) : null}
+      {/* D4: reserved slot, so a validation message never moves the buttons under it. */}
+      <p className="field-error field-error--slot" role="alert">
+        {error ?? ''}
+      </p>
 
       {newPortion ? (
         <div className="card" style={{ padding: 16, margin: '12px 0' }}>
@@ -867,11 +894,10 @@ function ManualTab({ prefill, onSave, timingProps }: { prefill: ManualFood | nul
       <div style={{ height: 12 }} />
       <NumberField label="Poids (facultatif)" value={grams} onChange={setGrams} unit="g" placeholder="250" />
       <ConsumedTimeField {...timingProps} />
-      {error ? (
-        <p className="field-error" role="alert">
-          {error}
-        </p>
-      ) : null}
+      {/* D4: reserved slot, so a validation message never moves the button under it. */}
+      <p className="field-error field-error--slot" role="alert">
+        {error ?? ''}
+      </p>
       <button type="button" className="btn btn--primary" style={{ marginTop: 18 }} onClick={submit}>
         Ajouter au journal
       </button>

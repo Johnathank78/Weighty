@@ -4,8 +4,8 @@
  */
 import { isIsoDate } from '@/science/dates';
 import { SCIENTIFIC_MODEL_VERSION } from '@/science/constants';
-import type { CalibrationSnapshot, DailyLog, HistoricalIntakeEvidence, StructuredActivity, UserProfile, WeightEntry } from '@/science/types';
-import type { AppMeta, CurrentPlan, FoodEntry, FoodJournal, FoodNutrients, LibraryFood, PersonalPortion, Preferences, WheightyStore } from '@/domain/types';
+import type { CalibrationSnapshot, DailyLog, HistoricalIntakeEvidence, StructuredActivity, UserProfile } from '@/science/types';
+import type { AppMeta, CurrentPlan, FoodEntry, FoodJournal, FoodNutrients, LibraryFood, PersonalPortion, Preferences, StoredWeight, WheightyStore } from '@/domain/types';
 import { DEFAULT_META, DEFAULT_PREFERENCES, emptyFoodJournal, SCHEMA_VERSION } from '@/domain/types';
 
 type Obj = Record<string, unknown>;
@@ -74,8 +74,10 @@ export function isHistoricalEvidence(v: unknown): v is HistoricalIntakeEvidence 
   );
 }
 
-export function isWeightEntry(v: unknown): v is WeightEntry {
-  return isObject(v) && isStr(v.id) && isStr(v.date) && isIsoDate(v.date) && isNum(v.weightKg) && v.weightKg > 0 && isStr(v.createdAt);
+export function isWeightEntry(v: unknown): v is StoredWeight {
+  if (!(isObject(v) && isStr(v.id) && isStr(v.date) && isIsoDate(v.date) && isNum(v.weightKg) && v.weightKg > 0 && isStr(v.createdAt))) return false;
+  // Journaling only (C-01): absent means not noted.
+  return v.menstruating === undefined || typeof v.menstruating === 'boolean';
 }
 
 const isMacroGrams = (v: unknown): boolean => isObject(v) && isNum(v.proteinG) && isNum(v.carbsG) && isNum(v.fatG);

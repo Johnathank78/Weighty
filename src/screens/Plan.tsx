@@ -144,7 +144,7 @@ export function PlanScreen() {
       {plan.warnings?.belowRee ? (
         <div className="note" style={{ marginTop: 16 }}>
           <Mascot variant="search" width={40} />
-          <span>Apport sous ton métabolisme au repos estimé : rythme exigeant, reste attentif à la fatigue.</span>
+          <span>Apport sous ton métabolisme au repos estimé : rythme exigeant, surveille ta fatigue.</span>
         </div>
       ) : null}
       {store.preferences.showScientificDetails ? (

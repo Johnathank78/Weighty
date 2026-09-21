@@ -21,8 +21,18 @@ import type {
  * preference. See persistence/migrations.ts and IMPLEMENTATION_NOTES J-01.
  * Version 4 (UI journal pass): `FoodEntry.consumedTime`, time of consumption distinct from the save time (J-06).
  * Version 5: `FoodJournal.library`, the user's food library "Mes aliments" (J-09).
+ * Version 6: `StoredWeight.menstruating`, journaling only, never read by the engine (C-01).
  */
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
+
+/**
+ * A weigh-in as this app stores it: the engine contract (`WeightEntry`, science) plus fields that are
+ * journaling only. The engine receives these objects as `WeightEntry` and never looks at the extras.
+ */
+export type StoredWeight = WeightEntry & {
+  /** Noted by the user on the weigh-in (C-01). Absent means not noted; only ever written when true. */
+  menstruating?: boolean;
+};
 
 export type ThemePreference = 'light' | 'dark' | 'system';
 export type UnitPreference = 'metric' | 'imperial';
@@ -211,7 +221,7 @@ export type WheightyStore = {
   scientificModelVersion: string;
   profile: UserProfile | null;
   plan: CurrentPlan | null;
-  weights: WeightEntry[];
+  weights: StoredWeight[];
   dailyLogs: DailyLog[];
   calibrationSnapshots: CalibrationSnapshot[];
   /** Historical intake evidence given at onboarding (warm start), null when none (D-23). */

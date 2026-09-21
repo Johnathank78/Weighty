@@ -31,7 +31,7 @@ import type { CalibrationSnapshot, ConfidenceLevel, DailyLog, Goal, HistoricalIn
 import { intervalWidth } from '@/science/uncertainty';
 import { buildWarmStartSnapshot, validateHistoricalEvidence, warmStartPosterior } from '@/science/warmStart';
 import type { WarmStartResult } from '@/science/warmStart';
-import type { CurrentPlan, WheightyStore } from './types';
+import type { CurrentPlan, StoredWeight, WheightyStore } from './types';
 
 export const MAINTENANCE_PROJECTION_DAYS = 84;
 
@@ -166,7 +166,7 @@ export function currentWeightKg(store: WheightyStore): number | null {
   return store.profile?.currentWeightKg ?? null;
 }
 
-export function latestRawWeight(store: WheightyStore): WeightEntry | null {
+export function latestRawWeight(store: WheightyStore): StoredWeight | null {
   const sorted = [...store.weights].sort((a, b) => (a.date === b.date ? (a.createdAt < b.createdAt ? -1 : 1) : a.date < b.date ? -1 : 1));
   return sorted[sorted.length - 1] ?? null;
 }
@@ -476,8 +476,9 @@ export function newId(nowIso: string, prefix: string): string {
   return `${prefix}-${nowIso.replace(/\D/g, '')}-${random}`;
 }
 
-export function addWeight(store: WheightyStore, entry: { date: string; weightKg: number }, nowIso: string): WheightyStore {
-  const weight: WeightEntry = { id: newId(nowIso, 'w'), date: entry.date, weightKg: entry.weightKg, createdAt: nowIso };
+export function addWeight(store: WheightyStore, entry: { date: string; weightKg: number; menstruating?: boolean }, nowIso: string): WheightyStore {
+  // `menstruating` is journaling only (C-01): stored with the weigh-in, never read by the engine.
+  const weight: StoredWeight = { id: newId(nowIso, 'w'), date: entry.date, weightKg: entry.weightKg, createdAt: nowIso, ...(entry.menstruating ? { menstruating: true } : {}) };
   return ensureDailyLogs({ ...store, weights: [...store.weights, weight] }, entry.date);
 }
 

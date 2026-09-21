@@ -14,15 +14,31 @@ body {
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  /* D1: no pinch zoom and no double tap zoom, scrolling untouched. */
+  touch-action: pan-x pan-y;
+  /*
+   * D2: the safe areas (status bar, home indicator) and anything outside the viewport are painted by the
+   * document, not by the shell. They must therefore carry --bg, the colour of the app and of theme-color;
+   * --page was a shade darker, which is what made the status bar band stand out.
+   */
+  background: var(--bg);
 }
 body {
   font-family: var(--font);
-  background: var(--page);
+  background: var(--bg);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
-  overscroll-behavior-y: none;
+  /* D3: no elastic bounce on the document, on either axis. Where content really scrolls, it scrolls. */
+  overscroll-behavior: none;
+}
+/* On a wide screen the shell is a centred column: the page around it keeps its own backdrop. */
+@media (min-width: 600px) {
+  html,
+  body {
+    background: var(--page);
+  }
 }
 button,
 input,
@@ -669,6 +685,18 @@ img {
   color: var(--danger);
   margin: 6px 0 0;
 }
+/* D4: reserved slot, so showing the message never changes the height of the panel around it. */
+.field-error--slot {
+  min-height: 18px;
+  margin: 6px 0 0;
+}
+/* D4: same idea for a secondary action that only exists in some states, and for a one line hint. */
+.ghost-slot {
+  min-height: 48px;
+}
+.hint-slot {
+  min-height: 18px;
+}
 .text-input {
   width: 100%;
   border: 1px solid var(--line);
@@ -979,7 +1007,9 @@ img {
   max-width: var(--shell-max);
   max-height: 92vh;
   max-height: 92dvh;
-  overflow: auto;
+  /* D3: a panel scrolls vertically when its content is taller, never sideways. */
+  overflow-x: hidden;
+  overflow-y: auto;
   overscroll-behavior: contain;
   background: var(--surf);
   border-radius: 28px 28px 0 0;
@@ -1083,11 +1113,19 @@ img {
   overflow: visible;
 }
 .chart-axis {
+  position: relative;
   display: flex;
   justify-content: space-between;
   font: 400 11.5px var(--font);
   color: var(--ink2);
   margin: 6px 0 26px;
+}
+/* Placed on the junction the drawing uses, never at a third of the width (A3). */
+.chart-axis__today {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
 }
 
 .stack-10 > * + * {
@@ -1476,14 +1514,18 @@ img {
  * in place, only .sheet__scroll scrolls.
  */
 .sheet--fixed {
-  height: min(75dvh, calc(var(--vv-height, 100dvh) - 12px));
+  /*
+   * A1: the visible part stops above the keyboard, but the panel itself continues behind it
+   * (--kb-inset added to the height and to the bottom padding) so no band of the page underneath
+   * ever shows through the scrim.
+   */
+  height: calc(min(75dvh, calc(var(--vv-height, 100dvh) - 12px)) + var(--kb-inset, 0px));
   max-height: none;
-  margin-bottom: var(--kb-inset, 0px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding-bottom: calc(12px + var(--safe-bottom));
-  transition: height 0.18s ease, margin-bottom 0.18s ease;
+  padding-bottom: calc(12px + var(--safe-bottom) + var(--kb-inset, 0px));
+  transition: height 0.18s ease, padding-bottom 0.18s ease;
 }
 .sheet--fixed .sheet__title {
   margin-bottom: 12px;
@@ -1510,6 +1552,11 @@ img {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  /*
+   * D3: without this, a visible overflow-x next to an auto overflow-y is computed as auto by the browser,
+   * and the list bounced sideways although nothing exceeds its width.
+   */
+  overflow-x: hidden;
   overscroll-behavior: contain;
   margin: 0 -24px;
   padding: 2px 24px 16px;
@@ -1613,6 +1660,12 @@ img {
   font: 500 13.5px var(--font);
   color: var(--ink);
 }
+/* D4: the time row keeps its place whether "Je viens de le manger" is ticked or not. */
+.time-slot {
+  display: flex;
+  align-items: center;
+  min-height: 46px;
+}
 .time-field input {
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -1623,47 +1676,45 @@ img {
   font-variant-numeric: tabular-nums;
 }
 
-/* Timeline of the day: the time rail carries the structure, no separators between entries. */
+/*
+ * Timeline of the day. B1: the hour is a header above its foods, no longer a left rail, so nothing
+ * indents the entries any more: they use the full width of the screen like the rest of the journal.
+ */
 .timeline {
   list-style: none;
   margin: 0;
   padding: 0;
-  position: relative;
-}
-.timeline::before {
-  content: '';
-  position: absolute;
-  top: 8px;
-  bottom: 8px;
-  left: 55px;
-  width: 1px;
-  background: var(--line);
 }
 .timeline__item {
-  display: grid;
-  grid-template-columns: 44px 22px minmax(0, 1fr);
-  align-items: start;
-  padding: 6px 0 10px;
+  padding: 0 0 14px;
+}
+.timeline__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 9px;
 }
 .timeline__time {
   font: 600 12.5px/20px var(--font);
   color: var(--ink2);
-  text-align: right;
 }
 .timeline__dot {
-  justify-self: center;
-  width: 9px;
-  height: 9px;
-  margin-top: 6px;
+  flex: none;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--acc);
-  box-shadow: 0 0 0 3px var(--bg);
-  position: relative;
+}
+/* The hairline replaces the vertical rail: it marks the checkpoint without taking room from the foods. */
+.timeline__rule {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
 }
 .timeline__content {
   min-width: 0;
 }
-/* One checkpoint per hour: its entries are stacked next to the dot. */
+/* One checkpoint per hour: its entries are stacked under the header, full width. */
 .timeline__entries {
   list-style: none;
   margin: 0;

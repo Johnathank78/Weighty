@@ -172,10 +172,13 @@ describe('age (s4)', () => {
     expect(validateAge(draft)).toEqual({});
   });
 
-  it('scope notice stays on the age screen, secondary style', () => {
+  it('scope notice stays on the age screen, secondary style, worded for everyone', () => {
     const html = ageMarkup(emptyDraft());
     expect(html).toMatch(/role="checkbox"[^>]*class="checkbox checkbox--secondary"/);
-    expect(html).toContain('Je ne suis pas enceinte');
+    // Lot F: this screen comes before the sex screen, so the wording names situations, not a reader.
+    expect(html).toContain('Je ne suis dans aucune de ces situations');
+    expect(html).toContain('grossesse');
+    expect(html).not.toMatch(/enceinte|allaitante/);
   });
 });
 

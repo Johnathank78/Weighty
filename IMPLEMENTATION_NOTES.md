@@ -3,7 +3,7 @@
 Journal technique et scientifique de l'implémentation. Toute décision qui n'est pas écrite telle quelle dans `instruct/` est listée ici avec sa justification. Aucune déviation scientifique n'est silencieuse.
 
 - Modèle scientifique : `SCIENTIFIC_MODEL_VERSION = "1.3.0"` (`src/science/constants.ts`) : maintien apparent comme estimande (D-31), plancher calorique sexué (D-32), plancher d'incertitude structurelle de la calibration (D-33), recalibrations espacées d'au moins 7 jours (D-34), calibration hors du fil principal (P-01)
-- Schéma de stockage : `SCHEMA_VERSION = 5` (`src/domain/types.ts`), migrations 1 → 2, 2 → 3 (journal alimentaire, J-01), 3 → 4 (heure de consommation, J-06) et 4 → 5 (« Mes aliments », J-09) dans `src/persistence/migrations.ts`
+- Schéma de stockage : `SCHEMA_VERSION = 6` (`src/domain/types.ts`), migrations 1 → 2, 2 → 3 (journal alimentaire, J-01), 3 → 4 (heure de consommation, J-06), 4 → 5 (« Mes aliments », J-09) et 5 → 6 (note de pesée, C-01) dans `src/persistence/migrations.ts`
 
 Depuis la passe « science + onboarding + warm start » (modèle 1.1.0), les fichiers `instruct/` ont été mis à jour pour refléter les décisions finales ; ils ne contredisent plus ces notes (`instruct/05` s17 et `instruct/08` réalignés sur le modèle 1.2.0 en P3, D-30). La section 9 résume ce qui a changé par rapport au modèle 1.0.0, la section 10 par rapport au modèle 1.1.0, la section 11 par rapport au modèle 1.2.0 (passe bêta).
 
@@ -688,6 +688,93 @@ Temps par image : **médiane 0,11 ms, p95 0,56 ms** (Node, PC). Faux positifs : 
 - **Ciqual** : aucun poids d'unité ni de portion dans la table 2025 (feuilles « composition nutritionnelle » et « codes INFOODS » seulement, vérifié). Pour un aliment sans aucun poids connu, l'écran de quantité demande une fois « Poids d'une unité ? » ; la valeur devient une portion personnelle « 1 unité » liée à cet aliment et est reproposée ensuite.
 - **Open Food Facts** : `serving_quantity` et `product_quantity` (grammes seulement, 1 à 5 000 g ; `ml` non converti) deviennent les puces « Portion indiquée » et « Paquet entier », avec la mention « à vérifier sur le paquet » : données collaboratives de qualité variable (relevé : biscuits Prince, portion de 250 g annoncée pour un paquet de 300 g).
 - Ces poids voyagent avec l'aliment (`ResolvedFood.servingGrams` / `packageGrams`, stockés dans « Mes aliments ») ; l'entrée du journal ne garde que la portion choisie, comme avant.
+
+> Les entrées A-01 et suivantes viennent du document « Wheighty : corrections et ajouts UI » ; le point du
+> document est rappelé dans le titre.
+
+### A-01 Fond de la feuille d'ajout jusqu'au clavier (point A1, corrige J-07)
+
+- **Constat** : clavier ouvert, une bande entre le bas de la feuille et le clavier laissait voir la page (le voile est translucide). Cause : `margin-bottom: var(--kb-inset)` remontait la feuille au-dessus du clavier ; dès que l'encart calculé dépasse la hauteur réelle du clavier (iOS Safari compte la zone derrière la barre d'URL dans `window.innerHeight`), la marge devient une bande transparente.
+- **Correctif** : plus de marge. L'encart clavier est ajouté à la **hauteur** et au **remplissage bas** de la feuille : le contenu reste au-dessus du clavier, le fond continue jusqu'au bas du viewport de mise en page. Un encart trop grand ne peut plus ouvrir de bande, quel que soit le modèle de viewport (iOS ou Android) et quel que soit le thème.
+- Vérifié en clavier simulé (encart exact et encart surestimé de 56 px) ; à confirmer sur iOS Safari et PWA installée.
+
+### A-02 Œil principal et sélection masquée (point A2, corrige J-11)
+
+- **Constat reproduit** : masquer N aliments puis toucher l'œil principal quittait le mode **sans vider la sélection**. Les aliments restaient hors des jauges (barre striée, « N kcal masquées », ligne grisée) alors que les yeux par aliment avaient disparu : plus aucun moyen de les réafficher sans quitter l'écran, et l'œil du haut affichait l'état « barré » avec `aria-pressed="false"`.
+- **Règle retenue** : l'œil principal active et désactive le mode ; quitter le mode réaffiche tout et vide la sélection. Changer de jour quitte aussi le mode (les identifiants masqués appartiennent au jour choisi).
+- Transitions extraites dans `src/screens/journalMask.ts` (pur, testé) : `toggleMaskMode`, `toggleMasked` (sans effet hors mode), `resetMask`. Invariant inchangé : affichage seulement, rien n'est écrit, les sorties du domaine sont strictement identiques avant et après la séquence (testé).
+
+### A-03 Graphique de Suivi : échelle pure puis rendu canvas (point A3)
+
+- **Diagnostic** (cas signalé : 1 pesée hier, 2 aujourd'hui, vue 3 mois) : `WeightChart` calculait un domaine X unique sur toutes les séries, projection comprise (`d0 = 0`, `d1 = 21`), donc 1 jour d'historique occupait 5 % de la largeur ; les libellés `.chart-axis` étaient un flex `space-between` à trois cellules, c'est-à-dire une **seconde échelle implicite en tiers égaux** sans rapport avec le tracé ; la projection était la trajectoire du plan **filtrée** à `jour ≥ dernier point de tendance`, donc elle démarrait sur l'échantillon hebdomadaire suivant (jour 7 pour une tendance qui s'arrête au jour 1) et à la valeur prévue par le plan, d'où le décrochage.
+- **`domain/chartScale.ts`** (pur, testé, sans DOM) : mapping données → pixels. Règle horizontale retenue avec le product owner : départ à la première pesée affichée, **30 % de la largeur réservés aux jours à venir** (`FUTURE_WIDTH_SHARE`). « Aujourd'hui » est donc toujours au même endroit et les libellés reçoivent la position réelle (`todayRatio`) au lieu de la deviner. Les deux zones n'ont pas la même densité de jours : la jonction est marquée par un trait pointillé vertical. Cas dégénérés : une seule pesée sans plan → point centré ; pas de projection → l'historique prend toute la largeur. La polyligne de projection commence sur le dernier point de tendance ; la bande est coupée sur ce jour par interpolation du segment qui le traverse.
+- **Projection recalculée depuis aujourd'hui** (`views.projectionFromToday`, décision du product owner). Le snapshot `plan.projection` restait figé au jour de la création du plan : au bout de 90 jours sa valeur du jour avait dérivé de 0,9 kg de la tendance réelle (falaise d'un kilo en un jour à la jonction) et son intervalle 80 %, ouvert sur 90 jours, faisait 10 kg de haut. La courbe affichée repart donc du **poids de tendance actuel**, avec la cible calorique et les pas du plan en cours et le **maintien estimé courant** (`CalibrationState.currentMaintenanceKcal`, sinon celui du plan), via `assessBaseline` + `planContextFrom` + `projectPlan`, les fonctions que le domaine appelait déjà. `science/` n'est pas modifié, aucun modèle nouveau, rien n'est stocké, `plan.projection` reste la référence du plan (testé). Jour 0 de la simulation = le dernier point de tendance, donc le raccord est exact et la bande s'ouvre à partir de là (< 0,2 kg à la jonction). Coût mesuré : 0,03 ms par appel sur un historique de 11 semaines.
+- **Rien devant pendant l'apprentissage** (décision du product owner) : tant que la première calibration n'est pas atteinte (`gate.met && candidate`, le même prédicat que l'écran Analyse), aucune courbe ni bande ne sont dessinées, `projectionPending` est vrai, l'historique prend toute la largeur et une ligne grise l'explique. Avant ce seuil l'estimation de maintien est encore l'a priori de l'onboarding : une courbe donnerait une fausse impression de précision.
+- **Rendu canvas** (`components/WeightChart.tsx`) : `devicePixelRatio` (plafonné à 3), couleurs lues sur les tokens (`--coral`, `--peach`, `--ink2`, `--line-strong`) et redessinées quand `data-theme` change, révélation progressive respectant `prefers-reduced-motion`, largeur suivie par `ResizeObserver`. Alternative accessible : `role="img"` + `aria-label`, plus un résumé en toutes lettres (nombre de pesées, tendance de … à …, projection à … dans N jours) en contenu de repli et en texte masqué. Aucune librairie graphique.
+- **Pesées multiples le même jour** : `computeTrend` déduplique par date (dernière pesée du jour), le graphique montre donc un point pour deux pesées. Inchangé, c'est du `science/`. La liste « Dernières pesées » affiche maintenant l'heure quand le jour porte plusieurs pesées (`RecentWeight.time`, dérivé de `createdAt`, rien de persisté en plus).
+
+### A-04 Zoom refusé (point D1, demande explicite du product owner)
+
+- Le document demandait l'inverse : « ne pas bloquer le pinch-zoom (accessibilité) ». **Consigne changée à l'oral, zoom retiré**, tracé ici pour mémoire. Le texte reste redimensionnable par les réglages système (`text-size-adjust: 100%` inchangé) ; seul le zoom gestuel est refusé.
+- Trois couches : meta viewport `maximum-scale=1, user-scalable=no` (moteurs qui l'honorent, et supprime aussi le zoom au focus d'un champ sur iOS) ; `touch-action: pan-x pan-y` sur `html` (pinch et double tap, défilement intact) ; `app/zoom.ts` qui refuse les événements WebKit `gesturestart/change/end`, ignorés du standard mais seuls effectifs dans Safari iOS.
+- Aucun écouteur `touchmove` : le défilement reste passif. Vérifié par un test statique.
+
+### B-04 Liste masquée en mode scan (point B4)
+
+Caméra ouverte, seuls le cadre de visée, le champ code-barres et son message restent à l'écran : la liste « Déjà utilisés » est retirée tant que le scanner est ouvert (`!scanOpen && previous.length > 0`). Rien n'est perdu, la liste revient à la fermeture du scanner.
+
+### B-05 Liste unique « Déjà utilisés » (point B5, remplace « Récents » + « Mes aliments » à vide)
+
+- **Constat** : deux listes séparées montraient souvent le même aliment deux fois (l'entrée de journal et le produit enregistré automatiquement à sa récupération), avec des valeurs et des libellés différents.
+- **Règle** : `domain/foodLibrary.previousFoods` fusionne les deux sources et dédoublonne sur la clé (`off:<code-barres>` pour un produit, `manual:<nom normalisé>` pour une saisie libre). **Une entrée du journal l'emporte sur sa copie enregistrée** : elle porte les valeurs et la portion réellement utilisées. Tri par dernier usage (`loggedAt` d'un côté, `lastUsedAt` de l'autre), 12 lignes au plus. Un produit enregistré sans calories reste hors de la liste : il ne peut pas être journalisé tel quel.
+- Disponible hors connexion, comme les deux listes qu'elle remplace. Fusion, dédoublonnage, ordre et bornes testés.
+
+### B-01 La barre des heures ne décale plus les aliments (point B1)
+
+L'heure était un rail vertical de gauche (`grid-template-columns: 44px 22px 1fr` plus un trait en `::before`) : chaque aliment du journal commençait 66 px plus à droite que le reste de l'écran. L'heure devient un **en-tête au-dessus de ses aliments** (point, heure, filet horizontal) ; les aliments occupent toute la largeur, alignés sur les jauges et les titres. Le repère horaire est conservé, le retrait disparaît. Aucun changement de données : `hourGroups` est inchangé.
+
+### B-03 Un drapeau par macro, et les chiffres marqués comme des planchers (point B3)
+
+- **Déjà vrai avant cette passe** (relecture du code) : les kcal sont obligatoires, les macros facultatives, une macro absente est stockée à `null` et jamais à 0, et le journal signalait déjà l'incomplétude.
+- **Ce qui manquait** : le signalement était global (`macrosComplete`) alors qu'une entrée peut donner les protéines sans les lipides, et les chiffres des jauges se lisaient comme des totaux exacts.
+- **Règle** : `domain/journal.missingMacros` renvoie un drapeau **par macro** (`JournalDay.macrosMissing`), vrai dès qu'une entrée de l'ensemble ne donne pas cette macro. L'écran marque alors la valeur d'un `≥` (« au moins » pour les lecteurs d'écran) et ne nomme dans la phrase que les macros réellement incomplètes. `macrosComplete` reste dérivé des trois drapeaux, pour les appels existants.
+- L'ensemble lu est celui **réellement sommé dans les jauges**, masquage compris (J-11) : marques et phrase restent cohérentes avec les chiffres affichés. Aucune valeur n'est inventée pour une macro absente, elle n'est simplement pas comptée.
+
+### C-01 « J'ai mes règles » noté avec la pesée (point C1, schéma 6)
+
+- **Champ** : `StoredWeight.menstruating`, facultatif, écrit **seulement quand il est vrai** (l'absence vaut « non noté », ce qui est la vérité de toutes les pesées antérieures à la case). `StoredWeight` = le contrat moteur `WeightEntry` plus ce qui relève du carnet ; le moteur reçoit ces objets comme des `WeightEntry` et ne regarde jamais l'extra.
+- **Journal seulement** : aucune sortie scientifique ne change. Vérifié sur le chemin réel (`tests/domain/weighInNote.test.ts`) : deux parcours de 84 jours identiques à la case près donnent une tendance, un `CalibrationState` et un plan recalibré **strictement égaux**. `science/` ne contient pas le mot.
+- **Case** visible seulement si le sexe physiologique du profil est féminin, décochée à chaque ouverture de la feuille, incluse dans l'export et supprimée avec les données.
+- **Migration 5 → 6** : les pesées existantes sont laissées telles quelles. La montée de schéma sert à empêcher qu'un export de version 6 soit lu par une version antérieure, et à lire ici un fichier de version 5. Migration testée sur store existant et sur export/réimport ; une valeur non booléenne est refusée à l'import.
+
+### D-02 Bande de status bar à la couleur de l'app (point D2)
+
+`body` était peint en `--page` (le fond de page, une nuance plus sombre) alors que la coquille et `theme-color` sont en `--bg` : c'est le document, pas la coquille, qui peint les zones sûres (status bar, indicateur d'accueil) et tout ce qui dépasse du viewport, d'où la bande visible. `html` et `body` passent en `--bg` ; `--page` ne sert plus que de fond autour de la colonne centrée, au-delà de 600 px. `theme-color` est désormais **lu sur le token `--bg`** au moment d'appliquer le thème, donc les deux ne peuvent plus diverger ; le document embarque une balise par schéma de couleur pour le tout premier rendu, avant que l'app connaisse le thème choisi. Mesuré dans les deux thèmes : `html`, `body`, `.shell` et `theme-color` à la même valeur. `apple-mobile-web-app-status-bar-style` reste à `default` : `black-translucent` ferait passer le contenu sous la status bar avec un texte blanc illisible sur le fond clair.
+
+### D-03 Rebond élastique seulement là où ça défile (point D3)
+
+`overscroll-behavior: none` sur le document (les deux axes, au lieu de l'axe vertical seul) : plus de rebond sur un écran qui n'a rien à faire défiler. Dans les panels, `overflow-x` est déclaré explicitement à `hidden` : un `overflow-x: visible` à côté d'un `overflow-y: auto` est **calculé en `auto`** par le navigateur, ce qui rendait les listes rebondissantes latéralement alors que rien ne dépasse. `overscroll-behavior: contain` des panels est conservé (un panel qui défile n'entraîne pas la page).
+
+### D-04 Hauteur des panels stable (point D4)
+
+Un emplacement est réservé pour tout ce qui apparaît et disparaît au fil d'une interaction, pour que la mise en page ne bouge plus sous le doigt : message de validation (`.field-error--slot`, pesée, quantité et portions, saisie libre, métabolisme mesuré), action secondaire conditionnelle (`.ghost-slot`, « Effacer la note » de la feuille d'adhérence, qui apparaît en passant à « Hier »), ligne d'état d'une caméra (`.hint-slot`), champ d'heure révélé en décochant « Je viens de le manger » (`.time-slot`). Mesuré : le bouton principal de la feuille d'ajout ne bouge pas d'un pixel quand la case change d'état ou qu'un message d'erreur s'affiche. **Non traité volontairement** : les changements d'étape (le champ « poids d'une unité » qui disparaît une fois renseigné, la carte de création de portion qui remplace son lien) ; ce sont des changements d'état voulus, pas des sauts de mise en page.
+
+### E-01 « Vider Mes aliments » avec confirmation (point E1)
+
+Dans « Mes données ». Périmètre annoncé et respecté : **la bibliothèque seule**. Les journées déjà enregistrées ne changent pas, chaque aliment du journal garde son propre instantané (J-09). Le nombre d'aliments enregistrés est affiché avant confirmation.
+
+### E-02 « Détails scientifiques » en dernier (point E2)
+
+Le réglage passe en fin de liste des préférences : c'est une option d'observabilité (D-25, D-30), pas un réglage courant.
+
+### F-01 Accord en genre (lot F)
+
+- **Inventaire des chaînes genrées visant l'utilisateur**, app entière et onboarding : quatre, pas davantage. 1. `OCCUPATION_LABEL.seated` = « Assis » (réponse à « Au travail, tu es surtout… », ligne « Emploi » du profil, tuile « Travail » des détails) ; 2. la case de périmètre de l'écran âge, « Je ne suis pas **enceinte** ni **allaitante**… » ; 3. et 4. « reste **attentif** à la fatigue » (Plan, Résultat). Les autres formes en apparence genrées s'accordent avec un nom, pas avec la lectrice ou le lecteur : « Ton profil sportif » (profil), « Une recalibration est prête » (recalibration), « Export prêt » (export), `PAL_CATEGORY_TITLE` « Peu active » (catégorie). `PAL_LABEL` (« inactif », « actif »…) est du code mort, non affiché : signalé sur place pour qu'il ne soit pas branché tel quel.
+- **Avant que le sexe soit connu** (écran âge, qui précède l'écran sexe) : formulation épicène. La case devient « Je ne suis dans aucune de ces situations : grossesse, allaitement, trouble alimentaire, condition médicale nécessitant un suivi nutritionnel spécifique. » Les situations sont nommées comme des situations, donc rien n'a à s'accorder avec qui lit.
+- **Reformulation épicène préférée à l'accord quand elle est naturelle** (règle 4) : « reste attentif à la fatigue » devient « surveille ta fatigue » aux deux endroits. Plus court, et plus rien à accorder.
+- **Accord après** : `agree(sex, masculin, féminin)` dans `app/copy.ts`, une fonction, pas une couche i18n. Seul `occupationLabel` l'utilise : « Assis » / « Assise ». `OCCUPATION_LABEL` n'est plus exporté, pour qu'aucun écran ne puisse afficher la forme masculine par accident. L'écran sexe précède l'écran travail (testé), donc l'accord a toujours une valeur ; `SexForCopy` admet `null` (profil sans sexe) et retombe alors sur la forme masculine, cas qui ne doit pas se produire puisque la copie de cette phase est épicène.
+- **Jamais de point médian ni de parenthèse d'accord** : un test statique refuse `·e` et `é(e)` dans l'interface, en plus des quatre formes corrigées.
+- Seul ajout au view-model : `Explanation.sex`, pour que l'écran de détails puisse accorder la tuile « Travail ». Aucune valeur scientifique ne change (snapshots de référence : une ligne ajoutée, aucun nombre modifié).
 
 ---
 

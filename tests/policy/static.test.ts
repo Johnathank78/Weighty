@@ -162,6 +162,60 @@ describe('PWA and GitHub Pages configuration', () => {
     expect(ciqualChunk).toBeDefined();
   });
 
+  it('zoom gestures are refused on every engine (D1)', () => {
+    const viewport = /<meta name="viewport" content="([^"]+)"/.exec(html)?.[1] ?? '';
+    expect(viewport).toContain('maximum-scale=1');
+    expect(viewport).toContain('user-scalable=no');
+    expect(viewport).toContain('viewport-fit=cover');
+    // iOS Safari ignores the meta: the WebKit gesture events are refused, without a touchmove listener
+    // that would make scrolling non passive.
+    const zoom = read(join('src', 'app', 'zoom.ts'));
+    expect(zoom).toMatch(/'gesturestart', 'gesturechange', 'gestureend'/);
+    expect(zoom).toMatch(/\{ passive: false \}/);
+    expect(zoom.replace(DOC_COMMENTS, '')).not.toMatch(/touchmove/);
+    expect(read('src/main.tsx')).toMatch(/blockZoomGestures\(\)/);
+    expect(read(join('src', 'styles', 'app.css'))).toMatch(/touch-action: pan-x pan-y/);
+  });
+
+  it('the status bar band carries the colour of the app, in both themes (D2)', () => {
+    const css = read(join('src', 'styles', 'app.css'));
+    const tokens = read(join('src', 'styles', 'tokens.css'));
+    // The document, not the shell, paints the safe areas: it must use --bg, not the page backdrop.
+    expect(css).toMatch(/html \{[^}]*background: var\(--bg\)/);
+    expect(css).toMatch(/body \{[^}]*background: var\(--bg\)/);
+    // --page stays the backdrop of the centred column on a wide screen only.
+    expect(css).toMatch(/@media \(min-width: 600px\) \{\s*html,\s*body \{\s*background: var\(--page\)/);
+    // theme-color is read from --bg at runtime, so the two can never drift apart.
+    expect(read(join('src', 'hooks', 'useTheme.ts'))).toMatch(/getPropertyValue\('--bg'\)/);
+    const metas = [...html.matchAll(/<meta name="theme-color" content="([^"]+)" media="\(prefers-color-scheme: (light|dark)\)"/g)].map((m) => [m[2], (m[1] as string).toLowerCase()]);
+    const lightBg = /:root \{[\s\S]*?--bg: (#[0-9a-f]+);/.exec(tokens)?.[1];
+    const darkBg = /\[data-theme='dark'\] \{[\s\S]*?--bg: (#[0-9a-f]+);/.exec(tokens)?.[1];
+    expect(metas).toEqual([
+      ['light', lightBg],
+      ['dark', darkBg],
+    ]);
+  });
+
+  it('the elastic bounce is left only where content really scrolls (D3)', () => {
+    const css = read(join('src', 'styles', 'app.css'));
+    expect(css).toMatch(/body \{[^}]*overscroll-behavior: none/);
+    // A visible overflow-x next to an auto overflow-y is computed as auto: panels said so explicitly.
+    expect(css).toMatch(/\.sheet \{[^}]*overflow-x: hidden;\s*overflow-y: auto/);
+    expect(css).toMatch(/\.sheet__scroll \{[\s\S]*?overflow-x: hidden/);
+    expect(css).toMatch(/\.shell \{[^}]*overflow-x: hidden/);
+  });
+
+  it('panels reserve the room of what comes and goes (D4)', () => {
+    const css = read(join('src', 'styles', 'app.css'));
+    for (const slot of ['.field-error--slot', '.ghost-slot', '.hint-slot', '.time-slot']) expect(css, slot).toContain(`${slot} {`);
+    // Weigh-in, adherence, add a food, quantity and portions, free entry, measured RMR.
+    expect(read(join('src', 'screens', 'DailySheets.tsx'))).toMatch(/field-error--slot[\s\S]*ghost-slot/);
+    expect((read(join('src', 'screens', 'Journal.tsx')).match(/field-error--slot/g) ?? []).length).toBe(2);
+    expect(read(join('src', 'screens', 'Journal.tsx'))).toMatch(/className="time-slot"/);
+    expect(read(join('src', 'screens', 'Journal.tsx'))).toMatch(/className="small hint-slot"/);
+    expect(read(join('src', 'screens', 'Onboarding.tsx'))).toMatch(/field-error--slot/);
+  });
+
   it('entry HTML never references root-absolute assets', () => {
     expect(html).not.toMatch(/(src|href)="\/(?!\/)/);
   });

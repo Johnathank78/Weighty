@@ -9,6 +9,8 @@ import { WeightChart } from '@/components/WeightChart';
 import { applyRecalibration, buildPlanFromStore, deleteWeight, markRecalibrationSeen, trendOf } from '@/domain/engine';
 import { formatDayMonth, formatInteger, formatKcal, formatKcalRange, formatShortMonth, formatSignedKcal, formatSignedWeight, formatSteps, formatWeight, weightUnitLabel } from '@/domain/format';
 import { adherenceSummary, analysisView, averageLoggedSteps, gateCriterionValue, gateProgress, recentWeights, trackingChart, weeksOfTracking } from '@/domain/views';
+import type { ChartSeries } from '@/domain/views';
+import type { UnitPreference } from '@/domain/types';
 import { addDays } from '@/science/dates';
 
 type RangeChoice = '1m' | '3m' | 'all';
@@ -18,12 +20,18 @@ const COUNT_UP_MS = 1100;
 
 export function SuiviScreen() {
   const { openSheet } = useNav();
-  const { store, today, update } = useWheighty();
+  const { store, today, update, calibration } = useWheighty();
   const [range, setRange] = useState<RangeChoice>('3m');
   const [pending, setPending] = useState<string | null>(null);
   const units = store.preferences.units;
   const trend = trendOf(store).summary;
-  const chart = useMemo(() => trackingChart(store, today, range === '1m' ? 30 : range === '3m' ? 90 : null), [store, today, range]);
+  const chart = useMemo(() => trackingChart(store, today, range === '1m' ? 30 : range === '3m' ? 90 : null, calibration), [store, today, range, calibration]);
+  const lastTrendDay = chart ? (chart.trend[chart.trend.length - 1]?.day ?? chart.todayDay) : 0;
+  const hasFuture = chart ? chart.projection.some((p) => p.day > lastTrendDay) : false;
+  const markers = useMemo(
+    () => (chart && trend.latest ? ([{ day: lastTrendDay, kg: trend.latest.trendKg, kind: 'today' }] as const) : []),
+    [chart, trend.latest, lastTrendDay],
+  );
   const recent = recentWeights(store, 8);
   const weeks = weeksOfTracking(store, today);
   const pendingEntry = store.weights.find((w) => w.id === pending) ?? null;
@@ -59,20 +67,21 @@ export function SuiviScreen() {
       {chart ? (
         <>
           <WeightChart
-            width={342}
             height={168}
             raw={chart.raw}
             trend={chart.trend}
             projection={chart.projection}
             band={chart.band}
-            markers={trend.latest ? [{ day: chart.trend[chart.trend.length - 1]?.day ?? chart.todayDay, kg: trend.latest.trendKg, kind: 'today' }] : []}
-            label={`Évolution du poids en ${weightUnitLabel(units)} : pesées, tendance lissée et projection du plan`}
+            markers={markers}
+            label={`Évolution du poids en ${weightUnitLabel(units)} : pesées, tendance lissée${hasFuture ? ' et projection du plan' : ''}`}
+            summary={chartSummary(chart, units)}
+            axis={{ start: formatShortMonth(chart.startDate), today: 'Auj.', ...(hasFuture ? { future: 'Prévu' } : {}) }}
           />
-          <div className="chart-axis">
-            <span>{formatShortMonth(chart.startDate)}</span>
-            <span>Auj.</span>
-            <span style={{ opacity: 0.6 }}>Prévu</span>
-          </div>
+          {chart.projectionPending ? (
+            <p className="small" style={{ margin: '0 0 22px' }}>
+              {CHART_LEARNING_NOTE}
+            </p>
+          ) : null}
         </>
       ) : (
         <div style={{ display: 'grid', placeItems: 'center', padding: '20px 0 30px', textAlign: 'center' }}>
@@ -99,8 +108,12 @@ export function SuiviScreen() {
       </div>
       <div className="rows">
         {recent.map((w) => (
-          <button key={w.id} type="button" className="row" style={{ width: '100%', background: 'none', borderLeft: 0, borderRight: 0, borderBottom: 0, textAlign: 'left', color: 'var(--ink)' }} onClick={() => setPending(w.id)} aria-label={`Pesée du ${formatDayMonth(w.date)} : ${formatWeight(w.kg, units)} ${weightUnitLabel(units)}. Options`}>
-            <span style={{ font: '500 14px var(--font)' }}>{w.date === today ? 'Aujourd’hui' : w.date === addDays(today, -1) ? 'Hier' : formatDayMonth(w.date)}</span>
+          <button key={w.id} type="button" className="row" style={{ width: '100%', background: 'none', borderLeft: 0, borderRight: 0, borderBottom: 0, textAlign: 'left', color: 'var(--ink)' }} onClick={() => setPending(w.id)} aria-label={`Pesée du ${formatDayMonth(w.date)}${w.time ? ` à ${w.time}` : ''} : ${formatWeight(w.kg, units)} ${weightUnitLabel(units)}. Options`}>
+            <span style={{ font: '500 14px var(--font)' }}>
+              {w.date === today ? 'Aujourd’hui' : w.date === addDays(today, -1) ? 'Hier' : formatDayMonth(w.date)}
+              {/* Several weigh-ins the same day: the time tells them apart (A3). */}
+              {w.time ? <span className="tabular" style={{ font: '400 12.5px var(--font)', color: 'var(--ink2)', marginLeft: 8 }}>{w.time}</span> : null}
+            </span>
             <span style={{ display: 'flex', gap: 14, alignItems: 'baseline', marginLeft: 'auto' }}>
               <span className="tabular" style={{ font: '500 12.5px var(--font)', color: 'var(--ink2)', textAlign: 'right' }}>{w.deltaKg === null ? '' : formatSignedWeight(w.deltaKg, units)}</span>
               <span className="tabular" style={{ font: '600 16px var(--font)', minWidth: 48, textAlign: 'right' }}>
@@ -129,6 +142,23 @@ export function SuiviScreen() {
       </BottomSheet>
     </main>
   );
+}
+
+/** No curve ahead while the first calibration is not reached (A3). */
+const CHART_LEARNING_NOTE = 'Pas encore de projection : Wheighty apprend encore de tes pesées avant de te dire où mène ton plan.';
+
+/** Text alternative to the drawing: what the curve says, for screen readers (A3). */
+export function chartSummary(chart: ChartSeries, units: UnitPreference): string {
+  const unit = weightUnitLabel(units);
+  const firstTrend = chart.trend[0];
+  const lastTrend = chart.trend[chart.trend.length - 1];
+  const lastProjection = chart.projection[chart.projection.length - 1];
+  const parts = [`${chart.raw.length} pesée${chart.raw.length > 1 ? 's' : ''} depuis le ${formatDayMonth(chart.startDate)}`];
+  if (firstTrend && lastTrend) parts.push(`tendance de ${formatWeight(firstTrend.kg, units)} à ${formatWeight(lastTrend.kg, units)} ${unit}`);
+  if (lastTrend && lastProjection && lastProjection.day > lastTrend.day) {
+    parts.push(`projection du plan à ${formatWeight(lastProjection.kg, units)} ${unit} dans ${lastProjection.day - lastTrend.day} jours`);
+  }
+  return `${parts.join(', ')}.${chart.projectionPending ? ` ${CHART_LEARNING_NOTE}` : ''}`;
 }
 
 /** Display of one gate criterion (shared with the explanation panel). */

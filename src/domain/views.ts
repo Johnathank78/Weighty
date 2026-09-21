@@ -4,9 +4,10 @@
  */
 import { GATE_MIN_ADHERENCE_COVERAGE, GATE_MIN_CLEAN_WEIGHINS, GATE_MIN_SPAN_DAYS, GATE_MIN_WEIGHINS, KCAL_PER_G_CARB, KCAL_PER_G_FAT, KCAL_PER_G_PROTEIN, WEIGH_IN_REMINDER_INTERVAL_DAYS } from '@/science/constants';
 import { addDays, daysBetween } from '@/science/dates';
-import { lossAvailability, maintenanceZone } from '@/science/goals';
+import { lossAvailability, maintenanceZone, projectPlan } from '@/science/goals';
+import type { Projection } from '@/science/goals';
 import { bmi } from '@/science/macros';
-import type { DailyLog, Goal, MacroGrams, SpeedZone, TrajectoryPoint } from '@/science/types';
+import type { DailyLog, Goal, MacroGrams, SpeedZone } from '@/science/types';
 import { assessBaseline, planContextFrom } from '@/science/assessment';
 import { simulateHall } from '@/science/hall/model';
 import { evaluateGate } from '@/science/calibration';
@@ -14,7 +15,8 @@ import type { GateStatus } from '@/science/calibration';
 import { formatInteger } from './format';
 import { hallInputFor, hallParametersFor, snapWeeklyRate, speedZoneFor } from '@/science/goals';
 import type { CalibrationState } from './engine';
-import { goalStatus, latestAppliedSnapshot, latestRawWeight, trendOf, weighInDue } from './engine';
+import { goalStatus, latestAppliedSnapshot, latestRawWeight, MAINTENANCE_PROJECTION_DAYS, trendOf, weighInDue } from './engine';
+import { localTimeOf } from './journal';
 import type { CurrentPlan, WheightyStore } from './types';
 
 export function displayMacros(plan: CurrentPlan): MacroGrams {
@@ -148,12 +150,36 @@ export type ChartSeries = {
   band: Array<{ day: number; lo: number; hi: number }>;
   todayDay: number;
   startDate: string;
+  /** Nothing is drawn ahead yet: Wheighty is still learning (A3). */
+  projectionPending: boolean;
 };
 
-/** Weight chart data for Suivi: raw points, trend, and the plan projection after today. */
-export function trackingChart(store: WheightyStore, today: string, rangeDays: number | null): ChartSeries | null {
-  const { points } = trendOf(store);
+/**
+ * Where the plan leads from today (A3): the same model as the plan, restarted from the current trend
+ * weight and from the maintenance Wheighty estimates now, not the snapshot frozen when the plan was
+ * created. Nothing is stored and no engine output changes: this is what the Suivi chart draws.
+ */
+export function projectionFromToday(store: WheightyStore, today: string, state: CalibrationState | null): Projection | null {
   const plan = store.plan;
+  const profile = store.profile;
+  const latest = trendOf(store).summary.latest;
+  if (!plan || !profile || !latest) return null;
+  const maintenanceKcal = state?.currentMaintenanceKcal ?? plan.maintenanceKcal;
+  const interval80 = state?.currentInterval80 ?? plan.maintenanceInterval80;
+  const assessment = assessBaseline(profile, today, { weightKg: latest.trendKg, palCategory: plan.palCategory });
+  const context = planContextFrom(profile, assessment, maintenanceKcal);
+  return projectPlan(context, {
+    goal: plan.goal,
+    scenario: { calorieTargetKcal: plan.calorieTarget, stepsPerDay: plan.stepTarget },
+    targetWeightKg: plan.targetWeightKg ?? profile.targetWeightKg,
+    maintenanceOffsets80: [interval80[0] - maintenanceKcal, interval80[1] - maintenanceKcal],
+    maintenanceHorizonDays: MAINTENANCE_PROJECTION_DAYS,
+  });
+}
+
+/** Weight chart data for Suivi: raw points, trend, and where the plan leads from the last trend point. */
+export function trackingChart(store: WheightyStore, today: string, rangeDays: number | null, state: CalibrationState | null = null): ChartSeries | null {
+  const { points } = trendOf(store);
   if (points.length === 0) return null;
   const first = points[0]?.date ?? today;
   const startDate = rangeDays === null ? first : addDays(today, -rangeDays) > first ? addDays(today, -rangeDays) : first;
@@ -163,28 +189,42 @@ export function trackingChart(store: WheightyStore, today: string, rangeDays: nu
   const todayDay = daysBetween(startDate, today);
   // Based on the span actually shown, not the nominal range: ranges that clip to the same first weigh-in draw the same curve.
   const horizonAhead = Math.max(21, Math.round(Math.max(28, todayDay) / 3));
+  // While the first calibration is not reached, the estimate is still the onboarding prior: no curve is
+  // drawn ahead rather than a confident looking one (decision of the product owner).
+  const learning = !(state?.gate.met && state.candidate);
+  const live = learning ? null : projectionFromToday(store, today, state);
   let projection: ChartSeries['projection'] = [];
   let band: ChartSeries['band'] = [];
-  if (plan) {
-    const planStart = plan.createdAt.slice(0, 10);
-    const offset = daysBetween(startDate, planStart);
-    const lastTrend = trend[trend.length - 1];
-    const shift = (pt: TrajectoryPoint) => ({ day: pt.day + offset, kg: pt.weightKg });
-    projection = plan.projection.trajectory.map(shift).filter((p) => p.day >= (lastTrend?.day ?? todayDay) && p.day <= todayDay + horizonAhead);
-    band = plan.projection.trajectory
-      .map((pt, i) => ({ day: pt.day + offset, lo: plan.projection.lower80[i]?.weightKg ?? pt.weightKg, hi: plan.projection.upper80[i]?.weightKg ?? pt.weightKg }))
-      .filter((p) => p.day >= (lastTrend?.day ?? todayDay) && p.day <= todayDay + horizonAhead);
+  if (live) {
+    // Day 0 of the simulation is the weight of the last trend point, on its own day.
+    const anchor = trend[trend.length - 1]?.day ?? todayDay;
+    const within = (day: number) => day <= todayDay + horizonAhead;
+    projection = live.trajectory.map((pt) => ({ day: anchor + pt.day, kg: pt.weightKg })).filter((p) => within(p.day));
+    band = live.trajectory
+      .map((pt, i) => ({ day: anchor + pt.day, lo: live.lower80[i]?.weightKg ?? pt.weightKg, hi: live.upper80[i]?.weightKg ?? pt.weightKg }))
+      .filter((p) => within(p.day));
   }
-  return { raw, trend, projection, band, todayDay, startDate };
+  return { raw, trend, projection, band, todayDay, startDate, projectionPending: learning };
 }
 
-export type RecentWeight = { id: string; date: string; kg: number; deltaKg: number | null };
+export type RecentWeight = {
+  id: string;
+  date: string;
+  kg: number;
+  deltaKg: number | null;
+  /** Local time of the entry, only when the day carries several weigh-ins (A3). */
+  time: string | null;
+};
 
 export function recentWeights(store: WheightyStore, limit: number): RecentWeight[] {
   const sorted = [...store.weights].sort((a, b) => (a.date === b.date ? (a.createdAt < b.createdAt ? 1 : -1) : a.date < b.date ? 1 : -1));
+  const perDate = new Map<string, number>();
+  for (const w of store.weights) perDate.set(w.date, (perDate.get(w.date) ?? 0) + 1);
   return sorted.slice(0, limit).map((w, i) => {
     const prev = sorted[i + 1];
-    return { id: w.id, date: w.date, kg: w.weightKg, deltaKg: prev ? w.weightKg - prev.weightKg : null };
+    const several = (perDate.get(w.date) ?? 0) > 1;
+    const at = new Date(w.createdAt);
+    return { id: w.id, date: w.date, kg: w.weightKg, deltaKg: prev ? w.weightKg - prev.weightKg : null, time: several && !Number.isNaN(at.getTime()) ? localTimeOf(at) : null };
   });
 }
 

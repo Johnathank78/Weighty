@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNav } from '@/app/navigation';
 import { useWheighty } from '@/store/StoreProvider';
-import { ACTIVITY_LABEL, BODY_FAT_METHOD_LABEL, DATA_SOURCES_TEXT, GOAL_LABEL, GOAL_SHORT, OCCUPATION_LABEL, PACE_LABEL, PLAN_ERROR_TEXT, PRODUCT_SEARCH_TEXT } from '@/app/copy';
+import { ACTIVITY_LABEL, BODY_FAT_METHOD_LABEL, DATA_SOURCES_TEXT, GOAL_LABEL, GOAL_SHORT, occupationLabel, PACE_LABEL, PLAN_ERROR_TEXT, PRODUCT_SEARCH_TEXT } from '@/app/copy';
 import { clearLibrary } from '@/domain/foodLibrary';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Mascot } from '@/components/Mascot';
@@ -65,7 +65,7 @@ export function ProfilScreen() {
       <div className="rows">
         <Row label="Pas moyens" value={formatInteger(profile.averageSteps7d)} />
         <Row label="Allure" value={PACE_LABEL[profile.walkingPace]} />
-        <Row label="Emploi" value={OCCUPATION_LABEL[profile.occupation]} />
+        <Row label="Emploi" value={occupationLabel(profile.occupation, profile.sexForEquation)} />
         <Row label="Entraînements" value={<span style={{ fontSize: 13.5 }}>{training}</span>} />
       </div>
       <button
@@ -197,7 +197,7 @@ export function GoalSheet() {
 }
 
 export function ParamsScreen() {
-  const { back, showToast } = useNav();
+  const { back } = useNav();
   const { store, update } = useWheighty();
   const pwa = usePwa();
   const [consentOpen, setConsentOpen] = useState(false);
@@ -248,29 +248,19 @@ export function ParamsScreen() {
       </div>
       <div className="row" style={{ alignItems: 'center', padding: '16px 0' }}>
         <span style={{ flex: 1 }}>
-          <span style={{ display: 'block', font: '600 14.5px var(--font)' }}>Détails scientifiques</span>
-          <span style={{ display: 'block', font: '400 12.5px var(--font)', color: 'var(--ink2)', marginTop: 2 }}>Afficher les formules et valeurs brutes dans les écrans</span>
-        </span>
-        <Toggle checked={prefs.showScientificDetails} onChange={(v) => setPrefs({ showScientificDetails: v })} label="Détails scientifiques" />
-      </div>
-      <div className="row" style={{ alignItems: 'center', padding: '16px 0' }}>
-        <span style={{ flex: 1 }}>
           <span style={{ display: 'block', font: '600 14.5px var(--font)' }}>{PRODUCT_SEARCH_TEXT.settingTitle}</span>
           <span style={{ display: 'block', font: '400 12.5px var(--font)', color: 'var(--ink2)', marginTop: 2 }}>{PRODUCT_SEARCH_TEXT.settingHint}</span>
         </span>
         <Toggle checked={prefs.productSearchEnabled} onChange={(v) => (v ? setConsentOpen(true) : setPrefs({ productSearchEnabled: false }))} label={PRODUCT_SEARCH_TEXT.settingTitle} />
       </div>
-      <button
-        type="button"
-        className="link"
-        style={{ fontSize: 12.5 }}
-        onClick={() => {
-          update((s) => clearLibrary(s));
-          showToast(PRODUCT_SEARCH_TEXT.cacheCleared);
-        }}
-      >
-        {PRODUCT_SEARCH_TEXT.clearCache}
-      </button>
+      {/* E2: last preference of the screen. */}
+      <div className="row" style={{ alignItems: 'center', padding: '16px 0' }}>
+        <span style={{ flex: 1 }}>
+          <span style={{ display: 'block', font: '600 14.5px var(--font)' }}>Détails scientifiques</span>
+          <span style={{ display: 'block', font: '400 12.5px var(--font)', color: 'var(--ink2)', marginTop: 2 }}>Afficher les formules et valeurs brutes dans les écrans</span>
+        </span>
+        <Toggle checked={prefs.showScientificDetails} onChange={(v) => setPrefs({ showScientificDetails: v })} label="Détails scientifiques" />
+      </div>
 
       <h2 className="section-label">{DATA_SOURCES_TEXT.title}</h2>
       <p className="small" style={{ margin: '0 0 10px' }}>
@@ -340,10 +330,13 @@ export function useExport() {
 
 export function DataScreen() {
   const { back, go, showToast } = useNav();
-  const { store, commit, saveError } = useWheighty();
+  const { store, commit, update, saveError } = useWheighty();
   const doExport = useExport();
   const fileRef = useRef<HTMLInputElement>(null);
   const [imported, setImported] = useState<ImportResult | null>(null);
+  // E1: clearing "Mes aliments" lives with the data, and is confirmed.
+  const [clearOpen, setClearOpen] = useState(false);
+  const libraryCount = store.foodJournal.library.length;
   const loggedDays = store.dailyLogs.filter((l) => l.adherence).length;
   const recalibrations = appliedWeightCalibrations(store);
 
@@ -410,9 +403,37 @@ export function DataScreen() {
         }}
       />
       <div className="divider" style={{ marginBottom: 22 }} />
+      <div className="row" style={{ alignItems: 'center', padding: '0 0 18px', border: 0 }}>
+        <span style={{ flex: 1 }}>
+          <span style={{ display: 'block', font: '600 14.5px var(--font)' }}>{PRODUCT_SEARCH_TEXT.clearCache}</span>
+          <span style={{ display: 'block', font: '400 12.5px var(--font)', color: 'var(--ink2)', marginTop: 2 }}>
+            {libraryCount > 0 ? PRODUCT_SEARCH_TEXT.clearCount(libraryCount) : PRODUCT_SEARCH_TEXT.clearEmpty}
+          </span>
+        </span>
+        <button type="button" className="btn btn--outline btn--small" disabled={libraryCount === 0} onClick={() => setClearOpen(true)}>
+          {PRODUCT_SEARCH_TEXT.clearConfirm}
+        </button>
+      </div>
       <button type="button" className="btn" style={{ background: 'transparent', color: 'var(--danger)', textAlign: 'left', fontSize: 15 }} onClick={() => go('delete')}>
         Supprimer toutes mes données
       </button>
+
+      <BottomSheet open={clearOpen} onClose={() => setClearOpen(false)} title={PRODUCT_SEARCH_TEXT.clearConfirmTitle} lead={PRODUCT_SEARCH_TEXT.clearConfirmLead}>
+        <button
+          type="button"
+          className="btn btn--primary"
+          onClick={() => {
+            update((s) => clearLibrary(s));
+            setClearOpen(false);
+            showToast(PRODUCT_SEARCH_TEXT.cacheCleared);
+          }}
+        >
+          {PRODUCT_SEARCH_TEXT.clearConfirm}
+        </button>
+        <button type="button" className="btn btn--ghost" onClick={() => setClearOpen(false)}>
+          {PRODUCT_SEARCH_TEXT.clearCancel}
+        </button>
+      </BottomSheet>
 
       <BottomSheet
         open={imported !== null}

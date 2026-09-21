@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNav } from '@/app/navigation';
 import { useWheighty } from '@/store/StoreProvider';
-import { ADHERENCE_LABEL } from '@/app/copy';
+import { ADHERENCE_LABEL, PERIOD_TEXT } from '@/app/copy';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Range, Segmented } from '@/components/controls';
 import { addWeight, setActualSteps, setAdherence } from '@/domain/engine';
@@ -37,6 +37,9 @@ export function WeighSheet() {
   const [value, setValue] = useState('');
   const [day, setDay] = useState<DayChoice>('today');
   const [error, setError] = useState<string | null>(null);
+  // C-01: noted with the weigh-in, journaling only. Unchecked on every opening.
+  const [menstruating, setMenstruating] = useState(false);
+  const asksPeriod = store.profile?.sexForEquation === 'female';
 
   useEffect(() => {
     if (!open) return;
@@ -44,6 +47,7 @@ export function WeighSheet() {
     setValue(last ? formatWeight(last.weightKg, units).replace(/[\s\u202F]/g, '') : '');
     setDay('today');
     setError(null);
+    setMenstruating(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -67,7 +71,7 @@ export function WeighSheet() {
       return;
     }
     const date = day === 'today' ? today : addDays(today, -1);
-    update((s) => addWeight(s, { date, weightKg: kg }, nowIso()));
+    update((s) => addWeight(s, { date, weightKg: kg, ...(asksPeriod && menstruating ? { menstruating: true } : {}) }, nowIso()));
     closeSheet();
     showToast('Pesée enregistrée. Tendance mise à jour.');
   };
@@ -83,14 +87,24 @@ export function WeighSheet() {
           {weightUnitLabel(units)}
         </span>
       </div>
-      {error ? (
-        <p className="field-error" role="alert" style={{ textAlign: 'center' }}>
-          {error}
-        </p>
-      ) : null}
+      {/* D4: the slot is always there, so the panel keeps its height when the error appears. */}
+      <p className="field-error field-error--slot" role="alert" style={{ textAlign: 'center' }}>
+        {error ?? ''}
+      </p>
       <div style={{ margin: '14px 0 18px' }}>
         <DayPicker value={day} onChange={setDay} />
       </div>
+      {asksPeriod ? (
+        <button type="button" role="checkbox" aria-checked={menstruating} className="checkbox" style={{ paddingTop: 0, marginBottom: 18 }} onClick={() => setMenstruating(!menstruating)}>
+          <span className="checkbox__box" aria-hidden="true">
+            {menstruating ? '✓' : ''}
+          </span>
+          <span>
+            {PERIOD_TEXT.label}
+            <span style={{ display: 'block', font: '400 12px var(--font)', color: 'var(--ink2)', marginTop: 2 }}>{PERIOD_TEXT.hint}</span>
+          </span>
+        </button>
+      ) : null}
       <div className="keypad">
         {keys.map((k) => (
           <button key={k} type="button" onClick={() => key(k)} aria-label={k === 'del' ? 'Effacer' : k === ',' ? 'Virgule' : k}>
@@ -156,18 +170,21 @@ export function AdherenceSheet() {
       >
         Valider
       </button>
-      {current ? (
-        <button
-          type="button"
-          className="btn btn--ghost"
-          onClick={() => {
-            update((s) => setAdherence(s, date, null));
-            closeSheet();
-          }}
-        >
-          Effacer la note
-        </button>
-      ) : null}
+      {/* D4: reserved slot, so switching to "Hier" never resizes the panel under the finger. */}
+      <div className="ghost-slot">
+        {current ? (
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={() => {
+              update((s) => setAdherence(s, date, null));
+              closeSheet();
+            }}
+          >
+            Effacer la note
+          </button>
+        ) : null}
+      </div>
     </BottomSheet>
   );
 }

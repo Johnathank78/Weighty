@@ -72,6 +72,11 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
     if (isObject(journal) && journal.library === undefined) out.foodJournal = { ...journal, library: [] };
     return out;
   },
+  // 5 -> 6 (no model change, C-01): weigh-ins can carry `menstruating`, journaling only. Existing
+  // weigh-ins are left exactly as they are: an absent flag means "not noted", which is the truth for
+  // every weigh-in saved before the box existed. The bump is what keeps a version 6 export out of an
+  // older build, and lets a version 5 file be read here.
+  5: (input) => ({ ...input, schemaVersion: 6 }),
 };
 
 export type MigrationResult = { ok: true; value: Record<string, unknown>; fromVersion: number } | { ok: false; error: 'not_an_object' | 'future_schema_version' | 'missing_migration' };

@@ -260,6 +260,7 @@ exports[`warm start reference cases (model 1.2.0) > case R (real profile) 1`] = 
     },
   },
   "scaleVariationKcalPerDay": 225.167287,
+  "sex": "female",
   "signals": [
     "pal_boundary",
     "low_confidence",
@@ -547,6 +548,7 @@ exports[`warm start reference cases (model 1.2.0) > case S (synthetic 5-session 
     },
   },
   "scaleVariationKcalPerDay": 232.838986,
+  "sex": "female",
   "signals": [
     "pal_boundary",
     "low_confidence",
