@@ -2,7 +2,8 @@
  * Food journal domain (J-01, J-02): snapshots, immutability of past days, portions, totals kept apart
  * from the plan, embedded Ciqual table and local search, and independence from the engine.
  */
-import { readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { posix } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { offProductToFood, parseOffProduct } from '@/adapters/openFoodFacts';
 import { completeOnboarding, computeCalibrationState, addWeight, setAdherence } from '@/domain/engine';
@@ -186,14 +187,94 @@ describe('journal is kept apart from the plan and the engine', () => {
     expect(computeCalibrationState(withJournal, today, iso(today))).toEqual(computeCalibrationState(s, today, iso(today)));
   });
 
-  it('no engine, science, worker or calibration module reads the journal', () => {
+  it('only intakeObservationsFrom brings the journal to the science, the worker or a calibration module (D8, prompt 34 s3.7)', () => {
+    const JOURNAL = 'src/domain/journal.ts';
+    const BRIDGE = 'src/domain/intakeObservations.ts';
+    // Science, worker and the calibration modules of the domain: none reads the journal, except the bridge.
+    const scope = [...sourceFiles('src/science'), 'src/store/calibration.worker.ts', 'src/store/calibrationClient.ts', 'src/domain/engine.ts', 'src/domain/explain.ts', 'src/domain/journalCalibration.ts', BRIDGE];
+    for (const f of scope) {
+      const imports = importsOf(f);
+      if (f !== BRIDGE) {
+        expect(imports, f).not.toContain(JOURNAL);
+        expect(readFileSync(f, 'utf8'), f).not.toMatch(/foodJournal|intakeLogged/);
+      }
+      expect(imports, f).not.toContain('src/domain/foodSearch.ts');
+      expect(imports, f).not.toContain('src/domain/foodLibrary.ts');
+    }
+    // The bridge exposes a single function; the regime module reaches the journal only through it.
+    expect([...readFileSync(BRIDGE, 'utf8').matchAll(/export function (\w+)/g)].map((m) => m[1])).toEqual(['intakeObservationsFrom']);
+    expect(importsOf('src/domain/journalCalibration.ts')).toContain(BRIDGE);
+    // Neither the worker nor the production engine reaches the journal, even transitively (relative imports included).
+    for (const entry of ['src/store/calibration.worker.ts', 'src/store/calibrationClient.ts', 'src/domain/engine.ts']) expect(closureOf(entry), entry).not.toContain(JOURNAL);
+    // In the regime prototype's dependency tree, the bridge is the only module importing the journal.
+    expect([...closureOf('src/domain/journalCalibration.ts')].filter((f) => importsOf(f).includes(JOURNAL))).toEqual([BRIDGE]);
+    // explain.ts (display) reaches the journal only through views.ts, a listed display module (localTimeOf).
+    expect([...closureOf('src/domain/explain.ts')].filter((f) => importsOf(f).includes(JOURNAL))).toEqual(['src/domain/views.ts']);
+    // Every module that imports the journal is listed here explicitly (display and journal features, plus the bridge).
+    const JOURNAL_READERS = [
+      'src/adapters/openFoodFacts.ts', // type ResolvedFood only
+      'src/domain/foodLibrary.ts',
+      'src/domain/foodSearch.ts', // type ResolvedFood only
+      BRIDGE,
+      'src/domain/views.ts', // display: localTimeOf (clock formatting, reads no entry)
+      'src/screens/Journal.tsx',
+      'src/screens/Today.tsx',
+    ];
+    expect(sourceFiles('src').filter((f) => importsOf(f).includes(JOURNAL))).toEqual([...JOURNAL_READERS].sort());
+    // Previous assertions, kept.
     const files = ['src/domain/engine.ts', 'src/domain/views.ts', 'src/domain/explain.ts', 'src/store/calibration.worker.ts', 'src/store/calibrationClient.ts'];
     for (const f of files) expect(readFileSync(f, 'utf8'), f).not.toMatch(/foodJournal|intakeLogged|@\/domain\/journal|@\/domain\/foodSearch/);
     const journal = readFileSync('src/domain/journal.ts', 'utf8');
     const imports = [...journal.matchAll(/from '([^']+)'/g)].map((m) => m[1]);
     expect(imports).toEqual(['./types', '@/persistence/schema', '@/science/dates']);
   });
+
+  it('the journal regime prototype is reachable from tests only: no store, worker or UI module imports it (prompt 34 s3.6)', () => {
+    const PROTOTYPE = ['src/domain/journalCalibration.ts', 'src/domain/intakeObservations.ts'];
+    for (const f of sourceFiles('src')) {
+      if (f === 'src/domain/journalCalibration.ts') continue;
+      for (const p of PROTOTYPE) expect(importsOf(f), f).not.toContain(p);
+    }
+    for (const p of PROTOTYPE) expect(closureOf('src/main.tsx')).not.toContain(p);
+  });
 });
+
+/** .ts and .tsx files under a directory, sorted, with forward slashes. */
+function sourceFiles(dir: string): string[] {
+  return readdirSync(dir, { recursive: true, encoding: 'utf8' })
+    .map((f) => `${dir}/${f.replace(/\\/g, '/')}`)
+    .filter((f) => /\.(ts|tsx)$/.test(f))
+    .sort();
+}
+
+/** Resolved in-repo imports of a module: `@/` alias and relative paths, static, re-exports and dynamic. */
+function importsOf(file: string): string[] {
+  const src = readFileSync(file, 'utf8');
+  const specs = [...src.matchAll(/(?:\bfrom|\bimport)\s*\(?\s*'([^']+)'/g)].map((m) => m[1] as string);
+  const out: string[] = [];
+  for (const spec of specs) {
+    let base: string | null = null;
+    if (spec.startsWith('@/')) base = `src/${spec.slice(2)}`;
+    else if (spec.startsWith('.')) base = posix.normalize(posix.join(posix.dirname(file), spec));
+    if (base === null) continue;
+    const hit = [base, `${base}.ts`, `${base}.tsx`, `${base}/index.ts`].find((p) => existsSync(p) && statSync(p).isFile());
+    if (hit) out.push(hit);
+  }
+  return out;
+}
+
+function closureOf(entry: string): Set<string> {
+  const seen = new Set<string>();
+  const stack = [entry];
+  while (stack.length > 0) {
+    const f = stack.pop() as string;
+    if (seen.has(f)) continue;
+    seen.add(f);
+    if (/\.(ts|tsx)$/.test(f)) stack.push(...importsOf(f));
+  }
+  seen.delete(entry);
+  return seen;
+}
 
 describe('embedded Ciqual table and local search (J-02)', () => {
   it('ships a reduced table with its version and the displayed constituents only', async () => {

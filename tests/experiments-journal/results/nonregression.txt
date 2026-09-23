@@ -1,0 +1,8 @@
+Capture before: commit 7a56144 (src unchanged since fcfdd47). Capture after: prototype of s3 (flag off).
+sha256 prefixes (after): t03=3447793aaab0a3d4 t04=c65c47cfed27e2f0 golden=e20b17f402509bfc cases-rs=521b1a3d2d4af42d journey=ef02f5ffb61d71ac 
+t03: 1003779 numeric values, 0 numeric differences, 0 other differences
+t04: 1497006 numeric values, 0 numeric differences, 0 other differences
+golden: 3483 numeric values, 0 numeric differences, 0 other differences
+cases-rs: 9847 numeric values, 0 numeric differences, 0 other differences
+journey: 8896 numeric values, 0 numeric differences, 0 other differences
+TOTAL 2523011 numeric values compared, 0 differences, 554 random ids masked
