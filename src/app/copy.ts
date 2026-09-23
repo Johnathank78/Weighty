@@ -260,6 +260,10 @@ export const PORTION_TEXT = {
   sourceNote: 'Portions indiquées par Open Food Facts, à vérifier sur le paquet.',
   unitQuestion: 'Poids d’une unité ?',
   remember: 'Retenir',
+  createOpen: 'Créer une portion',
+  createClose: 'Fermer',
+  createSave: 'Enregistrer la portion',
+  createCancel: 'Annuler',
 } as const;
 
 /** Masking entries on screen (J-11): display only, nothing is changed in the journal. */
