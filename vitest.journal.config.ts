@@ -18,7 +18,8 @@ export default defineConfig({
     include: ['tests/experiments-journal/**/*.experiment.ts'],
     testTimeout: 36_000_000,
     hookTimeout: 36_000_000,
-    pool: 'threads',
+    // Forks: the table reconstruction changes the working directory (not allowed in worker threads).
+    pool: 'forks',
     maxWorkers: 16,
   },
 });
