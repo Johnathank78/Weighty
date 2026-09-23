@@ -208,9 +208,9 @@ describe('PWA and GitHub Pages configuration', () => {
   it('panels reserve the room of what comes and goes (D4)', () => {
     const css = read(join('src', 'styles', 'app.css'));
     for (const slot of ['.field-error--slot', '.ghost-slot', '.hint-slot', '.time-slot']) expect(css, slot).toContain(`${slot} {`);
-    // Weigh-in, adherence, add a food, quantity and portions, free entry, measured RMR.
+    // Weigh-in, adherence, add a food, quantity and portions, portion creation, unit weight, free entry, measured RMR.
     expect(read(join('src', 'screens', 'DailySheets.tsx'))).toMatch(/field-error--slot[\s\S]*ghost-slot/);
-    expect((read(join('src', 'screens', 'Journal.tsx')).match(/field-error--slot/g) ?? []).length).toBe(2);
+    expect((read(join('src', 'screens', 'Journal.tsx')).match(/field-error--slot/g) ?? []).length).toBe(4);
     expect(read(join('src', 'screens', 'Journal.tsx'))).toMatch(/className="time-slot"/);
     expect(read(join('src', 'screens', 'Journal.tsx'))).toMatch(/className="small hint-slot"/);
     expect(read(join('src', 'screens', 'Onboarding.tsx'))).toMatch(/field-error--slot/);
