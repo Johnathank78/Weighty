@@ -1,0 +1,3716 @@
+{
+  "N1": {
+    "fixtures": 52,
+    "equivalence": {
+      "maxAbsDeltaKcal": 0,
+      "byQuantile": [
+        {
+          "q": "q10",
+          "maxAbs": 0
+        },
+        {
+          "q": "q50",
+          "maxAbs": 0
+        },
+        {
+          "q": "q90",
+          "maxAbs": 0
+        }
+      ],
+      "verdict": "GO"
+    },
+    "d5": {
+      "maxAbsDeltaMedianKcal": 42.870342215507264,
+      "fixturesOver25": 3,
+      "medianOfDeltas": {
+        "value": 0.0023337547482782384,
+        "low": -0.008269553576951694,
+        "high": 0.9768849029169928
+      },
+      "verdictPerFixture": "NO-GO",
+      "verdictOnMedianCi": "GO",
+      "carbGapCorrelation": 0.8357382369415814,
+      "slopeKcalPerCarbKcal": 0.1447808924089678
+    }
+  },
+  "N2": {
+    "pass": "passe 1 (n)",
+    "cells": [
+      {
+        "population": "P00",
+        "role": "principal",
+        "law": "normal",
+        "horizon": "28",
+        "n": 500,
+        "share": {
+          "value": 0,
+          "low": 0,
+          "high": 0.007624618530903363
+        },
+        "verdict": "GO"
+      },
+      {
+        "population": "P00",
+        "role": "principal",
+        "law": "normal",
+        "horizon": "84",
+        "n": 500,
+        "share": {
+          "value": 0,
+          "low": 0,
+          "high": 0.007624618530903363
+        },
+        "verdict": "GO"
+      },
+      {
+        "population": "P00",
+        "role": "principal",
+        "law": "t3",
+        "horizon": "28",
+        "n": 500,
+        "share": {
+          "value": 0.044,
+          "low": 0.029233737680341678,
+          "high": 0.06571991441984218
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P00",
+        "role": "principal",
+        "law": "t3",
+        "horizon": "84",
+        "n": 500,
+        "share": {
+          "value": 0.056,
+          "low": 0.03902536261505807,
+          "high": 0.07974529864038413
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P05",
+        "role": "principal",
+        "law": "normal",
+        "horizon": "28",
+        "n": 500,
+        "share": {
+          "value": 0.004,
+          "low": 0.0010976075412372681,
+          "high": 0.014466014041418871
+        },
+        "verdict": "GO"
+      },
+      {
+        "population": "P05",
+        "role": "principal",
+        "law": "normal",
+        "horizon": "84",
+        "n": 500,
+        "share": {
+          "value": 0.016,
+          "low": 0.008129155320203278,
+          "high": 0.03125147541771118
+        },
+        "verdict": "INCONCLUSIF"
+      },
+      {
+        "population": "P05",
+        "role": "principal",
+        "law": "t3",
+        "horizon": "28",
+        "n": 500,
+        "share": {
+          "value": 0.064,
+          "low": 0.045695733565557124,
+          "high": 0.08895293379339062
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P05",
+        "role": "principal",
+        "law": "t3",
+        "horizon": "84",
+        "n": 500,
+        "share": {
+          "value": 0.084,
+          "low": 0.06274379952220428,
+          "high": 0.11159988309550732
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P10",
+        "role": "principal",
+        "law": "normal",
+        "horizon": "28",
+        "n": 500,
+        "share": {
+          "value": 0.016,
+          "low": 0.008129155320203278,
+          "high": 0.03125147541771118
+        },
+        "verdict": "INCONCLUSIF"
+      },
+      {
+        "population": "P10",
+        "role": "principal",
+        "law": "normal",
+        "horizon": "84",
+        "n": 500,
+        "share": {
+          "value": 0.018,
+          "low": 0.009498085051756854,
+          "high": 0.03385204721203399
+        },
+        "verdict": "INCONCLUSIF"
+      },
+      {
+        "population": "P10",
+        "role": "principal",
+        "law": "t3",
+        "horizon": "28",
+        "n": 500,
+        "share": {
+          "value": 0.066,
+          "low": 0.04737823802541255,
+          "high": 0.09123993085941157
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P10",
+        "role": "principal",
+        "law": "t3",
+        "horizon": "84",
+        "n": 500,
+        "share": {
+          "value": 0.086,
+          "low": 0.06447280005130328,
+          "high": 0.11384038409228468
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P20",
+        "role": "principal",
+        "law": "normal",
+        "horizon": "28",
+        "n": 500,
+        "share": {
+          "value": 0.034,
+          "low": 0.02133433944461342,
+          "high": 0.053771805026188516
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P20",
+        "role": "principal",
+        "law": "normal",
+        "horizon": "84",
+        "n": 500,
+        "share": {
+          "value": 0.062,
+          "low": 0.04401893261361028,
+          "high": 0.08666023321946106
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P20",
+        "role": "principal",
+        "law": "t3",
+        "horizon": "28",
+        "n": 500,
+        "share": {
+          "value": 0.088,
+          "low": 0.06620563711739778,
+          "high": 0.11607704855206659
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P20",
+        "role": "principal",
+        "law": "t3",
+        "horizon": "84",
+        "n": 500,
+        "share": {
+          "value": 0.128,
+          "low": 0.10152638796079462,
+          "high": 0.1601463282261975
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P10_sd20",
+        "role": "sensitivity",
+        "law": "normal",
+        "horizon": "28",
+        "n": 500,
+        "share": {
+          "value": 0.052,
+          "low": 0.03573001990962654,
+          "high": 0.07510163829406287
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P10_sd20",
+        "role": "sensitivity",
+        "law": "normal",
+        "horizon": "84",
+        "n": 500,
+        "share": {
+          "value": 0.088,
+          "low": 0.06620563711739778,
+          "high": 0.11607704855206659
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P10_slope-5",
+        "role": "sensitivity",
+        "law": "normal",
+        "horizon": "28",
+        "n": 500,
+        "share": {
+          "value": 0.02,
+          "low": 0.010899065235569357,
+          "high": 0.03642056855409787
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P10_slope-5",
+        "role": "sensitivity",
+        "law": "normal",
+        "horizon": "84",
+        "n": 500,
+        "share": {
+          "value": 0.026,
+          "low": 0.0152562373229252,
+          "high": 0.04397190104437119
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P10_slope-10",
+        "role": "sensitivity",
+        "law": "normal",
+        "horizon": "28",
+        "n": 500,
+        "share": {
+          "value": 0.028,
+          "low": 0.01675081930862122,
+          "high": 0.04644682058455155
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P10_slope-10",
+        "role": "sensitivity",
+        "law": "normal",
+        "horizon": "84",
+        "n": 500,
+        "share": {
+          "value": 0.042,
+          "low": 0.027632099334746148,
+          "high": 0.06335205123956134
+        },
+        "verdict": "NO-GO"
+      }
+    ],
+    "principal": "NO-GO",
+    "sensitivity": "NO-GO",
+    "t3Variant": "NO-GO",
+    "verdict": "NO-GO",
+    "verdictIncludingT3": "NO-GO"
+  },
+  "N2x2": {
+    "pass": "passe 2 (2n, règle de doublement)",
+    "cells": [
+      {
+        "population": "P00",
+        "role": "principal",
+        "law": "normal",
+        "horizon": "28",
+        "n": 1000,
+        "share": {
+          "value": 0.002,
+          "low": 0.000548632102457155,
+          "high": 0.007262958889587807
+        },
+        "verdict": "GO"
+      },
+      {
+        "population": "P00",
+        "role": "principal",
+        "law": "normal",
+        "horizon": "84",
+        "n": 1000,
+        "share": {
+          "value": 0.003,
+          "low": 0.0010207654054443255,
+          "high": 0.008783171789427854
+        },
+        "verdict": "GO"
+      },
+      {
+        "population": "P00",
+        "role": "principal",
+        "law": "t3",
+        "horizon": "28",
+        "n": 1000,
+        "share": {
+          "value": 0.034,
+          "low": 0.024431201022401962,
+          "high": 0.04713546846011402
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P00",
+        "role": "principal",
+        "law": "t3",
+        "horizon": "84",
+        "n": 1000,
+        "share": {
+          "value": 0.053,
+          "low": 0.040746308422339304,
+          "high": 0.06867493891389383
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P05",
+        "role": "principal",
+        "law": "normal",
+        "horizon": "28",
+        "n": 1000,
+        "share": {
+          "value": 0.008,
+          "low": 0.004059147003819634,
+          "high": 0.01570652120518864
+        },
+        "verdict": "GO"
+      },
+      {
+        "population": "P05",
+        "role": "principal",
+        "law": "normal",
+        "horizon": "84",
+        "n": 1000,
+        "share": {
+          "value": 0.017,
+          "low": 0.010640599663218203,
+          "high": 0.027056184371235047
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P05",
+        "role": "principal",
+        "law": "t3",
+        "horizon": "28",
+        "n": 1000,
+        "share": {
+          "value": 0.049,
+          "low": 0.03726084730617148,
+          "high": 0.06419101521875278
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P05",
+        "role": "principal",
+        "law": "t3",
+        "horizon": "84",
+        "n": 1000,
+        "share": {
+          "value": 0.061,
+          "low": 0.04777956041163888,
+          "high": 0.07758045654721199
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P10",
+        "role": "principal",
+        "law": "normal",
+        "horizon": "28",
+        "n": 1000,
+        "share": {
+          "value": 0.011,
+          "low": 0.006153110089114165,
+          "high": 0.01958959672837577
+        },
+        "verdict": "INCONCLUSIF"
+      },
+      {
+        "population": "P10",
+        "role": "principal",
+        "law": "normal",
+        "horizon": "84",
+        "n": 1000,
+        "share": {
+          "value": 0.019,
+          "low": 0.012196787737404147,
+          "high": 0.029484688702703543
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P10",
+        "role": "principal",
+        "law": "t3",
+        "horizon": "28",
+        "n": 1000,
+        "share": {
+          "value": 0.055,
+          "low": 0.04249722594783333,
+          "high": 0.07090871379405425
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P10",
+        "role": "principal",
+        "law": "t3",
+        "horizon": "84",
+        "n": 1000,
+        "share": {
+          "value": 0.08,
+          "low": 0.06474778552394919,
+          "high": 0.09846680928861887
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P20",
+        "role": "principal",
+        "law": "normal",
+        "horizon": "28",
+        "n": 1000,
+        "share": {
+          "value": 0.04,
+          "low": 0.02951080927390945,
+          "high": 0.05400993742556984
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P20",
+        "role": "principal",
+        "law": "normal",
+        "horizon": "84",
+        "n": 1000,
+        "share": {
+          "value": 0.068,
+          "low": 0.05399222846448211,
+          "high": 0.08531421191415932
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P20",
+        "role": "principal",
+        "law": "t3",
+        "horizon": "28",
+        "n": 1000,
+        "share": {
+          "value": 0.088,
+          "low": 0.07198073098543067,
+          "high": 0.10717263344975514
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P20",
+        "role": "principal",
+        "law": "t3",
+        "horizon": "84",
+        "n": 1000,
+        "share": {
+          "value": 0.129,
+          "low": 0.10963511503514137,
+          "high": 0.15120444371596045
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P10_sd20",
+        "role": "sensitivity",
+        "law": "normal",
+        "horizon": "28",
+        "n": 1000,
+        "share": {
+          "value": 0.048,
+          "low": 0.036393116113688354,
+          "high": 0.06306640020840869
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P10_sd20",
+        "role": "sensitivity",
+        "law": "normal",
+        "horizon": "84",
+        "n": 1000,
+        "share": {
+          "value": 0.079,
+          "low": 0.06384696504253543,
+          "high": 0.0973752835672054
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P10_slope-5",
+        "role": "sensitivity",
+        "law": "normal",
+        "horizon": "28",
+        "n": 1000,
+        "share": {
+          "value": 0.019,
+          "low": 0.012196787737404147,
+          "high": 0.029484688702703543
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P10_slope-5",
+        "role": "sensitivity",
+        "law": "normal",
+        "horizon": "84",
+        "n": 1000,
+        "share": {
+          "value": 0.03,
+          "low": 0.021093603189697094,
+          "high": 0.04250368148151
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P10_slope-10",
+        "role": "sensitivity",
+        "law": "normal",
+        "horizon": "28",
+        "n": 1000,
+        "share": {
+          "value": 0.027,
+          "low": 0.018621256649289826,
+          "high": 0.03899898941343562
+        },
+        "verdict": "NO-GO"
+      },
+      {
+        "population": "P10_slope-10",
+        "role": "sensitivity",
+        "law": "normal",
+        "horizon": "84",
+        "n": 1000,
+        "share": {
+          "value": 0.047,
+          "low": 0.03552692265984565,
+          "high": 0.06194024745942417
+        },
+        "verdict": "NO-GO"
+      }
+    ],
+    "principal": "NO-GO",
+    "sensitivity": "NO-GO",
+    "t3Variant": "NO-GO",
+    "verdict": "NO-GO",
+    "verdictIncludingT3": "NO-GO"
+  },
+  "N3": {
+    "pass": "passe 1 (n)",
+    "cells": [
+      {
+        "path": "current",
+        "horizon": "14",
+        "frequency": "1",
+        "n": 250,
+        "noFloor80": {
+          "value": 0.776,
+          "low": 0.7203636303789512,
+          "high": 0.8232824859392568
+        },
+        "noFloor95": {
+          "value": 0.928,
+          "low": 0.8890706197648033,
+          "high": 0.9539748069895191
+        },
+        "floor80": {
+          "value": 0.788,
+          "low": 0.7331716894914767,
+          "high": 0.8341112144927404
+        },
+        "floor95": {
+          "value": 0.936,
+          "low": 0.8985776859091057,
+          "high": 0.9602255992892228
+        },
+        "verdictNoFloor": "GO",
+        "verdictFloor": "INCONCLUSIF",
+        "chi2": {
+          "statistic": 4.08,
+          "p": 0.9060685891346633
+        }
+      },
+      {
+        "path": "prototype",
+        "horizon": "14",
+        "frequency": "1",
+        "n": 250,
+        "noFloor80": {
+          "value": 0.744,
+          "low": 0.686492019930042,
+          "high": 0.7941226626121417
+        },
+        "noFloor95": {
+          "value": 0.92,
+          "low": 0.8796694903812106,
+          "high": 0.9476180779291059
+        },
+        "floor80": {
+          "value": 0.764,
+          "low": 0.7076152006750633,
+          "high": 0.8123941279771356
+        },
+        "floor95": {
+          "value": 0.928,
+          "low": 0.8890706197648033,
+          "high": 0.9539748069895191
+        },
+        "verdictNoFloor": "NO-GO",
+        "verdictFloor": "INCONCLUSIF",
+        "chi2": {
+          "statistic": 11.919999999999998,
+          "p": 0.217856996903742
+        }
+      },
+      {
+        "path": "current",
+        "horizon": "28",
+        "frequency": "1",
+        "n": 250,
+        "noFloor80": {
+          "value": 0.804,
+          "low": 0.7503481276833216,
+          "high": 0.8484504931889075
+        },
+        "noFloor95": {
+          "value": 0.952,
+          "low": 0.9179869282923764,
+          "high": 0.9723320737939639
+        },
+        "floor80": {
+          "value": 0.82,
+          "low": 0.7676470766122656,
+          "high": 0.8626672611479753
+        },
+        "floor95": {
+          "value": 0.968,
+          "low": 0.9381368887054249,
+          "high": 0.9836978302689277
+        },
+        "verdictNoFloor": "GO",
+        "verdictFloor": "INCONCLUSIF",
+        "chi2": {
+          "statistic": 9.36,
+          "p": 0.40472826405691387
+        }
+      },
+      {
+        "path": "prototype",
+        "horizon": "28",
+        "frequency": "1",
+        "n": 250,
+        "noFloor80": {
+          "value": 0.768,
+          "low": 0.7118582531392634,
+          "high": 0.8160300047349385
+        },
+        "noFloor95": {
+          "value": 0.92,
+          "low": 0.8796694903812106,
+          "high": 0.9476180779291059
+        },
+        "floor80": {
+          "value": 0.804,
+          "low": 0.7503481276833216,
+          "high": 0.8484504931889075
+        },
+        "floor95": {
+          "value": 0.948,
+          "low": 0.9130774345624312,
+          "high": 0.9693626383019062
+        },
+        "verdictNoFloor": "NO-GO",
+        "verdictFloor": "INCONCLUSIF",
+        "chi2": {
+          "statistic": 11.999999999999998,
+          "p": 0.2133093050834166
+        }
+      },
+      {
+        "path": "current",
+        "horizon": "42",
+        "frequency": "1",
+        "n": 250,
+        "noFloor80": {
+          "value": 0.752,
+          "low": 0.6949232766848457,
+          "high": 0.8014492643013442
+        },
+        "noFloor95": {
+          "value": 0.94,
+          "low": 0.9033762972146848,
+          "high": 0.9633059172056464
+        },
+        "floor80": {
+          "value": 0.86,
+          "low": 0.8115192932332553,
+          "high": 0.8975843367470158
+        },
+        "floor95": {
+          "value": 0.976,
+          "low": 0.94863720404899,
+          "high": 0.9889553733693685
+        },
+        "verdictNoFloor": "GO",
+        "verdictFloor": "GO",
+        "chi2": {
+          "statistic": 18.4,
+          "p": 0.030806427866728672
+        }
+      },
+      {
+        "path": "prototype",
+        "horizon": "42",
+        "frequency": "1",
+        "n": 250,
+        "noFloor80": {
+          "value": 0.712,
+          "low": 0.6529921633129403,
+          "high": 0.7645910854532194
+        },
+        "noFloor95": {
+          "value": 0.896,
+          "low": 0.8519787370865683,
+          "high": 0.92803525589173
+        },
+        "floor80": {
+          "value": 0.776,
+          "low": 0.7203636303789512,
+          "high": 0.8232824859392568
+        },
+        "floor95": {
+          "value": 0.952,
+          "low": 0.9179869282923764,
+          "high": 0.9723320737939639
+        },
+        "verdictNoFloor": "NO-GO",
+        "verdictFloor": "INCONCLUSIF",
+        "chi2": {
+          "statistic": 22.4,
+          "p": 0.007694119984323356
+        }
+      },
+      {
+        "path": "current",
+        "horizon": "84",
+        "frequency": "1",
+        "n": 250,
+        "noFloor80": {
+          "value": 0.832,
+          "low": 0.7807090132068878,
+          "high": 0.8732421122193622
+        },
+        "noFloor95": {
+          "value": 0.968,
+          "low": 0.9381368887054249,
+          "high": 0.9836978302689277
+        },
+        "floor80": {
+          "value": 0.988,
+          "low": 0.9653186109241421,
+          "high": 0.9959107541602255
+        },
+        "floor95": {
+          "value": 1,
+          "low": 0.9848661527503766,
+          "high": 1
+        },
+        "verdictNoFloor": "GO",
+        "verdictFloor": "GO",
+        "chi2": {
+          "statistic": 9.44,
+          "p": 0.3976882832305292
+        }
+      },
+      {
+        "path": "prototype",
+        "horizon": "84",
+        "frequency": "1",
+        "n": 250,
+        "noFloor80": {
+          "value": 0.684,
+          "low": 0.6239541772841809,
+          "high": 0.7384765669279577
+        },
+        "noFloor95": {
+          "value": 0.884,
+          "low": 0.8383682865919351,
+          "high": 0.9180089187203542
+        },
+        "floor80": {
+          "value": 0.924,
+          "low": 0.8843577467284998,
+          "high": 0.9508087508038197
+        },
+        "floor95": {
+          "value": 0.992,
+          "low": 0.9713048854232084,
+          "high": 0.9978034088831621
+        },
+        "verdictNoFloor": "NO-GO",
+        "verdictFloor": "GO",
+        "chi2": {
+          "statistic": 30.8,
+          "p": 0.00032034616053004867
+        }
+      },
+      {
+        "path": "current",
+        "horizon": "14",
+        "frequency": "3",
+        "n": 250,
+        "noFloor80": {
+          "value": 0.78,
+          "low": 0.7246261912502433,
+          "high": 0.8268988542899677
+        },
+        "noFloor95": {
+          "value": 0.932,
+          "low": 0.8938099139309015,
+          "high": 0.9571144420454241
+        },
+        "floor80": {
+          "value": 0.784,
+          "low": 0.7288955001859427,
+          "high": 0.8305084745762712
+        },
+        "floor95": {
+          "value": 0.936,
+          "low": 0.8985776859091057,
+          "high": 0.9602255992892228
+        },
+        "verdictNoFloor": "GO",
+        "verdictFloor": "INCONCLUSIF",
+        "chi2": {
+          "statistic": 13.519999999999998,
+          "p": 0.1404534364331056
+        }
+      },
+      {
+        "path": "prototype",
+        "horizon": "14",
+        "frequency": "3",
+        "n": 250,
+        "noFloor80": {
+          "value": 0.756,
+          "low": 0.699147815859017,
+          "high": 0.8051036543491759
+        },
+        "noFloor95": {
+          "value": 0.928,
+          "low": 0.8890706197648033,
+          "high": 0.9539748069895191
+        },
+        "floor80": {
+          "value": 0.764,
+          "low": 0.7076152006750633,
+          "high": 0.8123941279771356
+        },
+        "floor95": {
+          "value": 0.928,
+          "low": 0.8890706197648033,
+          "high": 0.9539748069895191
+        },
+        "verdictNoFloor": "GO",
+        "verdictFloor": "INCONCLUSIF",
+        "chi2": {
+          "statistic": 10.16,
+          "p": 0.33768835649023965
+        }
+      },
+      {
+        "path": "current",
+        "horizon": "28",
+        "frequency": "3",
+        "n": 250,
+        "noFloor80": {
+          "value": 0.764,
+          "low": 0.7076152006750633,
+          "high": 0.8123941279771356
+        },
+        "noFloor95": {
+          "value": 0.928,
+          "low": 0.8890706197648033,
+          "high": 0.9539748069895191
+        },
+        "floor80": {
+          "value": 0.78,
+          "low": 0.7246261912502433,
+          "high": 0.8268988542899677
+        },
+        "floor95": {
+          "value": 0.936,
+          "low": 0.8985776859091057,
+          "high": 0.9602255992892228
+        },
+        "verdictNoFloor": "GO",
+        "verdictFloor": "INCONCLUSIF",
+        "chi2": {
+          "statistic": 11.920000000000002,
+          "p": 0.21785699690374194
+        }
+      },
+      {
+        "path": "prototype",
+        "horizon": "28",
+        "frequency": "3",
+        "n": 250,
+        "noFloor80": {
+          "value": 0.76,
+          "low": 0.7033784234651377,
+          "high": 0.8087519759650581
+        },
+        "noFloor95": {
+          "value": 0.924,
+          "low": 0.8843577467284998,
+          "high": 0.9508087508038197
+        },
+        "floor80": {
+          "value": 0.768,
+          "low": 0.7118582531392634,
+          "high": 0.8160300047349385
+        },
+        "floor95": {
+          "value": 0.94,
+          "low": 0.9033762972146848,
+          "high": 0.9633059172056464
+        },
+        "verdictNoFloor": "GO",
+        "verdictFloor": "INCONCLUSIF",
+        "chi2": {
+          "statistic": 9.280000000000001,
+          "p": 0.41183960152967114
+        }
+      },
+      {
+        "path": "current",
+        "horizon": "42",
+        "frequency": "3",
+        "n": 250,
+        "noFloor80": {
+          "value": 0.776,
+          "low": 0.7203636303789512,
+          "high": 0.8232824859392568
+        },
+        "noFloor95": {
+          "value": 0.924,
+          "low": 0.8843577467284998,
+          "high": 0.9508087508038197
+        },
+        "floor80": {
+          "value": 0.816,
+          "low": 0.7633102234972703,
+          "high": 0.8591251850409677
+        },
+        "floor95": {
+          "value": 0.952,
+          "low": 0.9179869282923764,
+          "high": 0.9723320737939639
+        },
+        "verdictNoFloor": "GO",
+        "verdictFloor": "INCONCLUSIF",
+        "chi2": {
+          "statistic": 4.880000000000001,
+          "p": 0.8446409387885632
+        }
+      },
+      {
+        "path": "prototype",
+        "horizon": "42",
+        "frequency": "3",
+        "n": 250,
+        "noFloor80": {
+          "value": 0.744,
+          "low": 0.686492019930042,
+          "high": 0.7941226626121417
+        },
+        "noFloor95": {
+          "value": 0.916,
+          "low": 0.875004257077684,
+          "high": 0.9444043820106295
+        },
+        "floor80": {
+          "value": 0.784,
+          "low": 0.7288955001859427,
+          "high": 0.8305084745762712
+        },
+        "floor95": {
+          "value": 0.94,
+          "low": 0.9033762972146848,
+          "high": 0.9633059172056464
+        },
+        "verdictNoFloor": "NO-GO",
+        "verdictFloor": "INCONCLUSIF",
+        "chi2": {
+          "statistic": 11.119999999999997,
+          "p": 0.26757318303115246
+        }
+      },
+      {
+        "path": "current",
+        "horizon": "84",
+        "frequency": "3",
+        "n": 250,
+        "noFloor80": {
+          "value": 0.804,
+          "low": 0.7503481276833216,
+          "high": 0.8484504931889075
+        },
+        "noFloor95": {
+          "value": 0.932,
+          "low": 0.8938099139309015,
+          "high": 0.9571144420454241
+        },
+        "floor80": {
+          "value": 0.908,
+          "low": 0.865737347031913,
+          "high": 0.9379134336123944
+        },
+        "floor95": {
+          "value": 0.988,
+          "low": 0.9653186109241421,
+          "high": 0.9959107541602255
+        },
+        "verdictNoFloor": "GO",
+        "verdictFloor": "GO",
+        "chi2": {
+          "statistic": 2.24,
+          "p": 0.9870790287063939
+        }
+      },
+      {
+        "path": "prototype",
+        "horizon": "84",
+        "frequency": "3",
+        "n": 250,
+        "noFloor80": {
+          "value": 0.752,
+          "low": 0.6949232766848457,
+          "high": 0.8014492643013442
+        },
+        "noFloor95": {
+          "value": 0.904,
+          "low": 0.8611332699687319,
+          "high": 0.9346385814535726
+        },
+        "floor80": {
+          "value": 0.868,
+          "low": 0.8204189328669529,
+          "high": 0.9044425555573243
+        },
+        "floor95": {
+          "value": 0.972,
+          "low": 0.943341533054129,
+          "high": 0.9863721151422264
+        },
+        "verdictNoFloor": "NO-GO",
+        "verdictFloor": "GO",
+        "chi2": {
+          "statistic": 15.039999999999997,
+          "p": 0.08984308878007191
+        }
+      }
+    ],
+    "current": {
+      "noFloor": "GO",
+      "floor": "INCONCLUSIF",
+      "verdict": "INCONCLUSIF"
+    },
+    "prototype": {
+      "noFloor": "NO-GO",
+      "floor": "INCONCLUSIF",
+      "verdict": "NO-GO"
+    }
+  },
+  "N3x2": {
+    "pass": "passe 2 (2n, règle de doublement)",
+    "cells": [
+      {
+        "path": "current",
+        "horizon": "14",
+        "frequency": "1",
+        "n": 500,
+        "noFloor80": {
+          "value": 0.804,
+          "low": 0.7669417867660043,
+          "high": 0.8364224451672065
+        },
+        "noFloor95": {
+          "value": 0.934,
+          "low": 0.9087600691405885,
+          "high": 0.9526217619745875
+        },
+        "floor80": {
+          "value": 0.822,
+          "low": 0.7860541079213073,
+          "high": 0.853035637744791
+        },
+        "floor95": {
+          "value": 0.938,
+          "low": 0.9133397667805389,
+          "high": 0.9559810673863897
+        },
+        "verdictNoFloor": "GO",
+        "verdictFloor": "INCONCLUSIF",
+        "chi2": {
+          "statistic": 4.32,
+          "p": 0.8891175958894987
+        }
+      },
+      {
+        "path": "prototype",
+        "horizon": "14",
+        "frequency": "1",
+        "n": 500,
+        "noFloor80": {
+          "value": 0.78,
+          "low": 0.7416305610182787,
+          "high": 0.8140996526044155
+        },
+        "noFloor95": {
+          "value": 0.926,
+          "low": 0.8996646988891734,
+          "high": 0.945839126122497
+        },
+        "floor80": {
+          "value": 0.798,
+          "low": 0.7605963875890438,
+          "high": 0.8308593397665378
+        },
+        "floor95": {
+          "value": 0.932,
+          "low": 0.9064785429161282,
+          "high": 0.9509337866731715
+        },
+        "verdictNoFloor": "NO-GO",
+        "verdictFloor": "INCONCLUSIF",
+        "chi2": {
+          "statistic": 12.32,
+          "p": 0.19586445089514137
+        }
+      },
+      {
+        "path": "current",
+        "horizon": "28",
+        "frequency": "1",
+        "n": 500,
+        "noFloor80": {
+          "value": 0.806,
+          "low": 0.7690596512561212,
+          "high": 0.838274082202966
+        },
+        "noFloor95": {
+          "value": 0.944,
+          "low": 0.9202547013596158,
+          "high": 0.9609746373849419
+        },
+        "floor80": {
+          "value": 0.842,
+          "low": 0.8074369672976796,
+          "high": 0.8713477936271825
+        },
+        "floor95": {
+          "value": 0.956,
+          "low": 0.9342800855801577,
+          "high": 0.9707662623196583
+        },
+        "verdictNoFloor": "GO",
+        "verdictFloor": "GO",
+        "chi2": {
+          "statistic": 7.88,
+          "p": 0.5462832105527573
+        }
+      },
+      {
+        "path": "prototype",
+        "horizon": "28",
+        "frequency": "1",
+        "n": 500,
+        "noFloor80": {
+          "value": 0.764,
+          "low": 0.7248548911970089,
+          "high": 0.7991193102186741
+        },
+        "noFloor95": {
+          "value": 0.934,
+          "low": 0.9087600691405885,
+          "high": 0.9526217619745875
+        },
+        "floor80": {
+          "value": 0.816,
+          "low": 0.7796701866722183,
+          "high": 0.8475110544162506
+        },
+        "floor95": {
+          "value": 0.956,
+          "low": 0.9342800855801577,
+          "high": 0.9707662623196583
+        },
+        "verdictNoFloor": "NO-GO",
+        "verdictFloor": "INCONCLUSIF",
+        "chi2": {
+          "statistic": 14.6,
+          "p": 0.10252568021404773
+        }
+      },
+      {
+        "path": "current",
+        "horizon": "42",
+        "frequency": "1",
+        "n": 500,
+        "noFloor80": {
+          "value": 0.776,
+          "low": 0.737429591400892,
+          "high": 0.8103616191700495
+        },
+        "noFloor95": {
+          "value": 0.93,
+          "low": 0.9042022712346763,
+          "high": 0.9492405568287469
+        },
+        "floor80": {
+          "value": 0.846,
+          "low": 0.8117339597150403,
+          "high": 0.8749898042615746
+        },
+        "floor95": {
+          "value": 0.976,
+          "low": 0.9585225403081018,
+          "high": 0.9862188228504781
+        },
+        "verdictNoFloor": "NO-GO",
+        "verdictFloor": "GO",
+        "chi2": {
+          "statistic": 10.760000000000002,
+          "p": 0.29251915982871035
+        }
+      },
+      {
+        "path": "prototype",
+        "horizon": "42",
+        "frequency": "1",
+        "n": 500,
+        "noFloor80": {
+          "value": 0.732,
+          "low": 0.6915155074925284,
+          "high": 0.7689466695091324
+        },
+        "noFloor95": {
+          "value": 0.906,
+          "low": 0.8772348563464386,
+          "high": 0.928573953406468
+        },
+        "floor80": {
+          "value": 0.816,
+          "low": 0.7796701866722183,
+          "high": 0.8475110544162506
+        },
+        "floor95": {
+          "value": 0.964,
+          "low": 0.943815226738503,
+          "high": 0.9771091272648186
+        },
+        "verdictNoFloor": "NO-GO",
+        "verdictFloor": "INCONCLUSIF",
+        "chi2": {
+          "statistic": 23.479999999999993,
+          "p": 0.005203730901352626
+        }
+      },
+      {
+        "path": "current",
+        "horizon": "84",
+        "frequency": "1",
+        "n": 500,
+        "noFloor80": {
+          "value": 0.794,
+          "low": 0.7563727994796797,
+          "high": 0.8271439248241491
+        },
+        "noFloor95": {
+          "value": 0.958,
+          "low": 0.9366479487604386,
+          "high": 0.9723679006652538
+        },
+        "floor80": {
+          "value": 0.98,
+          "low": 0.9635794314459021,
+          "high": 0.9891009347644306
+        },
+        "floor95": {
+          "value": 0.994,
+          "low": 0.9825094361891064,
+          "high": 0.9979574407023611
+        },
+        "verdictNoFloor": "GO",
+        "verdictFloor": "GO",
+        "chi2": {
+          "statistic": 17.240000000000002,
+          "p": 0.04508759415809074
+        }
+      },
+      {
+        "path": "prototype",
+        "horizon": "84",
+        "frequency": "1",
+        "n": 500,
+        "noFloor80": {
+          "value": 0.686,
+          "low": 0.6440308091059584,
+          "high": 0.7251328328005456
+        },
+        "noFloor95": {
+          "value": 0.898,
+          "low": 0.8683647750455783,
+          "high": 0.9215660286038228
+        },
+        "floor80": {
+          "value": 0.922,
+          "low": 0.8951458937794419,
+          "high": 0.9424189281804758
+        },
+        "floor95": {
+          "value": 0.992,
+          "low": 0.9796126401630988,
+          "high": 0.9968847352024922
+        },
+        "verdictNoFloor": "NO-GO",
+        "verdictFloor": "GO",
+        "chi2": {
+          "statistic": 54.92,
+          "p": 1.261462873066391e-8
+        }
+      },
+      {
+        "path": "current",
+        "horizon": "14",
+        "frequency": "3",
+        "n": 500,
+        "noFloor80": {
+          "value": 0.782,
+          "low": 0.7437328590676937,
+          "high": 0.8159668560808768
+        },
+        "noFloor95": {
+          "value": 0.944,
+          "low": 0.9202547013596158,
+          "high": 0.9609746373849419
+        },
+        "floor80": {
+          "value": 0.796,
+          "low": 0.7584839354593685,
+          "high": 0.8290022903703368
+        },
+        "floor95": {
+          "value": 0.944,
+          "low": 0.9202547013596158,
+          "high": 0.9609746373849419
+        },
+        "verdictNoFloor": "GO",
+        "verdictFloor": "INCONCLUSIF",
+        "chi2": {
+          "statistic": 7.159999999999999,
+          "p": 0.620465261681055
+        }
+      },
+      {
+        "path": "prototype",
+        "horizon": "14",
+        "frequency": "3",
+        "n": 500,
+        "noFloor80": {
+          "value": 0.774,
+          "low": 0.7353308968855181,
+          "high": 0.8084908121595469
+        },
+        "noFloor95": {
+          "value": 0.936,
+          "low": 0.9110470662066095,
+          "high": 0.954304266434443
+        },
+        "floor80": {
+          "value": 0.786,
+          "low": 0.7479411410548613,
+          "high": 0.819697577145462
+        },
+        "floor95": {
+          "value": 0.944,
+          "low": 0.9202547013596158,
+          "high": 0.9609746373849419
+        },
+        "verdictNoFloor": "GO",
+        "verdictFloor": "INCONCLUSIF",
+        "chi2": {
+          "statistic": 12.479999999999999,
+          "p": 0.18758117213603964
+        }
+      },
+      {
+        "path": "current",
+        "horizon": "28",
+        "frequency": "3",
+        "n": 500,
+        "noFloor80": {
+          "value": 0.798,
+          "low": 0.7605963875890438,
+          "high": 0.8308593397665378
+        },
+        "noFloor95": {
+          "value": 0.946,
+          "low": 0.9225729387555679,
+          "high": 0.9626259015148662
+        },
+        "floor80": {
+          "value": 0.822,
+          "low": 0.7860541079213073,
+          "high": 0.853035637744791
+        },
+        "floor95": {
+          "value": 0.952,
+          "low": 0.9295723199393156,
+          "high": 0.9675350249087478
+        },
+        "verdictNoFloor": "GO",
+        "verdictFloor": "INCONCLUSIF",
+        "chi2": {
+          "statistic": 17.32,
+          "p": 0.043934357595597495
+        }
+      },
+      {
+        "path": "prototype",
+        "horizon": "28",
+        "frequency": "3",
+        "n": 500,
+        "noFloor80": {
+          "value": 0.784,
+          "low": 0.7458363816926995,
+          "high": 0.8178328349817475
+        },
+        "noFloor95": {
+          "value": 0.942,
+          "low": 0.9179433020026042,
+          "high": 0.9593165352160771
+        },
+        "floor80": {
+          "value": 0.81,
+          "low": 0.7732995724391238,
+          "high": 0.8419731640717161
+        },
+        "floor95": {
+          "value": 0.948,
+          "low": 0.9248983617059371,
+          "high": 0.9642699800903735
+        },
+        "verdictNoFloor": "GO",
+        "verdictFloor": "INCONCLUSIF",
+        "chi2": {
+          "statistic": 9.76,
+          "p": 0.37026179903537837
+        }
+      },
+      {
+        "path": "current",
+        "horizon": "42",
+        "frequency": "3",
+        "n": 500,
+        "noFloor80": {
+          "value": 0.792,
+          "low": 0.7542629655971269,
+          "high": 0.8252842571808257
+        },
+        "noFloor95": {
+          "value": 0.946,
+          "low": 0.9225729387555679,
+          "high": 0.9626259015148662
+        },
+        "floor80": {
+          "value": 0.83,
+          "low": 0.7945876062593026,
+          "high": 0.8603801455103012
+        },
+        "floor95": {
+          "value": 0.968,
+          "low": 0.9486546984063574,
+          "high": 0.980208658648717
+        },
+        "verdictNoFloor": "GO",
+        "verdictFloor": "GO",
+        "chi2": {
+          "statistic": 9.32,
+          "p": 0.4082750819202221
+        }
+      },
+      {
+        "path": "prototype",
+        "horizon": "42",
+        "frequency": "3",
+        "n": 500,
+        "noFloor80": {
+          "value": 0.764,
+          "low": 0.7248548911970089,
+          "high": 0.7991193102186741
+        },
+        "noFloor95": {
+          "value": 0.924,
+          "low": 0.8974030342199025,
+          "high": 0.9441312892658914
+        },
+        "floor80": {
+          "value": 0.796,
+          "low": 0.7584839354593685,
+          "high": 0.8290022903703368
+        },
+        "floor95": {
+          "value": 0.946,
+          "low": 0.9225729387555679,
+          "high": 0.9626259015148662
+        },
+        "verdictNoFloor": "NO-GO",
+        "verdictFloor": "INCONCLUSIF",
+        "chi2": {
+          "statistic": 12.959999999999999,
+          "p": 0.1644245889452864
+        }
+      },
+      {
+        "path": "current",
+        "horizon": "84",
+        "frequency": "3",
+        "n": 500,
+        "noFloor80": {
+          "value": 0.792,
+          "low": 0.7542629655971269,
+          "high": 0.8252842571808257
+        },
+        "noFloor95": {
+          "value": 0.948,
+          "low": 0.9248983617059371,
+          "high": 0.9642699800903735
+        },
+        "floor80": {
+          "value": 0.914,
+          "low": 0.8861596159077154,
+          "high": 0.9355271999486967
+        },
+        "floor95": {
+          "value": 0.99,
+          "low": 0.976806564621235,
+          "high": 0.9957213092184797
+        },
+        "verdictNoFloor": "GO",
+        "verdictFloor": "GO",
+        "chi2": {
+          "statistic": 4.720000000000001,
+          "p": 0.8580017332894118
+        }
+      },
+      {
+        "path": "prototype",
+        "horizon": "84",
+        "frequency": "3",
+        "n": 500,
+        "noFloor80": {
+          "value": 0.756,
+          "low": 0.7164944353121212,
+          "high": 0.7916017600000562
+        },
+        "noFloor95": {
+          "value": 0.912,
+          "low": 0.8839229514479334,
+          "high": 0.9337943628826022
+        },
+        "floor80": {
+          "value": 0.876,
+          "low": 0.8442119499943469,
+          "high": 0.9020543368704138
+        },
+        "floor95": {
+          "value": 0.976,
+          "low": 0.9585225403081018,
+          "high": 0.9862188228504781
+        },
+        "verdictNoFloor": "NO-GO",
+        "verdictFloor": "GO",
+        "chi2": {
+          "statistic": 25.12,
+          "p": 0.002841265793745925
+        }
+      }
+    ],
+    "current": {
+      "noFloor": "NO-GO",
+      "floor": "INCONCLUSIF",
+      "verdict": "NO-GO"
+    },
+    "prototype": {
+      "noFloor": "NO-GO",
+      "floor": "INCONCLUSIF",
+      "verdict": "NO-GO"
+    }
+  },
+  "N4": {
+    "pass": "passe 1 (n)",
+    "cells": [
+      {
+        "population": "P00",
+        "horizon": "14",
+        "prior": "nasem",
+        "n": 250,
+        "bias": {
+          "value": 14.901103262374708,
+          "low": -15.785024741709472,
+          "high": 44.68169588650138
+        },
+        "medianAbsError": {
+          "value": 152.66084925985763,
+          "low": 134.86365425649547,
+          "high": 188.17392869881047
+        },
+        "coverage80": {
+          "value": 0.784,
+          "low": 0.7288955001859427,
+          "high": 0.8305084745762712
+        },
+        "coverage95": {
+          "value": 0.968,
+          "low": 0.9381368887054249,
+          "high": 0.9836978302689277
+        },
+        "medianWidth80": 589.9058197682334
+      },
+      {
+        "population": "P00",
+        "horizon": "14",
+        "prior": "flat",
+        "n": 250,
+        "bias": {
+          "value": 76.83466865382398,
+          "low": 31.115374766727584,
+          "high": 122.51011974029392
+        },
+        "medianAbsError": {
+          "value": 221.9160325190379,
+          "low": 193.5668937580361,
+          "high": 280.6619957970908
+        },
+        "coverage80": {
+          "value": 0.752,
+          "low": 0.6949232766848457,
+          "high": 0.8014492643013442
+        },
+        "coverage95": {
+          "value": 0.96,
+          "low": 0.9279465354073034,
+          "high": 0.978130325123043
+        },
+        "medianWidth80": 842.9486694521914,
+        "attribution": "non attribué au prior"
+      },
+      {
+        "population": "P00",
+        "horizon": "14",
+        "prior": "widened",
+        "n": 250,
+        "bias": {
+          "value": 26.402180491131762,
+          "low": -7.105441679961368,
+          "high": 56.91387400796286
+        },
+        "medianAbsError": {
+          "value": 172.3982634992546,
+          "low": 138.94318296804363,
+          "high": 197.5533516989267
+        },
+        "coverage80": {
+          "value": 0.824,
+          "low": 0.7719923442315464,
+          "high": 0.8662009227506975
+        },
+        "coverage95": {
+          "value": 0.972,
+          "low": 0.943341533054129,
+          "high": 0.9863721151422264
+        },
+        "medianWidth80": 667.1380028806176
+      },
+      {
+        "population": "P00",
+        "horizon": "28",
+        "prior": "nasem",
+        "n": 250,
+        "bias": {
+          "value": 5.700562095235371,
+          "low": -15.426217812118606,
+          "high": 26.32697112708872
+        },
+        "medianAbsError": {
+          "value": 100.21738038536827,
+          "low": 86.12543152212291,
+          "high": 120.60485163315496
+        },
+        "coverage80": {
+          "value": 0.788,
+          "low": 0.7331716894914767,
+          "high": 0.8341112144927404
+        },
+        "coverage95": {
+          "value": 0.944,
+          "low": 0.9082084818368784,
+          "high": 0.966352661805456
+        },
+        "medianWidth80": 389.5294081030242
+      },
+      {
+        "population": "P00",
+        "horizon": "28",
+        "prior": "flat",
+        "n": 250,
+        "bias": {
+          "value": 21.76587192341596,
+          "low": -3.562908765956124,
+          "high": 47.184555926835195
+        },
+        "medianAbsError": {
+          "value": 124.12305440978255,
+          "low": 103.6935994117803,
+          "high": 143.1927453845355
+        },
+        "coverage80": {
+          "value": 0.776,
+          "low": 0.7203636303789512,
+          "high": 0.8232824859392568
+        },
+        "coverage95": {
+          "value": 0.948,
+          "low": 0.9130774345624312,
+          "high": 0.9693626383019062
+        },
+        "medianWidth80": 432.38153546275464,
+        "attribution": "INCONCLUSIF"
+      },
+      {
+        "population": "P00",
+        "horizon": "28",
+        "prior": "widened",
+        "n": 250,
+        "bias": {
+          "value": 10.613437496364632,
+          "low": -11.91272357003118,
+          "high": 32.63399999085199
+        },
+        "medianAbsError": {
+          "value": 103.94710437380438,
+          "low": 91.78308375195805,
+          "high": 125.33394409862974
+        },
+        "coverage80": {
+          "value": 0.768,
+          "low": 0.7118582531392634,
+          "high": 0.8160300047349385
+        },
+        "coverage95": {
+          "value": 0.956,
+          "low": 0.9229414729274126,
+          "high": 0.9752564583809309
+        },
+        "medianWidth80": 408.2103497501961
+      },
+      {
+        "population": "P00",
+        "horizon": "42",
+        "prior": "nasem",
+        "n": 250,
+        "bias": {
+          "value": -0.5962740317626096,
+          "low": -15.560128884449192,
+          "high": 15.218431797667122
+        },
+        "medianAbsError": {
+          "value": 70.94120004149613,
+          "low": 61.56571476691934,
+          "high": 81.44460338688344
+        },
+        "coverage80": {
+          "value": 0.84,
+          "low": 0.7894621432010622,
+          "high": 0.8802468406691939
+        },
+        "coverage95": {
+          "value": 0.94,
+          "low": 0.9033762972146848,
+          "high": 0.9633059172056464
+        },
+        "medianWidth80": 273.6760894957652
+      },
+      {
+        "population": "P00",
+        "horizon": "42",
+        "prior": "flat",
+        "n": 250,
+        "bias": {
+          "value": 4.567055032131095,
+          "low": -12.886541756807812,
+          "high": 20.5445104456014
+        },
+        "medianAbsError": {
+          "value": 79.81370254271053,
+          "low": 69.08465859061837,
+          "high": 92.14668350125214
+        },
+        "coverage80": {
+          "value": 0.812,
+          "low": 0.7589815771806265,
+          "high": 0.8555749021356085
+        },
+        "coverage95": {
+          "value": 0.952,
+          "low": 0.9179869282923764,
+          "high": 0.9723320737939639
+        },
+        "medianWidth80": 280.9379051279401,
+        "attribution": "INCONCLUSIF"
+      },
+      {
+        "population": "P00",
+        "horizon": "42",
+        "prior": "widened",
+        "n": 250,
+        "bias": {
+          "value": 1.3458390419764446,
+          "low": -15.532777928998547,
+          "high": 17.85720480449443
+        },
+        "medianAbsError": {
+          "value": 73.83715632023834,
+          "low": 62.19271044073804,
+          "high": 84.72955769160123
+        },
+        "coverage80": {
+          "value": 0.832,
+          "low": 0.7807090132068878,
+          "high": 0.8732421122193622
+        },
+        "coverage95": {
+          "value": 0.944,
+          "low": 0.9082084818368784,
+          "high": 0.966352661805456
+        },
+        "medianWidth80": 276.60797163918807
+      },
+      {
+        "population": "P05",
+        "horizon": "14",
+        "prior": "nasem",
+        "n": 250,
+        "bias": {
+          "value": 71.47934516718782,
+          "low": 36.87895820696977,
+          "high": 106.4910512746749
+        },
+        "medianAbsError": {
+          "value": 208.42128856480062,
+          "low": 172.3242919844966,
+          "high": 231.56894421907202
+        },
+        "coverage80": {
+          "value": 0.68,
+          "low": 0.619825530285745,
+          "high": 0.7347262847043906
+        },
+        "coverage95": {
+          "value": 0.9,
+          "low": 0.8565473757413067,
+          "high": 0.9313455464589946
+        },
+        "medianWidth80": 593.1089798825944
+      },
+      {
+        "population": "P05",
+        "horizon": "14",
+        "prior": "flat",
+        "n": 250,
+        "bias": {
+          "value": 88.38509783520999,
+          "low": 42.719183128102166,
+          "high": 133.1761506875953
+        },
+        "medianAbsError": {
+          "value": 218.10128581144193,
+          "low": 185.74824275061172,
+          "high": 288.72660398431253
+        },
+        "coverage80": {
+          "value": 0.748,
+          "low": 0.6907047090119511,
+          "high": 0.7977889027522356
+        },
+        "coverage95": {
+          "value": 0.944,
+          "low": 0.9082084818368784,
+          "high": 0.966352661805456
+        },
+        "medianWidth80": 818.6027585153055,
+        "attribution": "non attribué au prior"
+      },
+      {
+        "population": "P05",
+        "horizon": "14",
+        "prior": "widened",
+        "n": 250,
+        "bias": {
+          "value": 70.56625942613691,
+          "low": 35.556792789298,
+          "high": 105.41355353492361
+        },
+        "medianAbsError": {
+          "value": 190.04448649584424,
+          "low": 171.0031184544132,
+          "high": 213.77249598774966
+        },
+        "coverage80": {
+          "value": 0.772,
+          "low": 0.7161076912424261,
+          "high": 0.8196594958537787
+        },
+        "coverage95": {
+          "value": 0.936,
+          "low": 0.8985776859091057,
+          "high": 0.9602255992892228
+        },
+        "medianWidth80": 669.2685240646642
+      },
+      {
+        "population": "P05",
+        "horizon": "28",
+        "prior": "nasem",
+        "n": 250,
+        "bias": {
+          "value": 31.455316517210537,
+          "low": 7.822216920727434,
+          "high": 54.008743528207376
+        },
+        "medianAbsError": {
+          "value": 114.48382700023323,
+          "low": 98.2825281136364,
+          "high": 135.77600190929684
+        },
+        "coverage80": {
+          "value": 0.756,
+          "low": 0.699147815859017,
+          "high": 0.8051036543491759
+        },
+        "coverage95": {
+          "value": 0.916,
+          "low": 0.875004257077684,
+          "high": 0.9444043820106295
+        },
+        "medianWidth80": 391.2815509371502
+      },
+      {
+        "population": "P05",
+        "horizon": "28",
+        "prior": "flat",
+        "n": 250,
+        "bias": {
+          "value": 26.715994602338178,
+          "low": 0.3828159162958939,
+          "high": 53.72511686583876
+        },
+        "medianAbsError": {
+          "value": 122.39801676170056,
+          "low": 103.14453284215699,
+          "high": 142.68557943488594
+        },
+        "coverage80": {
+          "value": 0.76,
+          "low": 0.7033784234651377,
+          "high": 0.8087519759650581
+        },
+        "coverage95": {
+          "value": 0.94,
+          "low": 0.9033762972146848,
+          "high": 0.9633059172056464
+        },
+        "medianWidth80": 426.6173371666116,
+        "attribution": "INCONCLUSIF"
+      },
+      {
+        "population": "P05",
+        "horizon": "28",
+        "prior": "widened",
+        "n": 250,
+        "bias": {
+          "value": 28.889051429425763,
+          "low": 5.1847501696239435,
+          "high": 51.510982261808394
+        },
+        "medianAbsError": {
+          "value": 115.92116221525075,
+          "low": 99.52018399215268,
+          "high": 131.05720488911976
+        },
+        "coverage80": {
+          "value": 0.772,
+          "low": 0.7161076912424261,
+          "high": 0.8196594958537787
+        },
+        "coverage95": {
+          "value": 0.928,
+          "low": 0.8890706197648033,
+          "high": 0.9539748069895191
+        },
+        "medianWidth80": 404.8864227548895
+      },
+      {
+        "population": "P05",
+        "horizon": "42",
+        "prior": "nasem",
+        "n": 250,
+        "bias": {
+          "value": 12.04409349689434,
+          "low": -3.5596794380432546,
+          "high": 27.450505310278455
+        },
+        "medianAbsError": {
+          "value": 74.73750237398225,
+          "low": 63.973095672817806,
+          "high": 86.21797594028439
+        },
+        "coverage80": {
+          "value": 0.808,
+          "low": 0.7546609408206536,
+          "high": 0.8520166092735785
+        },
+        "coverage95": {
+          "value": 0.932,
+          "low": 0.8938099139309015,
+          "high": 0.9571144420454241
+        },
+        "medianWidth80": 272.54351888893325
+      },
+      {
+        "population": "P05",
+        "horizon": "42",
+        "prior": "flat",
+        "n": 250,
+        "bias": {
+          "value": 6.666651035804841,
+          "low": -9.627161452244646,
+          "high": 23.37069471141985
+        },
+        "medianAbsError": {
+          "value": 80.24962092351379,
+          "low": 69.89391790991937,
+          "high": 89.23646418465921
+        },
+        "coverage80": {
+          "value": 0.792,
+          "low": 0.7374548978246092,
+          "high": 0.8377069353816109
+        },
+        "coverage95": {
+          "value": 0.944,
+          "low": 0.9082084818368784,
+          "high": 0.966352661805456
+        },
+        "medianWidth80": 280.48857265260483,
+        "attribution": "INCONCLUSIF"
+      },
+      {
+        "population": "P05",
+        "horizon": "42",
+        "prior": "widened",
+        "n": 250,
+        "bias": {
+          "value": 9.942006168970623,
+          "low": -6.097072434244624,
+          "high": 25.20211340253462
+        },
+        "medianAbsError": {
+          "value": 74.1642865633618,
+          "low": 64.76145692132661,
+          "high": 86.95852480967702
+        },
+        "coverage80": {
+          "value": 0.82,
+          "low": 0.7676470766122656,
+          "high": 0.8626672611479753
+        },
+        "coverage95": {
+          "value": 0.928,
+          "low": 0.8890706197648033,
+          "high": 0.9539748069895191
+        },
+        "medianWidth80": 275.64546421132843
+      },
+      {
+        "population": "P10",
+        "horizon": "14",
+        "prior": "nasem",
+        "n": 250,
+        "bias": {
+          "value": 141.22046128727305,
+          "low": 104.54677683907116,
+          "high": 175.73157370453342
+        },
+        "medianAbsError": {
+          "value": 230.14841181158303,
+          "low": 192.99485531747035,
+          "high": 254.39934988651015
+        },
+        "coverage80": {
+          "value": 0.656,
+          "low": 0.5951520421031152,
+          "high": 0.7121261975550023
+        },
+        "coverage95": {
+          "value": 0.86,
+          "low": 0.8115192932332553,
+          "high": 0.8975843367470158
+        },
+        "medianWidth80": 596.0059293348713
+      },
+      {
+        "population": "P10",
+        "horizon": "14",
+        "prior": "flat",
+        "n": 250,
+        "bias": {
+          "value": 105.8488930997585,
+          "low": 61.57997789075435,
+          "high": 149.72808341907717
+        },
+        "medianAbsError": {
+          "value": 226.92196728409314,
+          "low": 187.3836265105254,
+          "high": 281.0417803649985
+        },
+        "coverage80": {
+          "value": 0.732,
+          "low": 0.6738883512130036,
+          "high": 0.7830895436631711
+        },
+        "coverage95": {
+          "value": 0.94,
+          "low": 0.9033762972146848,
+          "high": 0.9633059172056464
+        },
+        "medianWidth80": 815.5281808416282,
+        "attribution": "non attribué au prior"
+      },
+      {
+        "population": "P10",
+        "horizon": "14",
+        "prior": "widened",
+        "n": 250,
+        "bias": {
+          "value": 125.15664679662343,
+          "low": 87.4731554150853,
+          "high": 162.30225678888726
+        },
+        "medianAbsError": {
+          "value": 218.9856852725036,
+          "low": 193.85848730869816,
+          "high": 240.58351338502916
+        },
+        "coverage80": {
+          "value": 0.724,
+          "low": 0.6655137581859878,
+          "high": 0.775706278246181
+        },
+        "coverage95": {
+          "value": 0.904,
+          "low": 0.8611332699687319,
+          "high": 0.9346385814535726
+        },
+        "medianWidth80": 672.5836560077798
+      },
+      {
+        "population": "P10",
+        "horizon": "28",
+        "prior": "nasem",
+        "n": 250,
+        "bias": {
+          "value": 62.589695531237176,
+          "low": 39.45563583616927,
+          "high": 85.84600219237726
+        },
+        "medianAbsError": {
+          "value": 114.32213288161338,
+          "low": 102.81336405168184,
+          "high": 140.38503788880297
+        },
+        "coverage80": {
+          "value": 0.696,
+          "low": 0.6363691519284894,
+          "high": 0.749698379949658
+        },
+        "coverage95": {
+          "value": 0.9,
+          "low": 0.8565473757413067,
+          "high": 0.9313455464589946
+        },
+        "medianWidth80": 391.041925384915
+      },
+      {
+        "population": "P10",
+        "horizon": "28",
+        "prior": "flat",
+        "n": 250,
+        "bias": {
+          "value": 32.16422944880337,
+          "low": 7.155250325854518,
+          "high": 56.95505411199576
+        },
+        "medianAbsError": {
+          "value": 120.04878644401433,
+          "low": 98.73716622529656,
+          "high": 141.4403693726349
+        },
+        "coverage80": {
+          "value": 0.764,
+          "low": 0.7076152006750633,
+          "high": 0.8123941279771356
+        },
+        "coverage95": {
+          "value": 0.932,
+          "low": 0.8938099139309015,
+          "high": 0.9571144420454241
+        },
+        "medianWidth80": 422.79734644543606,
+        "attribution": "INCONCLUSIF"
+      },
+      {
+        "population": "P10",
+        "horizon": "28",
+        "prior": "widened",
+        "n": 250,
+        "bias": {
+          "value": 50.699556427999894,
+          "low": 28.14400932497279,
+          "high": 73.16112207548962
+        },
+        "medianAbsError": {
+          "value": 109.74960115197636,
+          "low": 97.93334122989332,
+          "high": 131.4828889376522
+        },
+        "coverage80": {
+          "value": 0.764,
+          "low": 0.7076152006750633,
+          "high": 0.8123941279771356
+        },
+        "coverage95": {
+          "value": 0.904,
+          "low": 0.8611332699687319,
+          "high": 0.9346385814535726
+        },
+        "medianWidth80": 400.4420623431259
+      },
+      {
+        "population": "P10",
+        "horizon": "42",
+        "prior": "nasem",
+        "n": 250,
+        "bias": {
+          "value": 26.627720128940616,
+          "low": 10.514868367989978,
+          "high": 43.61986434353242
+        },
+        "medianAbsError": {
+          "value": 80.7330398403432,
+          "low": 66.9505831263345,
+          "high": 93.71612298001737
+        },
+        "coverage80": {
+          "value": 0.804,
+          "low": 0.7503481276833216,
+          "high": 0.8484504931889075
+        },
+        "coverage95": {
+          "value": 0.92,
+          "low": 0.8796694903812106,
+          "high": 0.9476180779291059
+        },
+        "medianWidth80": 270.47969947086256
+      },
+      {
+        "population": "P10",
+        "horizon": "42",
+        "prior": "flat",
+        "n": 250,
+        "bias": {
+          "value": 9.360934240534545,
+          "low": -8.800628891872988,
+          "high": 26.69351122946193
+        },
+        "medianAbsError": {
+          "value": 76.54536548948045,
+          "low": 67.98119962782721,
+          "high": 88.59076022221613
+        },
+        "coverage80": {
+          "value": 0.8,
+          "low": 0.7460429604530917,
+          "high": 0.8448767311971342
+        },
+        "coverage95": {
+          "value": 0.94,
+          "low": 0.9033762972146848,
+          "high": 0.9633059172056464
+        },
+        "medianWidth80": 278.153977322509,
+        "attribution": "INCONCLUSIF"
+      },
+      {
+        "population": "P10",
+        "horizon": "42",
+        "prior": "widened",
+        "n": 250,
+        "bias": {
+          "value": 19.865998028783366,
+          "low": 2.878628135752336,
+          "high": 36.147387687836286
+        },
+        "medianAbsError": {
+          "value": 78.92665235384484,
+          "low": 65.53086738420042,
+          "high": 87.26961478760364
+        },
+        "coverage80": {
+          "value": 0.816,
+          "low": 0.7633102234972703,
+          "high": 0.8591251850409677
+        },
+        "coverage95": {
+          "value": 0.924,
+          "low": 0.8843577467284998,
+          "high": 0.9508087508038197
+        },
+        "medianWidth80": 273.05216012386467
+      },
+      {
+        "population": "P20",
+        "horizon": "14",
+        "prior": "nasem",
+        "n": 250,
+        "bias": {
+          "value": 282.1223582534921,
+          "low": 245.06567403817758,
+          "high": 321.2969749051808
+        },
+        "medianAbsError": {
+          "value": 293.080823654128,
+          "low": 243.91477478290523,
+          "high": 333.0215795386521
+        },
+        "coverage80": {
+          "value": 0.492,
+          "low": 0.4306189740306896,
+          "high": 0.5536231675253044
+        },
+        "coverage95": {
+          "value": 0.712,
+          "low": 0.6529921633129403,
+          "high": 0.7645910854532194
+        },
+        "medianWidth80": 603.9243249413513
+      },
+      {
+        "population": "P20",
+        "horizon": "14",
+        "prior": "flat",
+        "n": 250,
+        "bias": {
+          "value": 143.2215499557849,
+          "low": 101.52544662951077,
+          "high": 187.60852535620586
+        },
+        "medianAbsError": {
+          "value": 240.2730670254084,
+          "low": 188.62066678499875,
+          "high": 295.72958625286697
+        },
+        "coverage80": {
+          "value": 0.68,
+          "low": 0.619825530285745,
+          "high": 0.7347262847043906
+        },
+        "coverage95": {
+          "value": 0.884,
+          "low": 0.8383682865919351,
+          "high": 0.9180089187203542
+        },
+        "medianWidth80": 796.7505775123902,
+        "attribution": "non attribué au prior"
+      },
+      {
+        "population": "P20",
+        "horizon": "14",
+        "prior": "widened",
+        "n": 250,
+        "bias": {
+          "value": 234.73588558382866,
+          "low": 198.0146405571023,
+          "high": 270.8962612648659
+        },
+        "medianAbsError": {
+          "value": 284.31632463706865,
+          "low": 245.35542483771513,
+          "high": 301.8553510691443
+        },
+        "coverage80": {
+          "value": 0.596,
+          "low": 0.5341642139406014,
+          "high": 0.6549300873874709
+        },
+        "coverage95": {
+          "value": 0.812,
+          "low": 0.7589815771806265,
+          "high": 0.8555749021356085
+        },
+        "medianWidth80": 672.3602328874534
+      },
+      {
+        "population": "P20",
+        "horizon": "28",
+        "prior": "nasem",
+        "n": 250,
+        "bias": {
+          "value": 127.6470754323855,
+          "low": 104.24434268641646,
+          "high": 152.16714398972513
+        },
+        "medianAbsError": {
+          "value": 141.60683870681692,
+          "low": 120.8282289229264,
+          "high": 177.6397333564759
+        },
+        "coverage80": {
+          "value": 0.612,
+          "low": 0.550334217662286,
+          "high": 0.6702758005537984
+        },
+        "coverage95": {
+          "value": 0.788,
+          "low": 0.7331716894914767,
+          "high": 0.8341112144927404
+        },
+        "medianWidth80": 387.93058214926435
+      },
+      {
+        "population": "P20",
+        "horizon": "28",
+        "prior": "flat",
+        "n": 250,
+        "bias": {
+          "value": 47.90761569132748,
+          "low": 22.703943465629106,
+          "high": 72.96286742538385
+        },
+        "medianAbsError": {
+          "value": 130.61869921851934,
+          "low": 107.63154388388338,
+          "high": 151.85856966744163
+        },
+        "coverage80": {
+          "value": 0.72,
+          "low": 0.6613345904453013,
+          "high": 0.7720065167648643
+        },
+        "coverage95": {
+          "value": 0.876,
+          "low": 0.8293672890376607,
+          "high": 0.9112520578306225
+        },
+        "medianWidth80": 406.2761133247647,
+        "attribution": "non attribué au prior"
+      },
+      {
+        "population": "P20",
+        "horizon": "28",
+        "prior": "widened",
+        "n": 250,
+        "bias": {
+          "value": 97.47857900622307,
+          "low": 73.29526160729412,
+          "high": 120.73633289899527
+        },
+        "medianAbsError": {
+          "value": 129.0312033937035,
+          "low": 105.45878760419738,
+          "high": 153.78070708158742
+        },
+        "coverage80": {
+          "value": 0.652,
+          "low": 0.5910558065068211,
+          "high": 0.7083435039292935
+        },
+        "coverage95": {
+          "value": 0.84,
+          "low": 0.7894621432010622,
+          "high": 0.8802468406691939
+        },
+        "medianWidth80": 394.55998265121036
+      },
+      {
+        "population": "P20",
+        "horizon": "42",
+        "prior": "nasem",
+        "n": 250,
+        "bias": {
+          "value": 60.71778464021972,
+          "low": 42.4334139673395,
+          "high": 78.28347462759244
+        },
+        "medianAbsError": {
+          "value": 84.42068630735568,
+          "low": 76.86421869807555,
+          "high": 100.75325784496977
+        },
+        "coverage80": {
+          "value": 0.724,
+          "low": 0.6655137581859878,
+          "high": 0.775706278246181
+        },
+        "coverage95": {
+          "value": 0.868,
+          "low": 0.8204189328669529,
+          "high": 0.9044425555573243
+        },
+        "medianWidth80": 266.8044265516497
+      },
+      {
+        "population": "P20",
+        "horizon": "42",
+        "prior": "flat",
+        "n": 250,
+        "bias": {
+          "value": 21.02402988944237,
+          "low": 2.563773332841016,
+          "high": 39.596346014191944
+        },
+        "medianAbsError": {
+          "value": 81.57135779108859,
+          "low": 68.51200447529618,
+          "high": 95.78990700723273
+        },
+        "coverage80": {
+          "value": 0.764,
+          "low": 0.7076152006750633,
+          "high": 0.8123941279771356
+        },
+        "coverage95": {
+          "value": 0.892,
+          "low": 0.8474265111015622,
+          "high": 0.9247085526547332
+        },
+        "medianWidth80": 274.05227857486,
+        "attribution": "INCONCLUSIF"
+      },
+      {
+        "population": "P20",
+        "horizon": "42",
+        "prior": "widened",
+        "n": 250,
+        "bias": {
+          "value": 45.124553128140334,
+          "low": 26.729326450182963,
+          "high": 64.08412874491644
+        },
+        "medianAbsError": {
+          "value": 84.46723574017389,
+          "low": 72.44840062253844,
+          "high": 98.59370992440648
+        },
+        "coverage80": {
+          "value": 0.764,
+          "low": 0.7076152006750633,
+          "high": 0.8123941279771356
+        },
+        "coverage95": {
+          "value": 0.888,
+          "low": 0.8428899288546563,
+          "high": 0.9213662056796359
+        },
+        "medianWidth80": 269.5293438199536
+      }
+    ],
+    "widenedPriorCostP00": [
+      {
+        "horizon": 14,
+        "deltaMedianWidth80": {
+          "value": 77.23218311238418,
+          "low": 65.55355027935366,
+          "high": 90.23688081880869
+        },
+        "deltaMedianAbsError": {
+          "value": 19.73741423939697,
+          "low": -7.644797691782372,
+          "high": 31.977628049915296
+        }
+      },
+      {
+        "horizon": 28,
+        "deltaMedianWidth80": {
+          "value": 18.680941647171892,
+          "low": 10.496316469450676,
+          "high": 22.897118817449098
+        },
+        "deltaMedianAbsError": {
+          "value": 3.729723988436106,
+          "low": -5.931067336874278,
+          "high": 13.60924587524272
+        }
+      }
+    ]
+  },
+  "N4x2": {
+    "pass": "passe 2 (2n, règle de doublement)",
+    "cells": [
+      {
+        "population": "P00",
+        "horizon": "14",
+        "prior": "nasem",
+        "n": 500,
+        "bias": {
+          "value": 14.583142246812415,
+          "low": -5.250525317247287,
+          "high": 35.48622599076702
+        },
+        "medianAbsError": {
+          "value": 161.3656304122777,
+          "low": 144.05556747666782,
+          "high": 172.58826659179317
+        },
+        "coverage80": {
+          "value": 0.798,
+          "low": 0.7605963875890438,
+          "high": 0.8308593397665378
+        },
+        "coverage95": {
+          "value": 0.958,
+          "low": 0.9366479487604386,
+          "high": 0.9723679006652538
+        },
+        "medianWidth80": 593.7884512372327
+      },
+      {
+        "population": "P00",
+        "horizon": "14",
+        "prior": "flat",
+        "n": 500,
+        "bias": {
+          "value": 71.6359285218139,
+          "low": 41.599260500286846,
+          "high": 101.07917300637195
+        },
+        "medianAbsError": {
+          "value": 225.36775122111914,
+          "low": 205.00179347773724,
+          "high": 242.3642023380271
+        },
+        "coverage80": {
+          "value": 0.792,
+          "low": 0.7542629655971269,
+          "high": 0.8252842571808257
+        },
+        "coverage95": {
+          "value": 0.952,
+          "low": 0.9295723199393156,
+          "high": 0.9675350249087478
+        },
+        "medianWidth80": 844.2762902206503,
+        "attribution": "non attribué au prior"
+      },
+      {
+        "population": "P00",
+        "horizon": "14",
+        "prior": "widened",
+        "n": 500,
+        "bias": {
+          "value": 24.350438980614552,
+          "low": 2.2406908791901197,
+          "high": 45.134760070423994
+        },
+        "medianAbsError": {
+          "value": 167.33142210127198,
+          "low": 148.63290796261896,
+          "high": 184.88511941240648
+        },
+        "coverage80": {
+          "value": 0.838,
+          "low": 0.8031470479440461,
+          "high": 0.8676987099290632
+        },
+        "coverage95": {
+          "value": 0.976,
+          "low": 0.9585225403081018,
+          "high": 0.9862188228504781
+        },
+        "medianWidth80": 677.127321905329
+      },
+      {
+        "population": "P00",
+        "horizon": "28",
+        "prior": "nasem",
+        "n": 500,
+        "bias": {
+          "value": 5.673669853355959,
+          "low": -8.71611033908034,
+          "high": 19.774281940847985
+        },
+        "medianAbsError": {
+          "value": 102.21343504980449,
+          "low": 92.77271843627503,
+          "high": 112.1080068393116
+        },
+        "coverage80": {
+          "value": 0.79,
+          "low": 0.7521544200999409,
+          "high": 0.8234233011521351
+        },
+        "coverage95": {
+          "value": 0.954,
+          "low": 0.9319217297737272,
+          "high": 0.9691551166002124
+        },
+        "medianWidth80": 390.1845757830249
+      },
+      {
+        "population": "P00",
+        "horizon": "28",
+        "prior": "flat",
+        "n": 500,
+        "bias": {
+          "value": 19.33152234330536,
+          "low": 1.2989453296955158,
+          "high": 36.84910540902035
+        },
+        "medianAbsError": {
+          "value": 117.96980833929513,
+          "low": 103.9467485761936,
+          "high": 137.5555395216109
+        },
+        "coverage80": {
+          "value": 0.76,
+          "low": 0.7206724477826185,
+          "high": 0.7953627505813117
+        },
+        "coverage95": {
+          "value": 0.95,
+          "low": 0.9272313499731688,
+          "high": 0.965906493349018
+        },
+        "medianWidth80": 432.6260656746887,
+        "attribution": "INCONCLUSIF"
+      },
+      {
+        "population": "P00",
+        "horizon": "28",
+        "prior": "widened",
+        "n": 500,
+        "bias": {
+          "value": 9.787168233717045,
+          "low": -4.989733012862008,
+          "high": 25.53993144517952
+        },
+        "medianAbsError": {
+          "value": 102.09827445265745,
+          "low": 92.03655198941792,
+          "high": 112.16217134180604
+        },
+        "coverage80": {
+          "value": 0.786,
+          "low": 0.7479411410548613,
+          "high": 0.819697577145462
+        },
+        "coverage95": {
+          "value": 0.954,
+          "low": 0.9319217297737272,
+          "high": 0.9691551166002124
+        },
+        "medianWidth80": 404.26744746682596
+      },
+      {
+        "population": "P00",
+        "horizon": "42",
+        "prior": "nasem",
+        "n": 500,
+        "bias": {
+          "value": -0.9579300219508805,
+          "low": -10.806184357475392,
+          "high": 8.28566998285788
+        },
+        "medianAbsError": {
+          "value": 64.94346148320975,
+          "low": 59.55814050827183,
+          "high": 74.73101347748904
+        },
+        "coverage80": {
+          "value": 0.83,
+          "low": 0.7945876062593026,
+          "high": 0.8603801455103012
+        },
+        "coverage95": {
+          "value": 0.95,
+          "low": 0.9272313499731688,
+          "high": 0.965906493349018
+        },
+        "medianWidth80": 271.5204844122701
+      },
+      {
+        "population": "P00",
+        "horizon": "42",
+        "prior": "flat",
+        "n": 500,
+        "bias": {
+          "value": 2.9731928775419676,
+          "low": -7.847105732669767,
+          "high": 14.473919252904262
+        },
+        "medianAbsError": {
+          "value": 70.20447866224751,
+          "low": 63.45713676824795,
+          "high": 77.9244836047263
+        },
+        "coverage80": {
+          "value": 0.822,
+          "low": 0.7860541079213073,
+          "high": 0.853035637744791
+        },
+        "coverage95": {
+          "value": 0.948,
+          "low": 0.9248983617059371,
+          "high": 0.9642699800903735
+        },
+        "medianWidth80": 280.2297834518091,
+        "attribution": "attribué au prior"
+      },
+      {
+        "population": "P00",
+        "horizon": "42",
+        "prior": "widened",
+        "n": 500,
+        "bias": {
+          "value": 0.39335310660055745,
+          "low": -9.998085176245722,
+          "high": 10.61544192456577
+        },
+        "medianAbsError": {
+          "value": 68.2327221011154,
+          "low": 63.44737152597406,
+          "high": 75.77227748872056
+        },
+        "coverage80": {
+          "value": 0.832,
+          "low": 0.7967249779380424,
+          "high": 0.8622122753574376
+        },
+        "coverage95": {
+          "value": 0.948,
+          "low": 0.9248983617059371,
+          "high": 0.9642699800903735
+        },
+        "medianWidth80": 275.0074662819568
+      },
+      {
+        "population": "P05",
+        "horizon": "14",
+        "prior": "nasem",
+        "n": 500,
+        "bias": {
+          "value": 77.72825623449697,
+          "low": 53.77733630141348,
+          "high": 102.28370026374621
+        },
+        "medianAbsError": {
+          "value": 185.6787974305003,
+          "low": 166.24818801613105,
+          "high": 199.1029082308297
+        },
+        "coverage80": {
+          "value": 0.724,
+          "low": 0.6832216523131053,
+          "high": 0.76136251858505
+        },
+        "coverage95": {
+          "value": 0.902,
+          "low": 0.8727933541017654,
+          "high": 0.9250764525993884
+        },
+        "medianWidth80": 593.727621845466
+      },
+      {
+        "population": "P05",
+        "horizon": "14",
+        "prior": "flat",
+        "n": 500,
+        "bias": {
+          "value": 85.34077547453977,
+          "low": 56.14226810396373,
+          "high": 115.6958086040536
+        },
+        "medianAbsError": {
+          "value": 223.55618799067054,
+          "low": 199.49258511065463,
+          "high": 240.30785128166985
+        },
+        "coverage80": {
+          "value": 0.776,
+          "low": 0.737429591400892,
+          "high": 0.8103616191700495
+        },
+        "coverage95": {
+          "value": 0.94,
+          "low": 0.9156384216937552,
+          "high": 0.9576519139990498
+        },
+        "medianWidth80": 833.4898148595856,
+        "attribution": "non attribué au prior"
+      },
+      {
+        "population": "P05",
+        "horizon": "14",
+        "prior": "widened",
+        "n": 500,
+        "bias": {
+          "value": 73.27872913492487,
+          "low": 48.9772233654224,
+          "high": 95.96916840891623
+        },
+        "medianAbsError": {
+          "value": 181.7760368089213,
+          "low": 164.8971259437075,
+          "high": 195.25223215836206
+        },
+        "coverage80": {
+          "value": 0.78,
+          "low": 0.7416305610182787,
+          "high": 0.8140996526044155
+        },
+        "coverage95": {
+          "value": 0.932,
+          "low": 0.9064785429161282,
+          "high": 0.9509337866731715
+        },
+        "medianWidth80": 675.9345869691749
+      },
+      {
+        "population": "P05",
+        "horizon": "28",
+        "prior": "nasem",
+        "n": 500,
+        "bias": {
+          "value": 32.40845701741472,
+          "low": 16.3811776982344,
+          "high": 47.15365387021921
+        },
+        "medianAbsError": {
+          "value": 110.83768858753118,
+          "low": 100.36919361493453,
+          "high": 121.84225033533637
+        },
+        "coverage80": {
+          "value": 0.762,
+          "low": 0.7227631109081946,
+          "high": 0.7972415889816121
+        },
+        "coverage95": {
+          "value": 0.916,
+          "low": 0.8884001169044927,
+          "high": 0.9372562004777957
+        },
+        "medianWidth80": 388.96812253739677
+      },
+      {
+        "population": "P05",
+        "horizon": "28",
+        "prior": "flat",
+        "n": 500,
+        "bias": {
+          "value": 22.1987479205522,
+          "low": 5.033237160584616,
+          "high": 38.54404586677185
+        },
+        "medianAbsError": {
+          "value": 116.13708913155982,
+          "low": 101.96449375658057,
+          "high": 134.75388615601753
+        },
+        "coverage80": {
+          "value": 0.758,
+          "low": 0.7185828923419191,
+          "high": 0.7934828044961348
+        },
+        "coverage95": {
+          "value": 0.938,
+          "low": 0.9133397667805389,
+          "high": 0.9559810673863897
+        },
+        "medianWidth80": 421.43145438641795,
+        "attribution": "INCONCLUSIF"
+      },
+      {
+        "population": "P05",
+        "horizon": "28",
+        "prior": "widened",
+        "n": 500,
+        "bias": {
+          "value": 27.982792191834548,
+          "low": 12.618968840778411,
+          "high": 43.04462229471626
+        },
+        "medianAbsError": {
+          "value": 107.60587276024913,
+          "low": 100.08185321684874,
+          "high": 117.24957045624659
+        },
+        "coverage80": {
+          "value": 0.774,
+          "low": 0.7353308968855181,
+          "high": 0.8084908121595469
+        },
+        "coverage95": {
+          "value": 0.934,
+          "low": 0.9087600691405885,
+          "high": 0.9526217619745875
+        },
+        "medianWidth80": 402.2320862623262
+      },
+      {
+        "population": "P05",
+        "horizon": "42",
+        "prior": "nasem",
+        "n": 500,
+        "bias": {
+          "value": 11.169822626008747,
+          "low": 0.47744505868796205,
+          "high": 21.50752015819412
+        },
+        "medianAbsError": {
+          "value": 70.64450140157953,
+          "low": 62.5958457488981,
+          "high": 76.98766549626436
+        },
+        "coverage80": {
+          "value": 0.822,
+          "low": 0.7860541079213073,
+          "high": 0.853035637744791
+        },
+        "coverage95": {
+          "value": 0.94,
+          "low": 0.9156384216937552,
+          "high": 0.9576519139990498
+        },
+        "medianWidth80": 269.92235590194844
+      },
+      {
+        "population": "P05",
+        "horizon": "42",
+        "prior": "flat",
+        "n": 500,
+        "bias": {
+          "value": 3.915723634463481,
+          "low": -6.956999305835706,
+          "high": 14.932296299282235
+        },
+        "medianAbsError": {
+          "value": 69.78436535805879,
+          "low": 63.91611959040846,
+          "high": 76.60374312977234
+        },
+        "coverage80": {
+          "value": 0.816,
+          "low": 0.7796701866722183,
+          "high": 0.8475110544162506
+        },
+        "coverage95": {
+          "value": 0.938,
+          "low": 0.9133397667805389,
+          "high": 0.9559810673863897
+        },
+        "medianWidth80": 278.6952750381376,
+        "attribution": "attribué au prior"
+      },
+      {
+        "population": "P05",
+        "horizon": "42",
+        "prior": "widened",
+        "n": 500,
+        "bias": {
+          "value": 8.256535491198054,
+          "low": -2.5703633417345513,
+          "high": 18.492995422582318
+        },
+        "medianAbsError": {
+          "value": 71.87905321392233,
+          "low": 62.73617270372411,
+          "high": 76.32318711480593
+        },
+        "coverage80": {
+          "value": 0.812,
+          "low": 0.7754216622802987,
+          "high": 0.8438205757564177
+        },
+        "coverage95": {
+          "value": 0.938,
+          "low": 0.9133397667805389,
+          "high": 0.9559810673863897
+        },
+        "medianWidth80": 273.03155949635436
+      },
+      {
+        "population": "P10",
+        "horizon": "14",
+        "prior": "nasem",
+        "n": 500,
+        "bias": {
+          "value": 147.1019426864896,
+          "low": 123.7699322014805,
+          "high": 170.8626682272877
+        },
+        "medianAbsError": {
+          "value": 200.22627214582104,
+          "low": 183.06592583196115,
+          "high": 225.75588581902696
+        },
+        "coverage80": {
+          "value": 0.672,
+          "low": 0.6296726201980068,
+          "high": 0.7117045110273624
+        },
+        "coverage95": {
+          "value": 0.866,
+          "low": 0.8333333333333333,
+          "high": 0.8930854459020454
+        },
+        "medianWidth80": 596.8577927462406
+      },
+      {
+        "population": "P10",
+        "horizon": "14",
+        "prior": "flat",
+        "n": 500,
+        "bias": {
+          "value": 101.76245056111713,
+          "low": 73.11895395270784,
+          "high": 131.61223024676275
+        },
+        "medianAbsError": {
+          "value": 219.85543355970736,
+          "low": 198.55717027985088,
+          "high": 241.99649627686426
+        },
+        "coverage80": {
+          "value": 0.776,
+          "low": 0.737429591400892,
+          "high": 0.8103616191700495
+        },
+        "coverage95": {
+          "value": 0.936,
+          "low": 0.9110470662066095,
+          "high": 0.954304266434443
+        },
+        "medianWidth80": 816.2963013961337,
+        "attribution": "non attribué au prior"
+      },
+      {
+        "population": "P10",
+        "horizon": "14",
+        "prior": "widened",
+        "n": 500,
+        "bias": {
+          "value": 127.31792062540443,
+          "low": 102.5094668666712,
+          "high": 151.62519906640327
+        },
+        "medianAbsError": {
+          "value": 200.96027938838213,
+          "low": 187.4427774813712,
+          "high": 224.86482086261094
+        },
+        "coverage80": {
+          "value": 0.74,
+          "low": 0.6998252722118725,
+          "high": 0.7765149108932938
+        },
+        "coverage95": {
+          "value": 0.914,
+          "low": 0.8861596159077154,
+          "high": 0.9355271999486967
+        },
+        "medianWidth80": 680.868596739759
+      },
+      {
+        "population": "P10",
+        "horizon": "28",
+        "prior": "nasem",
+        "n": 500,
+        "bias": {
+          "value": 62.89736696652364,
+          "low": 47.40905719473461,
+          "high": 77.94383493656494
+        },
+        "medianAbsError": {
+          "value": 113.589042850397,
+          "low": 99.33732248126756,
+          "high": 125.70864380826632
+        },
+        "coverage80": {
+          "value": 0.724,
+          "low": 0.6832216523131053,
+          "high": 0.76136251858505
+        },
+        "coverage95": {
+          "value": 0.904,
+          "low": 0.8750124461326017,
+          "high": 0.9268268620944284
+        },
+        "medianWidth80": 388.40729335195044
+      },
+      {
+        "population": "P10",
+        "horizon": "28",
+        "prior": "flat",
+        "n": 500,
+        "bias": {
+          "value": 26.85567899190791,
+          "low": 10.08201815443228,
+          "high": 44.61882366776866
+        },
+        "medianAbsError": {
+          "value": 115.38796526013118,
+          "low": 99.47606960286191,
+          "high": 128.33031016138733
+        },
+        "coverage80": {
+          "value": 0.76,
+          "low": 0.7206724477826185,
+          "high": 0.7953627505813117
+        },
+        "coverage95": {
+          "value": 0.938,
+          "low": 0.9133397667805389,
+          "high": 0.9559810673863897
+        },
+        "medianWidth80": 415.6196735850787,
+        "attribution": "INCONCLUSIF"
+      },
+      {
+        "population": "P10",
+        "horizon": "28",
+        "prior": "widened",
+        "n": 500,
+        "bias": {
+          "value": 49.121586611385084,
+          "low": 33.25085945285417,
+          "high": 64.28983279874464
+        },
+        "medianAbsError": {
+          "value": 113.73542059790832,
+          "low": 95.839791618688,
+          "high": 124.02306338194133
+        },
+        "coverage80": {
+          "value": 0.768,
+          "low": 0.7290418422345863,
+          "high": 0.8028713622328494
+        },
+        "coverage95": {
+          "value": 0.922,
+          "low": 0.8951458937794419,
+          "high": 0.9424189281804758
+        },
+        "medianWidth80": 400.48402738438415
+      },
+      {
+        "population": "P10",
+        "horizon": "42",
+        "prior": "nasem",
+        "n": 500,
+        "bias": {
+          "value": 25.906149515193956,
+          "low": 15.573832967878484,
+          "high": 36.940218499366786
+        },
+        "medianAbsError": {
+          "value": 73.5242531488685,
+          "low": 66.97041516278819,
+          "high": 80.5684920058118
+        },
+        "coverage80": {
+          "value": 0.81,
+          "low": 0.7732995724391238,
+          "high": 0.8419731640717161
+        },
+        "coverage95": {
+          "value": 0.936,
+          "low": 0.9110470662066095,
+          "high": 0.954304266434443
+        },
+        "medianWidth80": 268.460947670454
+      },
+      {
+        "population": "P10",
+        "horizon": "42",
+        "prior": "flat",
+        "n": 500,
+        "bias": {
+          "value": 6.600698650598027,
+          "low": -4.702380848800344,
+          "high": 17.647061582394294
+        },
+        "medianAbsError": {
+          "value": 69.40654937630651,
+          "low": 62.83859006288742,
+          "high": 74.2563062146179
+        },
+        "coverage80": {
+          "value": 0.814,
+          "low": 0.7775451944568551,
+          "high": 0.8456665451057376
+        },
+        "coverage95": {
+          "value": 0.938,
+          "low": 0.9133397667805389,
+          "high": 0.9559810673863897
+        },
+        "medianWidth80": 276.0685183165466,
+        "attribution": "INCONCLUSIF"
+      },
+      {
+        "population": "P10",
+        "horizon": "42",
+        "prior": "widened",
+        "n": 500,
+        "bias": {
+          "value": 18.311228643158483,
+          "low": 7.608069229182611,
+          "high": 29.337421083596983
+        },
+        "medianAbsError": {
+          "value": 69.36445839841079,
+          "low": 64.33761835113043,
+          "high": 77.22745312919469
+        },
+        "coverage80": {
+          "value": 0.83,
+          "low": 0.7945876062593026,
+          "high": 0.8603801455103012
+        },
+        "coverage95": {
+          "value": 0.934,
+          "low": 0.9087600691405885,
+          "high": 0.9526217619745875
+        },
+        "medianWidth80": 271.7654180592429
+      },
+      {
+        "population": "P20",
+        "horizon": "14",
+        "prior": "nasem",
+        "n": 500,
+        "bias": {
+          "value": 287.2034142973321,
+          "low": 261.20484176586893,
+          "high": 314.0527501967726
+        },
+        "medianAbsError": {
+          "value": 295.25782862368817,
+          "low": 264.1680976724284,
+          "high": 321.1418312247699
+        },
+        "coverage80": {
+          "value": 0.522,
+          "low": 0.4782146879120214,
+          "high": 0.565449828872619
+        },
+        "coverage95": {
+          "value": 0.728,
+          "low": 0.6873666188831685,
+          "high": 0.7651565550667395
+        },
+        "medianWidth80": 604.9559668430109
+      },
+      {
+        "population": "P20",
+        "horizon": "14",
+        "prior": "flat",
+        "n": 500,
+        "bias": {
+          "value": 137.6003716490623,
+          "low": 108.72146165386343,
+          "high": 167.7515377590718
+        },
+        "medianAbsError": {
+          "value": 221.96857130237856,
+          "low": 195.29844703613628,
+          "high": 252.08013972856133
+        },
+        "coverage80": {
+          "value": 0.744,
+          "low": 0.7039862648123214,
+          "high": 0.7802929213445977
+        },
+        "coverage95": {
+          "value": 0.89,
+          "low": 0.8595438141340721,
+          "high": 0.9145089834118234
+        },
+        "medianWidth80": 787.4116488710418,
+        "attribution": "non attribué au prior"
+      },
+      {
+        "population": "P20",
+        "horizon": "14",
+        "prior": "widened",
+        "n": 500,
+        "bias": {
+          "value": 236.3082984071789,
+          "low": 211.9078847715966,
+          "high": 261.31635725429635
+        },
+        "medianAbsError": {
+          "value": 256.93597534710307,
+          "low": 240.1680177794078,
+          "high": 278.58519282122404
+        },
+        "coverage80": {
+          "value": 0.604,
+          "low": 0.5604950326399137,
+          "high": 0.6459190467056583
+        },
+        "coverage95": {
+          "value": 0.824,
+          "low": 0.788185127237469,
+          "high": 0.8548741199545055
+        },
+        "medianWidth80": 687.0754638953754
+      },
+      {
+        "population": "P20",
+        "horizon": "28",
+        "prior": "nasem",
+        "n": 500,
+        "bias": {
+          "value": 125.62057202199566,
+          "low": 108.93035959197498,
+          "high": 143.19838844123288
+        },
+        "medianAbsError": {
+          "value": 136.30008120049243,
+          "low": 125.42600903383092,
+          "high": 152.03853300328635
+        },
+        "coverage80": {
+          "value": 0.648,
+          "low": 0.6051532346640738,
+          "high": 0.6885898782507789
+        },
+        "coverage95": {
+          "value": 0.818,
+          "low": 0.7817966571116197,
+          "high": 0.8493540855027257
+        },
+        "medianWidth80": 384.455882525412
+      },
+      {
+        "population": "P20",
+        "horizon": "28",
+        "prior": "flat",
+        "n": 500,
+        "bias": {
+          "value": 42.15624508733155,
+          "low": 25.633292646638978,
+          "high": 59.85748599789833
+        },
+        "medianAbsError": {
+          "value": 112.10978410475317,
+          "low": 99.3527321558272,
+          "high": 131.74580744598455
+        },
+        "coverage80": {
+          "value": 0.744,
+          "low": 0.7039862648123214,
+          "high": 0.7802929213445977
+        },
+        "coverage95": {
+          "value": 0.896,
+          "low": 0.8661551236448682,
+          "high": 0.9198061784786563
+        },
+        "medianWidth80": 401.48568688250754,
+        "attribution": "non attribué au prior"
+      },
+      {
+        "population": "P20",
+        "horizon": "28",
+        "prior": "widened",
+        "n": 500,
+        "bias": {
+          "value": 93.90298201128766,
+          "low": 77.57108435850394,
+          "high": 111.20561043566379
+        },
+        "medianAbsError": {
+          "value": 121.73613552954002,
+          "low": 108.91763627180256,
+          "high": 137.44717472308045
+        },
+        "coverage80": {
+          "value": 0.7,
+          "low": 0.6584314090816449,
+          "high": 0.7385187435059938
+        },
+        "coverage95": {
+          "value": 0.866,
+          "low": 0.8333333333333333,
+          "high": 0.8930854459020454
+        },
+        "medianWidth80": 390.2364976745746
+      },
+      {
+        "population": "P20",
+        "horizon": "42",
+        "prior": "nasem",
+        "n": 500,
+        "bias": {
+          "value": 57.64652300469661,
+          "low": 45.63127618113955,
+          "high": 70.32423628509353
+        },
+        "medianAbsError": {
+          "value": 78.38426139667834,
+          "low": 69.37467900874786,
+          "high": 86.762430570838
+        },
+        "coverage80": {
+          "value": 0.74,
+          "low": 0.6998252722118725,
+          "high": 0.7765149108932938
+        },
+        "coverage95": {
+          "value": 0.894,
+          "low": 0.8639484611321094,
+          "high": 0.9180433394655388
+        },
+        "medianWidth80": 263.2997799028767
+      },
+      {
+        "population": "P20",
+        "horizon": "42",
+        "prior": "flat",
+        "n": 500,
+        "bias": {
+          "value": 16.81262379840805,
+          "low": 4.544128186064972,
+          "high": 29.636875388239908
+        },
+        "medianAbsError": {
+          "value": 69.70560656306463,
+          "low": 61.28529542641769,
+          "high": 78.72800569523838
+        },
+        "coverage80": {
+          "value": 0.794,
+          "low": 0.7563727994796797,
+          "high": 0.8271439248241491
+        },
+        "coverage95": {
+          "value": 0.904,
+          "low": 0.8750124461326017,
+          "high": 0.9268268620944284
+        },
+        "medianWidth80": 267.668348833654,
+        "attribution": "INCONCLUSIF"
+      },
+      {
+        "population": "P20",
+        "horizon": "42",
+        "prior": "widened",
+        "n": 500,
+        "bias": {
+          "value": 41.51413437612412,
+          "low": 29.552847919990324,
+          "high": 54.2258062619046
+        },
+        "medianAbsError": {
+          "value": 78.46191596771797,
+          "low": 68.36507348948331,
+          "high": 85.1105797682064
+        },
+        "coverage80": {
+          "value": 0.79,
+          "low": 0.7521544200999409,
+          "high": 0.8234233011521351
+        },
+        "coverage95": {
+          "value": 0.906,
+          "low": 0.8772348563464386,
+          "high": 0.928573953406468
+        },
+        "medianWidth80": 266.01708855741975
+      }
+    ],
+    "widenedPriorCostP00": [
+      {
+        "horizon": 14,
+        "deltaMedianWidth80": {
+          "value": 83.33887066809632,
+          "low": 70.37992034408603,
+          "high": 93.61467533414225
+        },
+        "deltaMedianAbsError": {
+          "value": 5.965791688994273,
+          "low": -5.001755270500098,
+          "high": 17.41273927375113
+        }
+      },
+      {
+        "horizon": 28,
+        "deltaMedianWidth80": {
+          "value": 14.082871683801045,
+          "low": 10.070186278774486,
+          "high": 21.274346523981308
+        },
+        "deltaMedianAbsError": {
+          "value": -0.11516059714703886,
+          "low": -5.982308710355397,
+          "high": 6.445361987910914
+        }
+      }
+    ]
+  }
+}

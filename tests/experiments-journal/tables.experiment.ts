@@ -102,7 +102,7 @@ const f0 = (v: number) => (Object.is(Math.round(v), -0) ? '0' : Math.round(v).to
 const f1 = (v: number) => v.toFixed(1);
 const f2 = (v: number) => v.toFixed(2);
 const f3 = (v: number) => v.toFixed(3);
-const pct = (v: number, d = 1) => `${(100 * v).toFixed(d)} %`;
+const pct = (v: number, d = 1) => `${(100 * Math.max(0, v)).toFixed(d)} %`;
 const prop = (p: Proportion) => `${f3(p.value)} [${f3(p.low)} ; ${f3(p.high)}]`;
 const propPct = (p: Proportion) => `${pct(p.value)} [${pct(p.low)} ; ${pct(p.high)}]`;
 const ci0 = (i: Interval) => `${f0(i.value)} [${f0(i.low)} ; ${f0(i.high)}]`;
