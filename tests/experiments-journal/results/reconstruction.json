@@ -1,0 +1,24 @@
+{
+  "bench26": {
+    "cells": 16,
+    "rows": 67200,
+    "summaryDifferences": 0,
+    "firstDifferences": [],
+    "tables": {
+      "identical": true,
+      "rebuiltLines": 468,
+      "differingLines": 0
+    }
+  },
+  "bench27": {
+    "cells": 92,
+    "rows": 143640,
+    "summaryDifferences": 0,
+    "firstDifferences": [],
+    "tables": {
+      "identical": true,
+      "rebuiltLines": 980,
+      "differingLines": 0
+    }
+  }
+}

@@ -27,6 +27,8 @@ import {
   withLoggedIntake,
   withLoggingSigma,
 } from './intakeLogging';
+import { JOURNAL_RESULTS_DIR, edgeMass, writeCsvGz } from './journalExport';
+import type { CsvValue, EdgeMass } from './journalExport';
 import { createRng } from './random';
 
 export type ExperimentScenario = ScenarioKey | 'S_on' | 'S_major';
@@ -69,14 +71,16 @@ export function armKeys(): ArmKey[] {
   return keys;
 }
 
-type FitRow = { median: number; l80: number; u80: number; l95: number; u95: number; truthApparent: number; gateMet: boolean };
-export type UserRows = { replicate: number; truthMetabolic: number; arms: Record<ArmKey, FitRow> };
+/** `edge` is export-only (prompt 34 s4): posterior mass at the offset grid bounds, never read by the metrics. */
+export type FitRow = { median: number; l80: number; u80: number; l95: number; u95: number; truthApparent: number; gateMet: boolean; edge?: EdgeMass };
+/** `user` is export-only (prompt 34 s4): identity of the simulated user, never read by the metrics. */
+export type UserRows = { replicate: number; truthMetabolic: number; arms: Record<ArmKey, FitRow>; user?: { index: number; seed: number; profileIndex: number; trueOffsetKcal: number; weighEveryDays: number } };
 
 function fitRow(input: CalibrationInput, truthApparent: number): FitRow {
   const fit = fitCalibration(input);
   if (!fit) throw new Error('fit failed');
   const p = fit.posterior;
-  return { median: p.medianKcal, l80: p.interval80[0], u80: p.interval80[1], l95: p.interval95[0], u95: p.interval95[1], truthApparent, gateMet: evaluateGate(input.weights, input.dailyLogs).met };
+  return { median: p.medianKcal, l80: p.interval80[0], u80: p.interval80[1], l95: p.interval95[0], u95: p.interval95[1], truthApparent, gateMet: evaluateGate(input.weights, input.dailyLogs).met, edge: edgeMass(p.probabilities) };
 }
 
 export function simulateUsers(scenario: ExperimentScenario, days: ExperimentHorizon, replicates = REPLICATES): UserRows[] {
@@ -104,7 +108,7 @@ export function simulateUsers(scenario: ExperimentScenario, days: ExperimentHori
               arms[`Cs|${underReportBias}|${dailyCoverage}`] = armFor(withLoggingSigma(input, observableLoggingSdKcal(logged, WARM_START_INTAKE_REL_SD_HIGH)));
             }
           }
-          users.push({ replicate: r, truthMetabolic: metabolic, arms });
+          users.push({ replicate: r, truthMetabolic: metabolic, arms, user: { index: i, seed, profileIndex: PROFILES.indexOf(profile), trueOffsetKcal, weighEveryDays } });
           i++;
         }
       }
@@ -249,5 +253,39 @@ export function runExperiment(scenario: ExperimentScenario, days: ExperimentHori
   };
   mkdirSync(OUTPUT_DIR, { recursive: true });
   writeFileSync(`${OUTPUT_DIR}/${scenario}-${days}.json`, `${JSON.stringify(summary, null, 2)}\n`);
+  exportUsers(scenario, days, users);
   return summary;
+}
+
+// ---------------------------------------------------------------------------
+// Raw export (prompt 34 s4): one row per simulated user and arm, read back by the table reconstruction
+// ---------------------------------------------------------------------------
+
+export const EXPORT_COLUMNS_26 = [
+  'bench', 'scenario', 'horizon', 'replicate', 'user_index', 'seed', 'profile', 'true_offset', 'weigh_every_days', 'arm', 'u', 'logging_rate', 'sigma_variant',
+  'q025', 'q10', 'q50', 'q90', 'q975', 'truth_metabolic', 'truth_apparent', 'truth_logged_units', 'gate_met',
+  'offset_low5', 'offset_low10', 'offset_high5', 'offset_high10', 'width80', 'width95',
+] as const;
+
+function exportUsers(scenario: ExperimentScenario, days: ExperimentHorizon, users: readonly UserRows[]): void {
+  const rows: Array<Record<string, CsvValue>> = [];
+  for (const u of users) {
+    const id = u.user;
+    if (!id) throw new Error('export needs the user identity');
+    const apparentA = (u.arms.A as FitRow).truthApparent;
+    for (const arm of armKeys()) {
+      const f = u.arms[arm] as FitRow;
+      const [kind, bias, coverage] = arm.split('|');
+      rows.push({
+        bench: 26, scenario, horizon: days, replicate: u.replicate, user_index: id.index, seed: id.seed, profile: id.profileIndex, true_offset: id.trueOffsetKcal, weigh_every_days: id.weighEveryDays,
+        // u and the logging rate are cell parameters in benchmark 26 (not drawn per user); arm A logs nothing, arm B is perfect.
+        arm, u: arm === 'A' ? null : arm === 'B' ? 0 : Number(bias), logging_rate: arm === 'A' ? 0 : arm === 'B' ? 1 : Number(coverage), sigma_variant: kind === 'Cs',
+        q025: f.l95, q10: f.l80, q50: f.median, q90: f.u80, q975: f.u95,
+        // Logged-units truth is the arm-specific apparent offset (intake the estimator assumes = what the arm hands it).
+        truth_metabolic: u.truthMetabolic, truth_apparent: apparentA, truth_logged_units: f.truthApparent, gate_met: f.gateMet,
+        offset_low5: f.edge?.low5, offset_low10: f.edge?.low10, offset_high5: f.edge?.high5, offset_high10: f.edge?.high10, width80: f.u80 - f.l80, width95: f.u95 - f.l95,
+      });
+    }
+  }
+  writeCsvGz(`${JOURNAL_RESULTS_DIR}/bench26/${scenario}-${days}.csv.gz`, EXPORT_COLUMNS_26, rows);
 }

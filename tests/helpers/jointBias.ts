@@ -191,6 +191,8 @@ export type JointPosterior = {
   /** Posterior correlation between offset and u (information joint, before the structural floor). */
   correlation: number;
   edgeMass: { kLowerBin: number; kUpperBin: number; kLower3: number; kUpper3: number; offsetLow5: number; offsetHigh5: number };
+  /** Export only (prompt 34 s4): marginal probabilities on uGrid(), index 0 = u -0.40 (upper bound of k). */
+  uProbabilities: number[];
 };
 
 function priorProbabilities(u: readonly number[], prior: BiasPrior): number[] {
@@ -253,6 +255,7 @@ export function jointPosterior(slices: JointSlices, prior: BiasPrior, structural
       offsetLow5: sum(pO, 0, 5),
       offsetHigh5: sum(pO, pO.length - 5, pO.length),
     },
+    uProbabilities: pU,
   };
 }
 

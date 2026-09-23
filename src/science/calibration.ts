@@ -89,6 +89,51 @@ export type CalibrationInput = {
   historicalLogLikelihood?: readonly number[] | undefined;
   /** Benchmarks and tests only: overrides CALIBRATION_STRUCTURAL_SD_KCAL (D-33). */
   structuralSdKcal?: number | undefined;
+  /**
+   * Journal regime prototype (prompt 34, not active in the app): daily logged intake observations. Absent: nothing
+   * changes. Present: the Hall intake of each day is the logged total (usable day) or an imputed median, declared
+   * adherence is not read, the carbohydrate intake is the baseline share of that intake, and the fit returns a per-day trace.
+   */
+  intakeObservations?: IntakeObservationsInput | undefined;
+};
+
+/** One day of the food journal as the calibration sees it (built by the domain, `intakeObservationsFrom`). */
+export type IntakeObservation = {
+  date: string;
+  /** Sum of the day's logged entries, kcal (0 when nothing was logged). */
+  loggedKcal: number;
+  /** Distinct consumption times of the day. */
+  consumptionMoments: number;
+  /** Usability decided by the domain rule (R0, R1, R2). */
+  usable: boolean;
+};
+
+export type IntakeObservationsInput = {
+  /** Days by date; may start before the window (14-day look-back of the imputation). */
+  days: readonly IntakeObservation[];
+  /** Evidence weight of a non-usable day. No implicit default. */
+  nonUsableDayWeight: 0.5 | 0;
+  /**
+   * Tests only (measurement N1): 'harness_scaled' reproduces the macro scaling of benchmark 26 (plan carbohydrates x
+   * Hall intake / day target). Default 'baseline': baseline carbohydrate share x Hall intake (D-16); logged macros are never read.
+   */
+  carbSource?: 'baseline' | 'harness_scaled';
+};
+
+export type IntakeSource = 'logged' | 'median_fallback' | 'target_fallback';
+
+export type IntakeTraceDay = {
+  date: string;
+  source: IntakeSource;
+  /** Median scope for 'median_fallback': the 14 previous days, or the whole window (first fallback). */
+  medianScope?: '14d' | 'window';
+  intakeKcal: number;
+  weight: number;
+};
+
+export type IntakeTrace = {
+  days: IntakeTraceDay[];
+  counts: { logged: number; median14: number; medianWindow: number; target: number };
 };
 
 export type ReconstructedDay = {
@@ -99,6 +144,8 @@ export type ReconstructedDay = {
   stepsLogged: boolean;
   adherence: Adherence;
   weight: number;
+  /** Journal regime only (intake observations present). */
+  intake?: { source: IntakeSource; medianScope?: '14d' | 'window' };
 };
 
 export function validWeights(weights: readonly WeightEntry[]): WeightEntry[] {
@@ -118,7 +165,12 @@ function logForDate(logs: readonly DailyLog[], sortedLogs: readonly DailyLog[], 
 }
 
 /** Day-level reconstruction of intake, activity and evidence weight (05 s6-s7). */
-export function reconstructDays(input: Pick<CalibrationInput, 'dailyLogs' | 'populationTdeeAtStartKcal' | 'maintenanceStepsPerDay' | 'baselineCarbFraction'>, startDate: string, dayCount: number): ReconstructedDay[] {
+export function reconstructDays(
+  input: Pick<CalibrationInput, 'dailyLogs' | 'populationTdeeAtStartKcal' | 'maintenanceStepsPerDay' | 'baselineCarbFraction' | 'intakeObservations'>,
+  startDate: string,
+  dayCount: number,
+): ReconstructedDay[] {
+  if (input.intakeObservations) return reconstructJournalDays(input, input.intakeObservations, startDate, dayCount);
   const sortedLogs = [...input.dailyLogs].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   const days: ReconstructedDay[] = [];
   for (let d = 0; d < dayCount; d++) {
@@ -138,6 +190,96 @@ export function reconstructDays(input: Pick<CalibrationInput, 'dailyLogs' | 'pop
     days.push({ date, intakeKcal, carbKcal, steps, stepsLogged, adherence, weight });
   }
   return days;
+}
+
+/** Median of a list, null when empty (mean of the two central values for an even count). */
+function medianOrNull(values: readonly number[]): number | null {
+  if (values.length === 0) return null;
+  const s = [...values].sort((a, b) => a - b);
+  const mid = (s.length - 1) / 2;
+  return ((s[Math.floor(mid)] as number) + (s[Math.ceil(mid)] as number)) / 2;
+}
+
+/** Look-back of the imputation of a non-usable day, days (prompt 34 s3.2). */
+const JOURNAL_IMPUTATION_LOOKBACK_DAYS = 14;
+
+/**
+ * Journal regime prototype (prompt 34 s3.2). Usable day: Hall intake = logged total, weight 1 (x 0.7 without steps).
+ * Non-usable day: median of the usable totals of the 14 previous days, else of the window, else the day's target;
+ * weight `nonUsableDayWeight`. Declared adherence is never read. Carbohydrates: baseline share x Hall intake (D-16),
+ * or the benchmark 26 macro scaling when `carbSource` is 'harness_scaled' (measurement N1 only).
+ */
+function reconstructJournalDays(
+  input: Pick<CalibrationInput, 'dailyLogs' | 'populationTdeeAtStartKcal' | 'maintenanceStepsPerDay' | 'baselineCarbFraction'>,
+  obs: IntakeObservationsInput,
+  startDate: string,
+  dayCount: number,
+): ReconstructedDay[] {
+  const sortedLogs = [...input.dailyLogs].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const byDate = new Map(obs.days.map((o) => [o.date, o]));
+  const windowUsable: number[] = [];
+  for (let d = 0; d < dayCount; d++) {
+    const o = byDate.get(addDays(startDate, d));
+    if (o?.usable) windowUsable.push(o.loggedKcal);
+  }
+  const windowMedian = medianOrNull(windowUsable);
+  const carbFraction = input.baselineCarbFraction > 0 ? input.baselineCarbFraction : HALL_BASELINE_CARB_FRACTION;
+  const days: ReconstructedDay[] = [];
+  for (let d = 0; d < dayCount; d++) {
+    const date = addDays(startDate, d);
+    const { log, fallback } = logForDate(input.dailyLogs, sortedLogs, date);
+    const source = log ?? fallback;
+    const stepsLogged = log?.actualSteps !== undefined;
+    const steps = log?.actualSteps ?? source?.stepTargetForDay ?? input.maintenanceStepsPerDay;
+    const o = byDate.get(date);
+    let intakeKcal: number;
+    let weight: number;
+    let intake: NonNullable<ReconstructedDay['intake']>;
+    if (o?.usable) {
+      intakeKcal = o.loggedKcal;
+      weight = 1 * (stepsLogged ? 1 : MISSING_STEPS_WEIGHT_FACTOR);
+      intake = { source: 'logged' };
+    } else {
+      const previous: number[] = [];
+      for (let k = 1; k <= JOURNAL_IMPUTATION_LOOKBACK_DAYS; k++) {
+        const p = byDate.get(addDays(date, -k));
+        if (p?.usable) previous.push(p.loggedKcal);
+      }
+      const median14 = medianOrNull(previous);
+      if (median14 !== null) {
+        intakeKcal = median14;
+        intake = { source: 'median_fallback', medianScope: '14d' };
+      } else if (windowMedian !== null) {
+        intakeKcal = windowMedian;
+        intake = { source: 'median_fallback', medianScope: 'window' };
+      } else {
+        intakeKcal = source?.calorieTargetForDay ?? input.populationTdeeAtStartKcal;
+        intake = { source: 'target_fallback' };
+      }
+      weight = obs.nonUsableDayWeight;
+    }
+    const macros = source?.macrosForDay;
+    const carbKcal =
+      obs.carbSource === 'harness_scaled' && macros && source
+        ? Math.max(0, macros.carbsG * (intakeKcal / source.calorieTargetForDay)) * KCAL_PER_G_CARB
+        : carbFraction * intakeKcal;
+    // Declared adherence is not read in the journal regime (D4): the field carries 'unknown'.
+    days.push({ date, intakeKcal, carbKcal, steps, stepsLogged, adherence: 'unknown', weight, intake });
+  }
+  return days;
+}
+
+function intakeTraceOf(days: readonly ReconstructedDay[]): IntakeTrace {
+  const counts = { logged: 0, median14: 0, medianWindow: 0, target: 0 };
+  const out: IntakeTraceDay[] = days.map((day) => {
+    const source = day.intake?.source ?? 'logged';
+    if (source === 'logged') counts.logged++;
+    else if (source === 'target_fallback') counts.target++;
+    else if (day.intake?.medianScope === 'window') counts.medianWindow++;
+    else counts.median14++;
+    return { date: day.date, source, ...(day.intake?.medianScope ? { medianScope: day.intake.medianScope } : {}), intakeKcal: day.intakeKcal, weight: day.weight };
+  });
+  return { days: out, counts };
 }
 
 // ---------------------------------------------------------------------------
@@ -281,6 +423,8 @@ export type CalibrationFit = {
   informationPosterior: Posterior;
   /** SD of the structural model error convolved into the posterior, kcal/day (D-33). */
   structuralSdKcal: number;
+  /** Journal regime prototype only (intake observations given): intake source and weight of each window day. */
+  intakeTrace?: IntakeTrace;
 };
 
 export function offsetGrid(): number[] {
@@ -409,7 +553,18 @@ export function fitCalibration(input: CalibrationInput): CalibrationFit | null {
   const structuralSdKcal = input.structuralSdKcal ?? CALIBRATION_STRUCTURAL_SD_KCAL;
   const admissible = logPost.map((lp) => lp !== Number.NEGATIVE_INFINITY);
   const posterior = structuralSdKcal > 0 ? summarizeGridProbabilities(offsets, convolveGridProbabilities(offsets, informationPosterior.probabilities, structuralSdKcal, admissible)) : informationPosterior;
-  return { posterior, informationPosterior, structuralSdKcal, startDate, endDate, observationSpanDays: spanDays, validWeightCount: weights.length, observationWeights: obsWeights, excludedOffsetCount };
+  return {
+    posterior,
+    informationPosterior,
+    structuralSdKcal,
+    startDate,
+    endDate,
+    observationSpanDays: spanDays,
+    validWeightCount: weights.length,
+    observationWeights: obsWeights,
+    excludedOffsetCount,
+    ...(input.intakeObservations ? { intakeTrace: intakeTraceOf(days) } : {}),
+  };
 }
 
 /**

@@ -18,6 +18,8 @@ import { PERSONAL_TARGET_SHIFT_KCAL, pairedIndicatorDelta, pairedMedianDelta, se
 import type { ExperimentScenario, PairedDelta, Proportion } from './intakeLoggingExperiment';
 import { NOMINAL_BIAS_PRIOR, U_SUPPORT_MAX, U_SUPPORT_MIN, exactSlicePosterior, jointPosterior, jointSlices, kOf } from './jointBias';
 import type { BiasPrior } from './jointBias';
+import { JOURNAL_RESULTS_DIR, edgeMass, writeCsvGz } from './journalExport';
+import type { CsvValue, EdgeMass } from './journalExport';
 import { createRng } from './random';
 
 export const REPLICATES = Number(process.env.JOINT_REPLICATES ?? 5);
@@ -103,6 +105,20 @@ export type UserResult = {
   A: Interval;
   Cexact: Interval;
   D: DRow[];
+  /** Export only (prompt 34 s4), never read by the metrics: identity of the user and grid-bound masses of each arm. */
+  export?: {
+    replicate: number;
+    index: number;
+    seed: number;
+    profileIndex: number;
+    trueOffsetKcal: number;
+    weighEveryDays: number;
+    /** Apparent offset under arm A's assumed intake (targets), D-31. */
+    truthApparent: number;
+    edgeA: EdgeMass;
+    edgeCexact: EdgeMass;
+    edgeD: Array<{ offset: EdgeMass; k: EdgeMass }>;
+  };
 };
 
 export function simulateCellUser(cell: Cell, r: number, i: number, trueOffsetKcal: number, weighEveryDays: number, profileIndex: number): UserResult {
@@ -125,6 +141,8 @@ export function simulateCellUser(cell: Cell, r: number, i: number, trueOffsetKca
   const values = logged.filter((v): v is number => v !== null);
   const mean = values.reduce((s, v) => s + v, 0) / Math.max(1, values.length);
   const sd = Math.sqrt(values.reduce((s, v) => s + (v - mean) ** 2, 0) / Math.max(1, values.length - 1));
+  const cExact = exactSlicePosterior(slices);
+  const joints = PRIORS[cell.population].map((p) => jointPosterior(slices, p));
   return {
     truthMetabolic: metabolic,
     truthLoggedUnits: armApparentOffsetKcal(metabolic, run.trueIntakeKcal, assumedIntakeKcal(loggedInput, START_DATE, cell.days), cell.days),
@@ -135,11 +153,20 @@ export function simulateCellUser(cell: Cell, r: number, i: number, trueOffsetKca
     gateA: evaluateGate(base.weights, base.dailyLogs).met,
     gateLogged: evaluateGate(loggedInput.weights, loggedInput.dailyLogs).met,
     A: intervalOf(aFit.posterior),
-    Cexact: intervalOf(exactSlicePosterior(slices)),
-    D: PRIORS[cell.population].map((p) => {
-      const j = jointPosterior(slices, p);
-      return { ...intervalOf(j.offset), kMedian: j.kMedian, kWidthRatio: j.kWidthRatio, correlation: j.correlation, kIn80: kTrue >= j.k80[0] && kTrue <= j.k80[1], edge: j.edgeMass };
-    }),
+    Cexact: intervalOf(cExact),
+    D: joints.map((j) => ({ ...intervalOf(j.offset), kMedian: j.kMedian, kWidthRatio: j.kWidthRatio, correlation: j.correlation, kIn80: kTrue >= j.k80[0] && kTrue <= j.k80[1], edge: j.edgeMass })),
+    export: {
+      replicate: r,
+      index: i,
+      seed,
+      profileIndex,
+      trueOffsetKcal,
+      weighEveryDays,
+      truthApparent: armApparentOffsetKcal(metabolic, run.trueIntakeKcal, assumedIntakeKcal(base, START_DATE, cell.days), cell.days),
+      edgeA: edgeMass(aFit.posterior.probabilities),
+      edgeCexact: edgeMass(cExact.probabilities),
+      edgeD: joints.map((j) => ({ offset: edgeMass(j.offset.probabilities), k: edgeMass(j.uProbabilities) })),
+    },
   };
 }
 
@@ -279,6 +306,50 @@ export function runShard(shard: number, shardCount: number): number {
     const users = simulateCell(cell);
     const summary = summarizeCell(cell, users, performance.now() - t0);
     writeFileSync(`${JOINT_OUTPUT_DIR}/cells/${cell.id}.json`, `${JSON.stringify(summary, null, 2)}\n`);
+    exportCell(cell, users);
   }
   return cells.length;
+}
+
+// ---------------------------------------------------------------------------
+// Raw export (prompt 34 s4): one row per simulated user and arm, read back by the table reconstruction
+// ---------------------------------------------------------------------------
+
+export const EXPORT_COLUMNS_27 = [
+  'bench', 'cell', 'axis', 'scenario', 'horizon', 'logging_rate', 'population', 'intake_cv', 'replicate', 'user_index', 'seed', 'profile', 'true_offset', 'weigh_every_days',
+  'arm', 'prior_index', 'u', 'k_true', 'u_outside_support', 'declared_cv',
+  'q025', 'q10', 'q50', 'q90', 'q975', 'truth_metabolic', 'truth_apparent', 'truth_logged_units', 'gate_met',
+  'offset_low5', 'offset_low10', 'offset_high5', 'offset_high10', 'k_low5', 'k_low10', 'k_high5', 'k_high10', 'width80', 'width95',
+  'k_median', 'k_width_ratio', 'correlation', 'k_in80', 'info_k_lower_bin', 'info_k_upper_bin', 'info_k_lower3', 'info_k_upper3', 'info_offset_low5', 'info_offset_high5',
+] as const;
+
+function exportCell(cell: Cell, users: readonly UserResult[]): void {
+  const rows: Array<Record<string, CsvValue>> = [];
+  for (const u of users) {
+    const x = u.export;
+    if (!x) throw new Error('export needs the user identity');
+    const common = {
+      bench: 27, cell: cell.id, axis: cell.axis, scenario: cell.scenario, horizon: cell.days, logging_rate: cell.coverage, population: cell.population, intake_cv: cell.intakeCv,
+      replicate: x.replicate, user_index: x.index, seed: x.seed, profile: x.profileIndex, true_offset: x.trueOffsetKcal, weigh_every_days: x.weighEveryDays,
+      u: u.uTrue, k_true: u.kTrue, u_outside_support: u.uOutsideSupport, declared_cv: u.declaredCv,
+      truth_metabolic: u.truthMetabolic, truth_apparent: x.truthApparent, truth_logged_units: u.truthLoggedUnits,
+    };
+    const interval = (v: Interval) => ({ q025: v.l95, q10: v.l80, q50: v.median, q90: v.u80, q975: v.u95, width80: v.u80 - v.l80, width95: v.u95 - v.l95 });
+    const offsetEdge = (e: EdgeMass) => ({ offset_low5: e.low5, offset_low10: e.low10, offset_high5: e.high5, offset_high10: e.high10 });
+    rows.push({ ...common, arm: 'A', prior_index: null, ...interval(u.A), gate_met: u.gateA, ...offsetEdge(x.edgeA) });
+    rows.push({ ...common, arm: 'C-exact', prior_index: null, ...interval(u.Cexact), gate_met: u.gateLogged, ...offsetEdge(x.edgeCexact) });
+    PRIORS[cell.population].forEach((p, idx) => {
+      const d = u.D[idx] as DRow;
+      const e = x.edgeD[idx];
+      if (!e) throw new Error('edge');
+      rows.push({
+        ...common, arm: `D ${p.label}`, prior_index: idx, ...interval(d), gate_met: u.gateLogged, ...offsetEdge(e.offset),
+        // u grid index 0 is u = -0.40, the upper bound of k: "k_high" is the low end of the u grid.
+        k_low5: e.k.high5, k_low10: e.k.high10, k_high5: e.k.low5, k_high10: e.k.low10,
+        k_median: d.kMedian, k_width_ratio: d.kWidthRatio, correlation: d.correlation, k_in80: d.kIn80,
+        info_k_lower_bin: d.edge.kLowerBin, info_k_upper_bin: d.edge.kUpperBin, info_k_lower3: d.edge.kLower3, info_k_upper3: d.edge.kUpper3, info_offset_low5: d.edge.offsetLow5, info_offset_high5: d.edge.offsetHigh5,
+      });
+    });
+  }
+  writeCsvGz(`${JOURNAL_RESULTS_DIR}/bench27/${cell.id}.csv.gz`, EXPORT_COLUMNS_27, rows);
 }
