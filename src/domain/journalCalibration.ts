@@ -47,6 +47,8 @@ export type JournalRegimeOptions = {
   carbSource?: 'baseline' | 'harness_scaled';
   /** Benchmarks only: overrides the structural floor (D-33), e.g. 0 for measurement N3. */
   structuralSdKcal?: number;
+  /** Measurement only (prompt 35 s3): widened offset grid, -value to +value kcal/day. Throws with the warm-start history. */
+  offsetGridHalfRangeKcal?: number;
 };
 
 /** Relative width added to the NASEM prior by the 'widened' prior: 10 percent of NASEM at the window start (s3.5). */
@@ -101,6 +103,7 @@ export function journalCalibrationInputFromStore(store: WheightyStore, today: st
     dailyLogs: store.dailyLogs,
     ...(history?.likelihood.logLikelihood ? { historicalLogLikelihood: history.likelihood.logLikelihood } : {}),
     ...(options.structuralSdKcal !== undefined ? { structuralSdKcal: options.structuralSdKcal } : {}),
+    ...(options.offsetGridHalfRangeKcal !== undefined ? { offsetGridHalfRangeKcal: options.offsetGridHalfRangeKcal } : {}),
     intakeObservations: { days: observations, nonUsableDayWeight: options.nonUsableDayWeight, ...(options.carbSource ? { carbSource: options.carbSource } : {}) },
   };
   return { input, observations, windowStart: first.date, windowEnd: last.date, nasemSigmaKcal };

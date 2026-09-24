@@ -10,7 +10,7 @@ import type { JournalRegimeOptions } from '@/domain/journalCalibration';
 import { addFoodEntry } from '@/domain/journal';
 import type { WheightyStore } from '@/domain/types';
 import { emptyStore } from '@/persistence/schema';
-import { fitCalibration } from '@/science/calibration';
+import { fitCalibration, offsetGrid, widenedOffsetGrid } from '@/science/calibration';
 import { addDays } from '@/science/dates';
 import { makeProfile } from '../helpers/profiles';
 
@@ -138,5 +138,44 @@ describe('journal regime calibration (s3.2 to s3.5)', () => {
     // Window days 2 and 3 are the whole window of the day-4 weigh-in: 100 percent non-usable, not clean.
     expect(gate.cleanWeighInCount).toBe(gate.weighInCount - 1);
     expect(gate.trackedDays).toBe(gate.spanDays + 1 - 2 - 1);
+  });
+});
+
+describe('widened offset grid, measurement option (prompt 35 s3)', () => {
+  it('+-1 200 reproduces the production fit exactly; the default grid is unchanged', () => {
+    const prepared = journalCalibrationInputFromStore(store(), TODAY, OPTIONS);
+    if (!prepared) throw new Error('prepared');
+    expect(offsetGrid()).toEqual(widenedOffsetGrid(1200));
+    expect(offsetGrid()).toHaveLength(481);
+    expect(fitCalibration({ ...prepared.input, offsetGridHalfRangeKcal: 1200 })).toEqual(fitCalibration(prepared.input));
+  });
+
+  it('+-3 000: step 5, inadmissible offsets excluded and kept at zero probability through the floor', () => {
+    const prepared = journalCalibrationInputFromStore(store(), TODAY, { ...OPTIONS, offsetGridHalfRangeKcal: 3000 });
+    if (!prepared) throw new Error('prepared');
+    const fit = fitCalibration(prepared.input);
+    if (!fit) throw new Error('fit');
+    expect(fit.posterior.offsetsKcal).toEqual(widenedOffsetGrid(3000));
+    expect(fit.posterior.offsetsKcal).toHaveLength(1201);
+    const nasem = prepared.input.populationTdeeAtStartKcal;
+    const excluded = fit.posterior.offsetsKcal.filter((o) => nasem + o <= 1).length;
+    expect(excluded).toBeGreaterThan(0);
+    expect(fit.excludedOffsetCount).toBe(excluded);
+    fit.posterior.offsetsKcal.forEach((o, i) => {
+      if (nasem + o <= 1) {
+        expect(fit.posterior.probabilities[i]).toBe(0);
+        expect(fit.informationPosterior.probabilities[i]).toBe(0);
+      }
+    });
+    expect(fit.posterior.probabilities.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 12);
+  });
+
+  it('throws with the warm-start history and on a half-range that is not a multiple of the step', () => {
+    const prepared = journalCalibrationInputFromStore(store(), TODAY, OPTIONS);
+    if (!prepared) throw new Error('prepared');
+    const history = offsetGrid().map(() => 0);
+    expect(() => fitCalibration({ ...prepared.input, historicalLogLikelihood: history, offsetGridHalfRangeKcal: 2000 })).toThrow(/historicalLogLikelihood/);
+    expect(() => fitCalibration({ ...prepared.input, offsetGridHalfRangeKcal: 1202 })).toThrow(/multiple/);
+    expect(() => fitCalibration({ ...prepared.input, offsetGridHalfRangeKcal: 0 })).toThrow(/multiple/);
   });
 });

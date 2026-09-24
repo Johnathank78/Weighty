@@ -95,6 +95,12 @@ export type CalibrationInput = {
    * adherence is not read, the carbohydrate intake is the baseline share of that intake, and the fit returns a per-day trace.
    */
   intakeObservations?: IntakeObservationsInput | undefined;
+  /**
+   * Measurement only (prompt 35 s3, not active in the app): half-range of a widened offset grid, kcal/day. Absent: the
+   * production grid (offsetGrid()). Present: offsets from -value to +value by CALIBRATION_GRID_STEP_KCAL, with the same
+   * admissible-domain exclusion (D-28) and floor mask. Incompatible with `historicalLogLikelihood` (aligned with offsetGrid()).
+   */
+  offsetGridHalfRangeKcal?: number | undefined;
 };
 
 /** One day of the food journal as the calibration sees it (built by the domain, `intakeObservationsFrom`). */
@@ -433,6 +439,18 @@ export function offsetGrid(): number[] {
   return out;
 }
 
+/**
+ * Widened offset grid of the measurement option `offsetGridHalfRangeKcal` (prompt 35 s3): -halfRange to +halfRange by
+ * the production step. The half-range must be a positive multiple of the step, so that 0 stays on the grid.
+ */
+export function widenedOffsetGrid(halfRangeKcal: number): number[] {
+  const steps = halfRangeKcal / CALIBRATION_GRID_STEP_KCAL;
+  if (!(halfRangeKcal > 0) || !Number.isInteger(steps)) throw new Error('offsetGridHalfRangeKcal must be a positive multiple of CALIBRATION_GRID_STEP_KCAL');
+  const out: number[] = [];
+  for (let k = -steps; k <= steps; k++) out.push(k * CALIBRATION_GRID_STEP_KCAL);
+  return out;
+}
+
 export function fitCalibration(input: CalibrationInput): CalibrationFit | null {
   const weights = validWeights(input.weights);
   const first = weights[0];
@@ -469,7 +487,8 @@ export function fitCalibration(input: CalibrationInput): CalibrationFit | null {
   const intercepts: number[] = [];
   for (let c = -CALIBRATION_INTERCEPT_HALF_RANGE_KG; c <= CALIBRATION_INTERCEPT_HALF_RANGE_KG + 1e-9; c += CALIBRATION_INTERCEPT_STEP_KG) intercepts.push(c);
 
-  const offsets = offsetGrid();
+  if (input.offsetGridHalfRangeKcal !== undefined && input.historicalLogLikelihood !== undefined) throw new Error('offsetGridHalfRangeKcal cannot be combined with historicalLogLikelihood (aligned with offsetGrid())');
+  const offsets = input.offsetGridHalfRangeKcal === undefined ? offsetGrid() : widenedOffsetGrid(input.offsetGridHalfRangeKcal);
   const history = input.historicalLogLikelihood;
   if (history !== undefined && history.length !== offsets.length) throw new Error('historicalLogLikelihood must align with offsetGrid()');
   const logPost: number[] = [];
