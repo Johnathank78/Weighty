@@ -25,7 +25,7 @@ import type { WheightyStore } from '@/domain/types';
 import { emptyStore } from '@/persistence/schema';
 import { assessBaseline, planContextFrom } from '@/science/assessment';
 import { evaluateGate, fitCalibration } from '@/science/calibration';
-import type { CalibrationFit, Posterior } from '@/science/calibration';
+import type { CalibrationFit, CalibrationInput, Posterior } from '@/science/calibration';
 import { addDays } from '@/science/dates';
 import { hallParametersFor, paDeltaForSteps } from '@/science/goals';
 import { advance, bodyWeightOf, initialState } from '@/science/hall/model';
@@ -134,6 +134,12 @@ export type WorldSettings = {
   realIntakeKcal?: number;
   /** Declared adherence every day (read by the current path only). */
   adherence?: 'on_plan' | 'major_deviation';
+  /** Phase 1b (prompt 35 s5, arm b3): scale of the Student-t noise of every weigh-in, kg. Default WEIGH_NOISE_SCALE_KG. */
+  weighNoiseScaleKg?: number;
+  /** Phase 1b (s5, arm b2): the onboarding weigh-in is noiseless (true starting weight = declared). The draw is still consumed. */
+  firstWeighInExact?: boolean;
+  /** Phase 1b (s6, arms p1 and p2): SD of the daily multiplicative logging noise. Default LOGGING_NOISE_SD. */
+  loggingNoiseSd?: number;
 };
 
 export type JournalWorld = {
@@ -174,7 +180,9 @@ export function simulateJournalWorld(bp: BatteryProfile, s: WorldSettings, rngs:
   const declaredAssessment = assessBaseline(bp.profile, BATTERY_START, { weightKg: declared, palCategory });
   const nasemDeclaredKcal = declaredAssessment.populationTdeeKcal;
   // The onboarding weight is a noisy weigh-in of the true starting weight.
-  const trueStart = declared - WEIGH_NOISE_SCALE_KG * rngs.weigh.studentT(WEIGH_NOISE_DF);
+  const weighScale = s.weighNoiseScaleKg ?? WEIGH_NOISE_SCALE_KG;
+  const firstNoise = weighScale * rngs.weigh.studentT(WEIGH_NOISE_DF);
+  const trueStart = s.firstWeighInExact === true ? declared : declared - firstNoise;
   const trueProfile: UserProfile = { ...bp.profile, currentWeightKg: trueStart };
   const trueAssessment = assessBaseline(trueProfile, BATTERY_START, { weightKg: trueStart, palCategory });
   const ctx = planContextFrom(trueProfile, trueAssessment, trueAssessment.populationTdeeKcal);
@@ -193,7 +201,7 @@ export function simulateJournalWorld(bp: BatteryProfile, s: WorldSettings, rngs:
     store = ensureDailyLogs(store, date);
     store = setAdherence(store, date, s.adherence ?? 'on_plan');
     store = setActualSteps(store, date, plan.stepTarget);
-    const logged = Math.max(0, realIntakeKcal * (1 + s.u) * (1 + LOGGING_NOISE_SD * rngs.logging.normal()));
+    const logged = Math.max(0, realIntakeKcal * (1 + s.u) * (1 + (s.loggingNoiseSd ?? LOGGING_NOISE_SD) * rngs.logging.normal()));
     loggedKcal.push(logged);
     for (const meal of MEALS) {
       const r = addFoodEntry(store, { kind: 'manual', food: { name: 'Repas', intake: { energyKcal: logged * meal.share, proteinG: null, carbsG: null, fatG: null }, grams: null }, date, localTime: meal.time, consumedTime: meal.time }, iso(date));
@@ -203,7 +211,7 @@ export function simulateJournalWorld(bp: BatteryProfile, s: WorldSettings, rngs:
     state = advance(body, state, hallInput, 1);
     const next = d + 1;
     if (next % s.weighEveryDays === 0) {
-      const noise = WEIGH_NOISE_SCALE_KG * rngs.weigh.studentT(WEIGH_NOISE_DF);
+      const noise = weighScale * rngs.weigh.studentT(WEIGH_NOISE_DF);
       store = addWeight(store, { date: addDays(BATTERY_START, next), weightKg: bodyWeightOf(body, state) + noise }, iso(addDays(BATTERY_START, next)));
     }
   }
@@ -269,10 +277,13 @@ export function summarizeFit(fit: CalibrationFit, truth: number, prefix = ''): F
 
 export type CurrentPathResult = { fit: CalibrationFit; gateMet: boolean; nasemAtStartKcal: number };
 
-export function currentPathFit(store: WheightyStore, today: string, structuralSdKcal?: number): CurrentPathResult {
+/** Phase 1b (prompt 35 s5 only): prior SD (+Infinity = flat prior) and widened offset grid passed to the current path. */
+export type CurrentPathOverrides = Partial<Pick<CalibrationInput, 'priorSigmaKcal' | 'offsetGridHalfRangeKcal'>>;
+
+export function currentPathFit(store: WheightyStore, today: string, structuralSdKcal?: number, overrides: CurrentPathOverrides = {}): CurrentPathResult {
   const input = calibrationInputFromStore(store, today);
   if (!input) throw new Error('no input');
-  const fit = fitCalibration(structuralSdKcal === undefined ? input : { ...input, structuralSdKcal });
+  const fit = fitCalibration({ ...(structuralSdKcal === undefined ? input : { ...input, structuralSdKcal }), ...overrides });
   if (!fit) throw new Error('fit failed');
   return { fit, gateMet: evaluateGate(store.weights, store.dailyLogs).met, nasemAtStartKcal: input.populationTdeeAtStartKcal };
 }
