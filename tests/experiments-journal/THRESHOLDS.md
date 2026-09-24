@@ -96,3 +96,24 @@ Face à la méthode actuelle (ingénierie) :
 ### R2 : performance (bloquant)
 - P95 ≤ 1 s par calibration avec rejeu, pour 84 jours de pesées quotidiennes et un journal complet.
 - Mesuré sur un appareil de référence, ou avec un ralentissement du CPU × 4 (produit).
+
+## Amendement 1
+
+Validé par le product owner le 2026-09-24, après la relecture de la phase 1 (rapport 34). Ces règles sont postérieures aux résultats de la phase 1 : toute relecture de la phase 1 sous ces règles est marquée « après coup ».
+
+### A1.1 N1, effet de D5
+- Le critère « effet de D5 : |Δ médiane| ≤ 25 kcal/j » devient un diagnostic, non bloquant.
+- Justification : le monde de N1 fait manger à l'utilisateur les macros de son plan. Le critère mesure donc D5 chez quelqu'un qui suit son plan, ce qui n'est pas la population du régime journal.
+- Compensation : C1 inclut une sensibilité où la part glucidique réellement mangée vaut la part de base moins 10 points, puis plus 10 points. S1 à S4 doivent y passer ; S2 à S4 restent [S].
+
+### A1.2 Critères de couverture
+S'applique à N3, à C9 et à tout critère de couverture, absolu ou en différence.
+- Le critère est jugé sur l'ensemble des cellules d'un même chemin ou d'un même bras, avec un IC 95 % par bootstrap sur les utilisateurs (2 000 tirages, chaque utilisateur tiré avec tous ses horizons).
+- Sans plancher structurel : l'IC de la couverture contient 0,80 et 0,95.
+- Avec plancher structurel : la borne haute de l'IC est ≥ 0,80 et ≥ 0,95 (pas de sous-couverture significative).
+- Les cellules sont rapportées sans verdict. Une cellule dont la borne haute est sous le nominal est signalée.
+- Le critère « borne basse de l'IC ≥ 0,78 et ≥ 0,93 par cellule » est supprimé.
+
+### A1.3 Passe doublée
+- Toute passe doublée utilise des graines neuves, disjointes de toutes les passes précédentes.
+- Le verdict porte sur la nouvelle passe seule.
