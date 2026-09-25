@@ -1,0 +1,10 @@
+{
+  "job": "select2bx2",
+  "shard": 15,
+  "users": 62,
+  "runs": 124,
+  "wallMs": 479226.0981,
+  "runMsTotal": 479177.8034,
+  "runMsP50": 3853.7226000000373,
+  "runMsMax": 4413.438899999979
+}
