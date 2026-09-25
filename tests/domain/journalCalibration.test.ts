@@ -10,8 +10,12 @@ import type { JournalRegimeOptions } from '@/domain/journalCalibration';
 import { addFoodEntry } from '@/domain/journal';
 import type { WheightyStore } from '@/domain/types';
 import { emptyStore } from '@/persistence/schema';
-import { fitCalibration, offsetGrid, widenedOffsetGrid } from '@/science/calibration';
+import { fitCalibration, offsetGrid, reconstructDays, widenedOffsetGrid } from '@/science/calibration';
+import type { IntakeObservation } from '@/science/calibration';
+import { assessBaseline, planContextFrom } from '@/science/assessment';
 import { addDays } from '@/science/dates';
+import { buildGoalPlan, hardFloorKcal, planHardFloorKcal } from '@/science/goals';
+import type { WeightEntry } from '@/science/types';
 import { makeProfile } from '../helpers/profiles';
 
 const DAY0 = '2026-03-02';
@@ -177,5 +181,87 @@ describe('widened offset grid, measurement option (prompt 35 s3)', () => {
     expect(() => fitCalibration({ ...prepared.input, historicalLogLikelihood: history, offsetGridHalfRangeKcal: 2000 })).toThrow(/historicalLogLikelihood/);
     expect(() => fitCalibration({ ...prepared.input, offsetGridHalfRangeKcal: 1202 })).toThrow(/multiple/);
     expect(() => fitCalibration({ ...prepared.input, offsetGridHalfRangeKcal: 0 })).toThrow(/multiple/);
+  });
+});
+
+describe('iteration 2 prototype (prompt 36 s4)', () => {
+  const X_CANDIDATES = [1, 0.85, 0.7] as const;
+  const DENSITY = (x: number) => ({ minSpanDays: 28, minWeighInDayFraction: x });
+  /** Weigh-ins every `every` days over `days` days, every day logged (usable), so only span and density can fail. */
+  function schedule(every: number, days: number): { weights: WeightEntry[]; observations: IntakeObservation[] } {
+    const weights: WeightEntry[] = [];
+    for (let d = 0; d <= days; d += every) weights.push({ id: `w${d}`, date: addDays(DAY0, d), weightKg: 70, createdAt: iso(addDays(DAY0, d)) });
+    const observations: IntakeObservation[] = Array.from({ length: days + 1 }, (_, d) => ({ date: addDays(DAY0, d), loggedKcal: 1800, consumptionMoments: 3, usable: true }));
+    return { weights, observations };
+  }
+
+  it('s4.2: weighed every 3 days or once a week, the journal gate is never met, whatever X and the duration', () => {
+    for (const x of X_CANDIDATES) {
+      for (const every of [3, 7]) {
+        for (let days = 14; days <= 364; days += 1) {
+          const { weights, observations } = schedule(every, days);
+          const gate = evaluateJournalGate(weights, observations, DENSITY(x));
+          expect(gate.met).toBe(false);
+          expect(gate.density?.enoughWeighInDensity).toBe(false);
+        }
+      }
+    }
+  });
+
+  it('s4.2: daily weigh-ins pass from a 28-day span only; without the option the gate is unchanged', () => {
+    for (const x of X_CANDIDATES) {
+      const short = schedule(1, 27);
+      const long = schedule(1, 28);
+      expect(evaluateJournalGate(short.weights, short.observations, DENSITY(x)).met).toBe(false);
+      expect(evaluateJournalGate(short.weights, short.observations).met).toBe(true);
+      const gate = evaluateJournalGate(long.weights, long.observations, DENSITY(x));
+      expect(gate.met).toBe(true);
+      expect(gate.density).toEqual({ weighInDays: 29, windowDays: 29, weighInDayFraction: 1, enoughJournalSpan: true, enoughWeighInDensity: true });
+    }
+    // 25 weigh-ins over 29 window days (0.862): passes 85 % and 70 %, not 100 %.
+    const { weights, observations } = schedule(1, 28);
+    const sparse = weights.filter((_, i) => ![3, 9, 15, 21].includes(i));
+    expect([1, 0.85, 0.7].map((x) => evaluateJournalGate(sparse, observations, DENSITY(x)).met)).toEqual([false, true, true]);
+    expect(evaluateJournalGate(sparse, observations).density).toBeUndefined();
+  });
+
+  it("s4.4: carbSource 'logged' reads the logged carbohydrates of usable days only, through the bridge", () => {
+    let s = store([4]);
+    const date = addDays(DAY0, 3);
+    const r = addFoodEntry(s, { kind: 'manual', food: { name: 'Pain', intake: { energyKcal: 250, proteinG: 8, carbsG: 45.5, fatG: 3 }, grams: null }, date, localTime: '10:00', consumedTime: '10:00' }, iso(date));
+    if (!r.ok) throw new Error(r.reason);
+    s = r.store;
+    expect(intakeObservationsFrom(s, date, date, { kind: 'R0' })[0]).not.toHaveProperty('loggedCarbsG');
+    expect(intakeObservationsFrom(s, date, date, { kind: 'R0' }, { withCarbs: true })[0]?.loggedCarbsG).toBe(45.5);
+    const baseline = journalCalibrationInputFromStore(s, TODAY, OPTIONS);
+    const logged = journalCalibrationInputFromStore(s, TODAY, { ...OPTIONS, carbSource: 'logged' });
+    if (!baseline || !logged) throw new Error('prepared');
+    expect(baseline.observations.every((o) => o.loggedCarbsG === undefined)).toBe(true);
+    const days = reconstructDays(logged.input, logged.windowStart, 10);
+    const base = reconstructDays(baseline.input, baseline.windowStart, 10);
+    // Day 3 carries 45.5 g of logged carbohydrates; other usable days log none (manual kcal entries); day 4 is not usable.
+    expect(days[3]?.carbKcal).toBe(45.5 * 4);
+    expect(days[2]?.carbKcal).toBe(0);
+    expect(days[4]?.intake?.source).toBe('median_fallback');
+    expect(days[4]?.carbKcal).toBe(base[4]?.carbKcal);
+    expect(days.map((d) => d.intakeKcal)).toEqual(base.map((d) => d.intakeKcal));
+    expect(() => fitCalibration({ ...logged.input, intakeObservations: { ...logged.input.intakeObservations!, days: logged.observations.map(({ loggedCarbsG: _c, ...o }) => o) } })).toThrow(/loggedCarbsG/);
+  });
+
+  it('s3.6: the floor multiplier is absent by default and raises the floor the solved target is checked against', () => {
+    const profile = makeProfile({ sexForEquation: 'female', ageYears: 60, heightCm: 152, currentWeightKg: 60, averageSteps7d: 5000, goal: 'loss', targetWeightKg: 45, weeklyRateTarget: 0.01 });
+    const assessment = assessBaseline(profile, DAY0);
+    const ctx = planContextFrom(profile, assessment, assessment.populationTdeeKcal);
+    expect(planHardFloorKcal(ctx)).toBe(hardFloorKcal(ctx.reeKcal, ctx.sex));
+    expect(planHardFloorKcal({ ...ctx, hardFloorMultiplier: 1.1 })).toBe(hardFloorKcal(ctx.reeKcal, ctx.sex) * 1.1);
+    const input = { goal: 'loss' as const, weeklyRate: 0.01, targetWeightKg: 45, stepTarget: 5000 };
+    const plain = buildGoalPlan(ctx, input);
+    const raised = buildGoalPlan({ ...ctx, hardFloorMultiplier: 1.1 }, input);
+    expect(plain.status).toBe('ok');
+    expect(raised.status).toBe('ok');
+    expect(plain.calorieTargetKcal as number).toBeGreaterThanOrEqual(plain.hardFloorKcal);
+    expect(raised.hardFloorKcal).toBe(plain.hardFloorKcal * 1.1);
+    expect(raised.calorieTargetKcal as number).toBeGreaterThanOrEqual(raised.hardFloorKcal);
+    expect(raised.weeklyRateTarget).toBeLessThan(plain.weeklyRateTarget);
   });
 });

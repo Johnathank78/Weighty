@@ -43,13 +43,22 @@ export type JournalRegimeOptions = {
   includeWarmStartHistory?: boolean;
   /** Default 'nasem'. 'flat' and 'widened' are reserved to measurement N4. */
   journalPrior?: JournalPrior;
-  /** Measurement N1 only. */
-  carbSource?: 'baseline' | 'harness_scaled';
+  /** Measurement N1 ('harness_scaled') and prompt 36 arm "glucides saisis" ('logged') only. */
+  carbSource?: 'baseline' | 'harness_scaled' | 'logged';
   /** Benchmarks only: overrides the structural floor (D-33), e.g. 0 for measurement N3. */
   structuralSdKcal?: number;
   /** Measurement only (prompt 35 s3): widened offset grid, -value to +value kcal/day. Throws with the warm-start history. */
   offsetGridHalfRangeKcal?: number;
+  /** Measurement only (prompt 36 s3.3): minimum span and weigh-in density added to the journal gate. Absent: gate unchanged. */
+  weighInDensity?: JournalGateDensity;
 };
+
+/**
+ * Journal-mode requirements of prompt 36 s3.3 and s4.2: at least `minSpanDays` between the first and the last weigh-in of
+ * the window, and a weigh-in on at least `minWeighInDayFraction` of the window days (first to last weigh-in, both included,
+ * the convention of the adherence coverage).
+ */
+export type JournalGateDensity = { minSpanDays: number; minWeighInDayFraction: number };
 
 /** Relative width added to the NASEM prior by the 'widened' prior: 10 percent of NASEM at the window start (s3.5). */
 const WIDENED_PRIOR_NASEM_FRACTION = 0.1;
@@ -86,7 +95,7 @@ export function journalCalibrationInputFromStore(store: WheightyStore, today: st
   const priorSigmaKcal =
     prior === 'flat' ? Number.POSITIVE_INFINITY : prior === 'widened' ? Math.sqrt(nasemSigmaKcal ** 2 + (WIDENED_PRIOR_NASEM_FRACTION * assessment.populationTdeeKcal) ** 2) : nasemSigmaKcal;
   // Observations cover the window plus the 14-day look-back of the imputation of non-usable days.
-  const observations = intakeObservationsFrom(store, addDays(first.date, -14), last.date, options.usabilityRule);
+  const observations = intakeObservationsFrom(store, addDays(first.date, -14), last.date, options.usabilityRule, { withCarbs: options.carbSource === 'logged' });
   const history = options.includeWarmStartHistory === true ? storedWarmStart(store) : null;
   const input: CalibrationInput = {
     sex: profile.sexForEquation,
@@ -115,8 +124,13 @@ export function journalCalibrationInputFromStore(store: WheightyStore, today: st
  * - a weigh-in is clean when at most 50 percent of the days of its window are non-usable.
  * Field mapping: `adherenceCoverage` holds the usable-day coverage, `trackedDays` the usable days and
  * `majorDeviationFraction` the non-usable share of the window days.
+ * With `density` (prompt 36, measurement only), `met` also requires the minimum span and weigh-in density, detailed in `density`.
  */
-export function evaluateJournalGate(weights: readonly WeightEntry[], observations: readonly IntakeObservation[]): GateStatus {
+export type JournalGateStatus = GateStatus & {
+  density?: { weighInDays: number; windowDays: number; weighInDayFraction: number; enoughJournalSpan: boolean; enoughWeighInDensity: boolean };
+};
+
+export function evaluateJournalGate(weights: readonly WeightEntry[], observations: readonly IntakeObservation[], density?: JournalGateDensity): JournalGateStatus {
   const valid = validWeights(weights);
   const first = valid[0];
   const last = valid[valid.length - 1];
@@ -150,8 +164,9 @@ export function evaluateJournalGate(weights: readonly WeightEntry[], observation
     enoughCleanWeighIns: cleanWeighInCount >= GATE_MIN_CLEAN_WEIGHINS,
     enoughAdherenceInfo: coverage >= GATE_MIN_ADHERENCE_COVERAGE,
   };
-  return {
-    met: criteria.enoughWeighIns && criteria.enoughSpan && criteria.enoughCleanWeighIns && criteria.enoughAdherenceInfo,
+  const base = criteria.enoughWeighIns && criteria.enoughSpan && criteria.enoughCleanWeighIns && criteria.enoughAdherenceInfo;
+  const status: JournalGateStatus = {
+    met: base,
     weighInCount: valid.length,
     spanDays,
     cleanWeighInCount,
@@ -160,10 +175,19 @@ export function evaluateJournalGate(weights: readonly WeightEntry[], observation
     trackedDays: usableDays,
     criteria,
   };
+  if (!density) return status;
+  const weighInDayFraction = totalDays > 0 ? valid.length / totalDays : 0;
+  const enoughJournalSpan = spanDays >= density.minSpanDays;
+  const enoughWeighInDensity = totalDays > 0 && weighInDayFraction >= density.minWeighInDayFraction;
+  return {
+    ...status,
+    met: base && enoughJournalSpan && enoughWeighInDensity,
+    density: { weighInDays: valid.length, windowDays: totalDays, weighInDayFraction, enoughJournalSpan, enoughWeighInDensity },
+  };
 }
 
 export type JournalCalibrationState = {
-  gate: GateStatus;
+  gate: JournalGateStatus;
   fit: CalibrationFit | null;
   candidate: CalibrationSnapshot | null;
   prepared: JournalCalibrationInput;
@@ -173,7 +197,7 @@ export type JournalCalibrationState = {
 export function computeJournalCalibration(store: WheightyStore, today: string, nowIso: string, options: JournalRegimeOptions): JournalCalibrationState | null {
   const prepared = journalCalibrationInputFromStore(store, today, options);
   if (!prepared) return null;
-  const gate = evaluateJournalGate(prepared.input.weights, prepared.observations);
+  const gate = evaluateJournalGate(prepared.input.weights, prepared.observations, options.weighInDensity);
   const fit = gate.weighInCount >= 2 ? fitCalibration(prepared.input) : null;
   const candidate = fit ? buildSnapshot(fit, gate, prepared.input.populationTdeeAtStartKcal, nowIso) : null;
   return { gate, fit, candidate, prepared };

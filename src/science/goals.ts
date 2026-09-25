@@ -84,6 +84,11 @@ export type PlanContext = {
   exerciseNetKcalDay: number;
   /** Whether structured training load is high (energy availability guardrail). */
   highTrainingLoad: boolean;
+  /**
+   * Journal regime prototype only (prompt 36 s3.6, measurement, never set by the app): factor applied to the hard floor
+   * that the solved target is checked against (1.10 in the raised-floor arm). Absent: the production floor, unchanged.
+   */
+  hardFloorMultiplier?: number | undefined;
 };
 
 export type Scenario = {
@@ -95,6 +100,12 @@ export type Scenario = {
 export function hardFloorKcal(reeKcal: number, sex: SexForEquation): number {
   const absolute = sex === 'male' ? ABSOLUTE_MIN_CALORIES_MALE : ABSOLUTE_MIN_CALORIES_FEMALE;
   return Math.max(absolute, RELATIVE_MIN_CALORIES_REE_FRACTION * reeKcal);
+}
+
+/** Floor the plan target is checked against: the hard floor, times `hardFloorMultiplier` when the prototype sets it. */
+export function planHardFloorKcal(ctx: PlanContext): number {
+  const floor = hardFloorKcal(ctx.reeKcal, ctx.sex);
+  return ctx.hardFloorMultiplier === undefined ? floor : floor * ctx.hardFloorMultiplier;
 }
 
 export function macrosFor(ctx: PlanContext, goal: Goal, calorieTargetKcal: number): MacroResult {
@@ -313,7 +324,7 @@ export function evaluateWeeklyRate(ctx: PlanContext, goal: Goal, weeklyRate: num
   const target42 = targetWeightAtHorizon(goal, ctx.currentWeightKg, weeklyRate);
   const solve = solveCaloriesForWeightAtHorizon(ctx, goal, stepTarget, target42);
   if (!solve.converged) return { ok: false, weeklyRate, reason: 'solver_not_converged' };
-  if (solve.calorieTargetKcal < hardFloorKcal(ctx.reeKcal, ctx.sex)) return { ok: false, weeklyRate, reason: 'below_hard_floor' };
+  if (solve.calorieTargetKcal < planHardFloorKcal(ctx)) return { ok: false, weeklyRate, reason: 'below_hard_floor' };
   const macros = macrosFor(ctx, goal, solve.calorieTargetKcal);
   if (!macros.feasible) return { ok: false, weeklyRate, reason: 'macro_infeasible' };
   return { ok: true, weeklyRate, solve, macros };
@@ -355,7 +366,7 @@ export function maxSelectableWeeklyRate(ctx: PlanContext, goal: Goal, stepTarget
 }
 
 export function buildGoalPlan(ctx: PlanContext, input: { goal: Goal; weeklyRate: number; targetWeightKg: number; stepTarget: number }): GoalPlan {
-  const floor = hardFloorKcal(ctx.reeKcal, ctx.sex);
+  const floor = planHardFloorKcal(ctx);
   const requested = input.goal === 'maintenance' ? 0 : snapWeeklyRate(input.weeklyRate);
   const base: GoalPlan = {
     status: 'ok',
@@ -550,7 +561,7 @@ export function solveSliderPoint(ctx: PlanContext, baseline: SliderBaseline, ste
   const target = baselineWeight42 ?? baselineWeightAtHorizon(ctx, baseline);
   const solve = solveCaloriesForWeightAtHorizon(ctx, baseline.goal, stepsPerDay, target);
   const macros = macrosFor(ctx, baseline.goal, solve.calorieTargetKcal);
-  const floor = hardFloorKcal(ctx.reeKcal, ctx.sex);
+  const floor = planHardFloorKcal(ctx);
   const belowHardFloor = solve.calorieTargetKcal < floor;
   const bounds = sliderBounds(baseline.scenario.stepsPerDay);
   const p = hallParametersFor(ctx, baseline.goal);

@@ -112,6 +112,8 @@ export type IntakeObservation = {
   consumptionMoments: number;
   /** Usability decided by the domain rule (R0, R1, R2). */
   usable: boolean;
+  /** Sum of the day's logged carbohydrates, g. Present only when requested, for carbSource 'logged' (prompt 36 s4.4). */
+  loggedCarbsG?: number;
 };
 
 export type IntakeObservationsInput = {
@@ -122,8 +124,10 @@ export type IntakeObservationsInput = {
   /**
    * Tests only (measurement N1): 'harness_scaled' reproduces the macro scaling of benchmark 26 (plan carbohydrates x
    * Hall intake / day target). Default 'baseline': baseline carbohydrate share x Hall intake (D-16); logged macros are never read.
+   * Measurement only (prompt 36 s3.11, arm "glucides saisis"): 'logged' feeds each usable day's logged carbohydrates
+   * (g x 4, logged units) to the Hall glycogen; a non-usable day keeps the baseline share x imputed intake.
    */
-  carbSource?: 'baseline' | 'harness_scaled';
+  carbSource?: 'baseline' | 'harness_scaled' | 'logged';
 };
 
 export type IntakeSource = 'logged' | 'median_fallback' | 'target_fallback';
@@ -213,7 +217,8 @@ const JOURNAL_IMPUTATION_LOOKBACK_DAYS = 14;
  * Journal regime prototype (prompt 34 s3.2). Usable day: Hall intake = logged total, weight 1 (x 0.7 without steps).
  * Non-usable day: median of the usable totals of the 14 previous days, else of the window, else the day's target;
  * weight `nonUsableDayWeight`. Declared adherence is never read. Carbohydrates: baseline share x Hall intake (D-16),
- * or the benchmark 26 macro scaling when `carbSource` is 'harness_scaled' (measurement N1 only).
+ * or the benchmark 26 macro scaling when `carbSource` is 'harness_scaled' (measurement N1 only), or the logged
+ * carbohydrates of each usable day when `carbSource` is 'logged' (measurement of prompt 36 only).
  */
 function reconstructJournalDays(
   input: Pick<CalibrationInput, 'dailyLogs' | 'populationTdeeAtStartKcal' | 'maintenanceStepsPerDay' | 'baselineCarbFraction'>,
@@ -265,10 +270,16 @@ function reconstructJournalDays(
       weight = obs.nonUsableDayWeight;
     }
     const macros = source?.macrosForDay;
-    const carbKcal =
-      obs.carbSource === 'harness_scaled' && macros && source
-        ? Math.max(0, macros.carbsG * (intakeKcal / source.calorieTargetForDay)) * KCAL_PER_G_CARB
-        : carbFraction * intakeKcal;
+    let carbKcal: number;
+    if (obs.carbSource === 'logged' && o?.usable) {
+      if (o.loggedCarbsG === undefined) throw new Error("carbSource 'logged' needs loggedCarbsG on every usable day");
+      carbKcal = Math.max(0, o.loggedCarbsG) * KCAL_PER_G_CARB;
+    } else {
+      carbKcal =
+        obs.carbSource === 'harness_scaled' && macros && source
+          ? Math.max(0, macros.carbsG * (intakeKcal / source.calorieTargetForDay)) * KCAL_PER_G_CARB
+          : carbFraction * intakeKcal;
+    }
     // Declared adherence is not read in the journal regime (D4): the field carries 'unknown'.
     days.push({ date, intakeKcal, carbKcal, steps, stepsLogged, adherence: 'unknown', weight, intake });
   }

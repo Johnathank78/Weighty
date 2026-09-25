@@ -27,23 +27,26 @@ function median(values: readonly number[]): number | null {
   return ((s[Math.floor(mid)] as number) + (s[Math.ceil(mid)] as number)) / 2;
 }
 
+/** Measurement only (prompt 36 s4.4): `withCarbs` adds the day's logged carbohydrates (`loggedCarbsG`). */
+export type IntakeObservationOptions = { withCarbs?: boolean };
+
 /**
  * Observations for every day of [from, to] (inclusive). R1's reference median uses the previous 14 calendar days that
  * have at least one entry; with none, the day is judged by R0 alone.
  */
-export function intakeObservationsFrom(store: WheightyStore, from: string, to: string, rule: UsabilityRule): IntakeObservation[] {
+export function intakeObservationsFrom(store: WheightyStore, from: string, to: string, rule: UsabilityRule, options: IntakeObservationOptions = {}): IntakeObservation[] {
   const dayCount = daysBetween(from, to) + 1;
   const lookBack = rule.kind === 'R0' ? 0 : R1_LOOKBACK_DAYS;
-  const totals = new Map<string, { kcal: number; moments: number; entries: number }>();
+  const totals = new Map<string, { kcal: number; carbsG: number; moments: number; entries: number }>();
   for (let d = -lookBack; d < dayCount; d++) {
     const date = addDays(from, d);
     const day = journalDay(store, date);
-    totals.set(date, { kcal: day.intakeLoggedKcal, moments: new Set(day.entries.map((e) => e.consumedTime)).size, entries: day.entries.length });
+    totals.set(date, { kcal: day.intakeLoggedKcal, carbsG: day.intakeLoggedCarbsG, moments: new Set(day.entries.map((e) => e.consumedTime)).size, entries: day.entries.length });
   }
   const out: IntakeObservation[] = [];
   for (let d = 0; d < dayCount; d++) {
     const date = addDays(from, d);
-    const t = totals.get(date) as { kcal: number; moments: number; entries: number };
+    const t = totals.get(date) as { kcal: number; carbsG: number; moments: number; entries: number };
     let usable = t.entries > 0;
     if (usable && rule.kind !== 'R0') {
       const previous: number[] = [];
@@ -55,7 +58,7 @@ export function intakeObservationsFrom(store: WheightyStore, from: string, to: s
       if (reference !== null && t.kcal < rule.x * reference) usable = false;
       if (rule.kind === 'R2' && t.moments < 2) usable = false;
     }
-    out.push({ date, loggedKcal: t.kcal, consumptionMoments: t.moments, usable });
+    out.push({ date, loggedKcal: t.kcal, consumptionMoments: t.moments, usable, ...(options.withCarbs === true ? { loggedCarbsG: t.carbsG } : {}) });
   }
   return out;
 }
