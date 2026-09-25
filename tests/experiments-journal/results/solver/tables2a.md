@@ -1,0 +1,141 @@
+# Itération 2a : tableaux reconstruits depuis les bruts
+
+Script : `tests/experiments-journal/it2a/tables2a.experiment.ts`. Bootstrap : 2000 tirages d’utilisateurs, graine 37000001. Ratio : pente du poids vrai sur un bloc de 4 semaines / (vitesse du plan actif × poids vrai au début du bloc).
+
+## 5.1 Monde idéal : décomposition 2 × 2
+
+500 utilisateurs (perte 194, prise 150, maintien 156), 2000 lignes utilisateur × bras. Hall nominal, pesées sans bruit, u = 0, suiveurs parfaits, graines 2,1·10⁹.
+
+### Médianes par fenêtre
+
+| Bras | Objectif | Fenêtre | Blocs (utilisateurs) | Médiane [IC 95 %] | P10 / P90 |
+|---|---|---|---|---|---|
+| S0 témoin (équilibre + poids j42) | perte | semaines 5 à 12 | 388 (194) | 0,696 [0,684 ; 0,704] | 0,509 / 0,778 |
+| S0 témoin (équilibre + poids j42) | perte | semaines 13 à 24 | 582 (194) | 0,628 [0,616 ; 0,637] | 0,372 / 0,718 |
+| S0 témoin (équilibre + poids j42) | perte | semaines 5 à 24 | 970 (194) | 0,654 [0,644 ; 0,664] | 0,445 / 0,747 |
+| S0 témoin (équilibre + poids j42) | prise | semaines 5 à 12 | 300 (150) | 0,780 [0,760 ; 0,793] | 0,651 / 0,891 |
+| S0 témoin (équilibre + poids j42) | prise | semaines 13 à 24 | 450 (150) | 0,669 [0,662 ; 0,683] | 0,561 / 0,757 |
+| S0 témoin (équilibre + poids j42) | prise | semaines 5 à 24 | 750 (150) | 0,703 [0,693 ; 0,716] | 0,583 / 0,825 |
+| CS (état actuel seul) | perte | semaines 5 à 12 | 388 (194) | 1,044 [1,038 ; 1,051] | 0,978 / 1,131 |
+| CS (état actuel seul) | perte | semaines 13 à 24 | 582 (194) | 0,999 [0,995 ; 1,003] | 0,872 / 1,114 |
+| CS (état actuel seul) | perte | semaines 5 à 24 | 970 (194) | 1,015 [1,010 ; 1,020] | 0,907 / 1,125 |
+| CS (état actuel seul) | prise | semaines 5 à 12 | 300 (150) | 1,085 [1,073 ; 1,090] | 1,008 / 1,175 |
+| CS (état actuel seul) | prise | semaines 13 à 24 | 450 (150) | 0,959 [0,955 ; 0,962] | 0,864 / 1,033 |
+| CS (état actuel seul) | prise | semaines 5 à 24 | 750 (150) | 1,013 [1,009 ; 1,018] | 0,887 / 1,127 |
+| ST (masse tissulaire seule) | perte | semaines 5 à 12 | 388 (194) | 0,926 [0,909 ; 0,941] | 0,689 / 1,031 |
+| ST (masse tissulaire seule) | perte | semaines 13 à 24 | 582 (194) | 0,832 [0,809 ; 0,855] | 0,434 / 0,953 |
+| ST (masse tissulaire seule) | perte | semaines 5 à 24 | 970 (194) | 0,871 [0,855 ; 0,887] | 0,555 / 0,995 |
+| ST (masse tissulaire seule) | prise | semaines 5 à 12 | 300 (150) | 0,978 [0,972 ; 0,985] | 0,901 / 1,072 |
+| ST (masse tissulaire seule) | prise | semaines 13 à 24 | 450 (150) | 0,868 [0,858 ; 0,878] | 0,729 / 0,951 |
+| ST (masse tissulaire seule) | prise | semaines 5 à 24 | 750 (150) | 0,919 [0,907 ; 0,928] | 0,772 / 1,020 |
+| FX correctif (les deux) | perte | semaines 5 à 12 | 388 (194) | 1,016 [1,010 ; 1,020] | 0,936 / 1,089 |
+| FX correctif (les deux) | perte | semaines 13 à 24 | 582 (194) | 0,981 [0,972 ; 0,985] | 0,856 / 1,016 |
+| FX correctif (les deux) | perte | semaines 5 à 24 | 970 (194) | 0,993 [0,989 ; 0,997] | 0,866 / 1,052 |
+| FX correctif (les deux) | prise | semaines 5 à 12 | 300 (150) | 1,077 [1,067 ; 1,087] | 0,996 / 1,167 |
+| FX correctif (les deux) | prise | semaines 13 à 24 | 450 (150) | 0,966 [0,962 ; 0,970] | 0,874 / 1,052 |
+| FX correctif (les deux) | prise | semaines 5 à 24 | 750 (150) | 1,022 [1,013 ; 1,028] | 0,894 / 1,120 |
+
+### Médianes par bloc de 4 semaines
+
+| Bras | Objectif | Semaines 5-8 | 9-12 | 13-16 | 17-20 | 21-24 |
+|---|---|---|---|---|---|---|
+| S0 témoin (équilibre + poids j42) | perte | 0,715 [0,704 ; 0,725] | 0,673 [0,666 ; 0,682] | 0,647 [0,640 ; 0,664] | 0,628 [0,616 ; 0,636] | 0,594 [0,572 ; 0,605] |
+| S0 témoin (équilibre + poids j42) | prise | 0,803 [0,782 ; 0,824] | 0,756 [0,748 ; 0,770] | 0,723 [0,709 ; 0,732] | 0,663 [0,653 ; 0,673] | 0,641 [0,623 ; 0,646] |
+| CS (état actuel seul) | perte | 1,068 [1,059 ; 1,076] | 1,029 [1,025 ; 1,033] | 1,015 [1,009 ; 1,020] | 0,994 [0,988 ; 0,999] | 0,989 [0,982 ; 0,995] |
+| CS (état actuel seul) | prise | 1,119 [1,101 ; 1,131] | 1,061 [1,054 ; 1,069] | 1,019 [1,015 ; 1,022] | 0,941 [0,931 ; 0,951] | 0,902 [0,894 ; 0,912] |
+| ST (masse tissulaire seule) | perte | 0,952 [0,934 ; 0,968] | 0,907 [0,884 ; 0,923] | 0,869 [0,851 ; 0,893] | 0,832 [0,810 ; 0,857] | 0,765 [0,736 ; 0,800] |
+| ST (masse tissulaire seule) | prise | 1,012 [0,999 ; 1,026] | 0,966 [0,962 ; 0,971] | 0,929 [0,919 ; 0,937] | 0,858 [0,846 ; 0,869] | 0,828 [0,811 ; 0,842] |
+| FX correctif (les deux) | perte | 1,027 [1,020 ; 1,033] | 1,008 [1,005 ; 1,010] | 0,993 [0,989 ; 0,996] | 0,972 [0,965 ; 0,979] | 0,953 [0,931 ; 0,976] |
+| FX correctif (les deux) | prise | 1,103 [1,086 ; 1,119] | 1,060 [1,055 ; 1,069] | 1,026 [1,022 ; 1,031] | 0,946 [0,936 ; 0,955] | 0,909 [0,900 ; 0,915] |
+
+### Différences appariées de médiane (bras − S0)
+
+| Bras | Objectif | Fenêtre | Δ médiane [IC 95 %] |
+|---|---|---|---|
+| CS | perte | semaines 5 à 12 | 0,348 [0,339 ; 0,360] |
+| CS | perte | semaines 13 à 24 | 0,371 [0,361 ; 0,383] |
+| CS | perte | semaines 5 à 24 | 0,360 [0,350 ; 0,370] |
+| CS | prise | semaines 5 à 12 | 0,305 [0,292 ; 0,319] |
+| CS | prise | semaines 13 à 24 | 0,290 [0,278 ; 0,295] |
+| CS | prise | semaines 5 à 24 | 0,311 [0,300 ; 0,318] |
+| ST | perte | semaines 5 à 12 | 0,231 [0,217 ; 0,244] |
+| ST | perte | semaines 13 à 24 | 0,204 [0,189 ; 0,221] |
+| ST | perte | semaines 5 à 24 | 0,217 [0,205 ; 0,229] |
+| ST | prise | semaines 5 à 12 | 0,198 [0,189 ; 0,214] |
+| ST | prise | semaines 13 à 24 | 0,200 [0,188 ; 0,207] |
+| ST | prise | semaines 5 à 24 | 0,216 [0,205 ; 0,224] |
+| FX | perte | semaines 5 à 12 | 0,320 [0,311 ; 0,331] |
+| FX | perte | semaines 13 à 24 | 0,353 [0,345 ; 0,361] |
+| FX | perte | semaines 5 à 24 | 0,339 [0,330 ; 0,347] |
+| FX | prise | semaines 5 à 12 | 0,297 [0,286 ; 0,312] |
+| FX | prise | semaines 13 à 24 | 0,297 [0,285 ; 0,302] |
+| FX | prise | semaines 5 à 24 | 0,319 [0,309 ; 0,326] |
+
+**Arrêt 2 (témoin S0 contre le rapport 36, semaines 5 à 24)** : perte 0,654 (attendu 0,65 ± 0,03), prise 0,703 (attendu 0,70 ± 0,03) : reproduit.
+
+### Verdict A3.1 (correctif FX)
+
+| Critère | Objectif | Unité | Médiane [IC 95 %] | Bande | IC dans la bande | Médiane seule dans la bande |
+|---|---|---|---|---|---|---|
+| fenêtre | perte | w1 | 1,016 [1,010 ; 1,020] | [0,950 ; 1,050] | oui | oui |
+| fenêtre | perte | w2 | 0,981 [0,972 ; 0,985] | [0,950 ; 1,050] | oui | oui |
+| bloc | perte | b1 | 1,027 [1,020 ; 1,033] | [0,900 ; 1,100] | oui | oui |
+| bloc | perte | b2 | 1,008 [1,005 ; 1,010] | [0,900 ; 1,100] | oui | oui |
+| bloc | perte | b3 | 0,993 [0,989 ; 0,996] | [0,900 ; 1,100] | oui | oui |
+| bloc | perte | b4 | 0,972 [0,965 ; 0,979] | [0,900 ; 1,100] | oui | oui |
+| bloc | perte | b5 | 0,953 [0,931 ; 0,976] | [0,900 ; 1,100] | oui | oui |
+| fenêtre | prise | w1 | 1,077 [1,067 ; 1,087] | [0,950 ; 1,050] | **non** | non |
+| fenêtre | prise | w2 | 0,966 [0,962 ; 0,970] | [0,950 ; 1,050] | oui | oui |
+| bloc | prise | b1 | 1,103 [1,086 ; 1,119] | [0,900 ; 1,100] | **non** | non |
+| bloc | prise | b2 | 1,060 [1,055 ; 1,069] | [0,900 ; 1,100] | oui | oui |
+| bloc | prise | b3 | 1,026 [1,022 ; 1,031] | [0,900 ; 1,100] | oui | oui |
+| bloc | prise | b4 | 0,946 [0,936 ; 0,955] | [0,900 ; 1,100] | oui | oui |
+| bloc | prise | b5 | 0,909 [0,900 ; 0,915] | [0,900 ; 1,100] | **non** | oui |
+
+**A3.1 : ÉCHOUÉ.**
+
+### Autres constats
+
+| Bras | Recalibrations appliquées (médiane) | Utilisateurs avec échec de plan | Échecs `no_feasible_speed` | Plans (état actuel) | Écart poids modélisé − tendance, médiane [P10 ; P90] (kg) | Écart modélisé − vrai, médiane [P10 ; P90] (kg) |
+|---|---|---|---|---|---|---|
+| S0 | 8,0 | 8 | 48 | — | — | — |
+| CS | 8,0 | 11 | 47 | 3999 (sans état : 0) | -0,006 [-0,932 ; 0,347] | 0,004 [-0,052 ; 0,072] |
+| ST | 8,0 | 8 | 52 | — | — | — |
+| FX | 8,0 | 10 | 51 | 4008 (sans état : 0) | -0,006 [-0,931 ; 0,350] | 0,003 [-0,048 ; 0,067] |
+
+### Strates (médiane du ratio, S0 → FX)
+
+| Strate | Valeur | Objectif | Utilisateurs | S0 sem. 5-12 | S0 sem. 13-24 | FX sem. 5-12 | FX sem. 13-24 |
+|---|---|---|---|---|---|---|---|
+| sexe | female | perte | 121 | 0,677 | 0,605 | 1,016 | 0,966 |
+| sexe | female | prise | 67 | 0,735 | 0,647 | 1,075 | 0,961 |
+| sexe | male | perte | 73 | 0,743 | 0,683 | 1,014 | 0,986 |
+| sexe | male | prise | 83 | 0,803 | 0,695 | 1,079 | 0,968 |
+| classe d’IMC | 21 | perte | 44 | 0,681 | 0,573 | 1,068 | 0,917 |
+| classe d’IMC | 21 | prise | 35 | 0,775 | 0,599 | 1,115 | 0,898 |
+| classe d’IMC | 26 | perte | 32 | 0,618 | 0,590 | 0,976 | 0,969 |
+| classe d’IMC | 26 | prise | 41 | 0,773 | 0,661 | 1,088 | 0,966 |
+| classe d’IMC | 31 | perte | 40 | 0,719 | 0,650 | 1,014 | 0,990 |
+| classe d’IMC | 31 | prise | 39 | 0,754 | 0,673 | 1,057 | 0,968 |
+| classe d’IMC | 38 | perte | 38 | 0,729 | 0,691 | 1,013 | 0,992 |
+| classe d’IMC | 38 | prise | 35 | 0,808 | 0,728 | 1,067 | 0,979 |
+| classe d’IMC | case_R | perte | 20 | 0,672 | 0,600 | 1,009 | 0,924 |
+| classe d’IMC | case_S | perte | 20 | 0,682 | 0,594 | 1,020 | 0,915 |
+| activité | sedentary | perte | 81 | 0,704 | 0,642 | 1,011 | 0,984 |
+| activité | sedentary | prise | 77 | 0,774 | 0,686 | 1,066 | 0,969 |
+| activité | strength | perte | 113 | 0,687 | 0,617 | 1,017 | 0,972 |
+| activité | strength | prise | 73 | 0,785 | 0,654 | 1,090 | 0,961 |
+| vitesse demandée | 0.0025 | perte | 44 | 0,681 | 0,573 | 1,068 | 0,917 |
+| vitesse demandée | 0.0025 | prise | 150 | 0,780 | 0,669 | 1,077 | 0,966 |
+| vitesse demandée | 0.005 | perte | 53 | 0,722 | 0,665 | 1,029 | 1,002 |
+| vitesse demandée | 0.01 | perte | 97 | 0,677 | 0,616 | 1,006 | 0,974 |
+
+## Temps réel des lancements
+
+```
+2026-09-25T18:46:10+02:00 start pilot2a shards=12
+2026-09-25T18:46:26+02:00 end pilot2a wall_s=16 failed_shards=0
+2026-09-25T18:47:03+02:00 start ideal2a shards=16
+2026-09-25T18:55:18+02:00 end ideal2a wall_s=495 failed_shards=0
+```
+

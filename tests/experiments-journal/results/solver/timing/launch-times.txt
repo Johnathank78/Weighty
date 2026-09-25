@@ -1,0 +1,4 @@
+2026-09-25T18:46:10+02:00 start pilot2a shards=12
+2026-09-25T18:46:26+02:00 end pilot2a wall_s=16 failed_shards=0
+2026-09-25T18:47:03+02:00 start ideal2a shards=16
+2026-09-25T18:55:18+02:00 end ideal2a wall_s=495 failed_shards=0
