@@ -24,7 +24,9 @@ import {
   rebuildContextFromStore,
   setActualSteps,
   setAdherence,
+  solverOptionsFor,
 } from '@/domain/engine';
+import type { SolverRequest } from '@/domain/engine';
 import { addFoodEntry, journalDay } from '@/domain/journal';
 import { evaluateJournalGate, journalCalibrationInputFromStore } from '@/domain/journalCalibration';
 import type { JournalRegimeOptions } from '@/domain/journalCalibration';
@@ -37,6 +39,7 @@ import type { GateStatus, SurfacingReference } from '@/science/calibration';
 import { GAIN_RATE_HARD_MAX, KCAL_PER_G_CARB, KCAL_PER_G_FAT, KCAL_PER_G_PROTEIN } from '@/science/constants';
 import { addDays } from '@/science/dates';
 import { baselineCarbFractionFor, buildGoalPlan, guardrailMaxWeeklyRate, hardFloorKcal, macrosFor, maintenanceZone } from '@/science/goals';
+import { bodyWeightOf } from '@/science/hall/model';
 import type { HallState } from '@/science/hall/model';
 import type { UserProfile } from '@/science/types';
 import { intervalWidth } from '@/science/uncertainty';
@@ -117,7 +120,11 @@ export const lhsSeed = (base: number) => base + 999_983;
 // Users
 // ---------------------------------------------------------------------------
 
-export type Behavior = 'follower' | 'nonfollower';
+/**
+ * 'steady' (iteration 2a, prompt 37 s4): regular non-follower, eats the target of the plan in force + s every day and
+ * declares 'on_plan' every day.
+ */
+export type Behavior = 'follower' | 'nonfollower' | 'steady';
 export type CarbWorld = 'base' | 'minus10' | 'plus10' | 'selective';
 export type Population = { key: string; meanU: number; sdU: number; bmiSlope?: number; role: 'principal' | 'sensitivity' | 'c6' };
 
@@ -307,6 +314,8 @@ export type UserSpec = {
   ideal: boolean;
   /** C6 over-reporters: u drawn from U(lo, hi) instead of the population law. */
   uUniform?: readonly [number, number];
+  /** Iteration 2a (prompt 37): solver options of every plan of the user (onboarding and recalibrations). Absent: production solver. */
+  solver?: SolverRequest;
 };
 
 export type SpecOptions = {
@@ -319,6 +328,7 @@ export type SpecOptions = {
   ideal?: boolean;
   uSchedule?: USchedule;
   uUniform?: readonly [number, number];
+  solver?: SolverRequest;
 };
 
 /** Offset ~ N(0, sigma of the profile prior), redrawn from the same stream while NASEM + offset is not admissible. */
@@ -352,6 +362,7 @@ export function makeSpec(slot: ProfileSlot, base: number, index: number, o: Spec
     robustness: o.robustness ?? false,
     ideal: o.ideal ?? false,
     ...(o.uUniform ? { uUniform: o.uUniform } : {}),
+    ...(o.solver ? { solver: o.solver } : {}),
   };
 }
 
@@ -466,7 +477,7 @@ export type World = {
 
 export function buildWorld(spec: UserSpec): World {
   const profile = spec.slot.profile;
-  const onboarding = completeOnboarding(emptyStore(), profile, SIM_START, iso(SIM_START), null);
+  const onboarding = completeOnboarding(emptyStore(), profile, SIM_START, iso(SIM_START), null, spec.solver);
   if (!onboarding.ok) throw new Error(`onboarding failed (${spec.slot.key}): ${onboarding.reason}`);
   const plan = onboarding.store.plan;
   if (!plan) throw new Error('no plan');
@@ -518,6 +529,10 @@ export type PlanRecord = {
   energyAvailability: number | null;
   /** Journal plans: target of the oracle plan (true maintenance in logged units), same solver and floor. */
   oracleTarget?: number | null;
+  /** Iteration 2a: trend weight the plan was computed at, true weight of the day, and the modeled weight (currentState). */
+  trendWeightKg?: number;
+  trueWeightKg?: number;
+  modeledWeightKg?: number | null;
 };
 
 export type EvalRecord = {
@@ -766,7 +781,8 @@ function evaluateCurrent(world: World, st: SimState, d: number): 'proposal' | nu
       if (state.surfaced) {
         rec.surfaced = true;
         if (acceptDraw(world, st)) {
-          const r = applyRecalibration(st.store, state, date, nowIsoOf(date));
+          const before = st.store;
+          const r = applyRecalibration(st.store, state, date, nowIsoOf(date), world.spec.solver);
           if (r.ok) {
             st.store = r.store;
             rec.applied = true;
@@ -774,7 +790,15 @@ function evaluateCurrent(world: World, st: SimState, d: number): 'proposal' | nu
             const p = st.store.plan as CurrentPlan;
             const ctx = rebuildContextFromStore(st.store, date);
             const ea = ctx && ctx.highQualityFfmKg !== null && (ctx.athleteLike || ctx.highTrainingLoad) ? (p.calorieTarget - ctx.exerciseNetKcalDay) / ctx.highQualityFfmKg : null;
-            st.plans.push(planRecord(world, p, d, 'recal_current', ea, p.warnings?.lowEnergyAvailability === true));
+            const planRec = planRecord(world, p, d, 'recal_current', ea, p.warnings?.lowEnergyAvailability === true);
+            if (world.spec.solver) {
+              // Iteration 2a: reference weight of the plan (modeled weight today under currentState) against the trend weight.
+              const body = world.spec.solver.solverStart === 'currentState' ? (solverOptionsFor(ensureDailyLogs(before, date), date, state.candidate, world.spec.solver).modeledBody ?? null) : null;
+              planRec.trendWeightKg = currentWeightKg(before) ?? Number.NaN;
+              planRec.trueWeightKg = st.trueW[d] as number;
+              planRec.modeledWeightKg = body ? bodyWeightOf(body.params, body.state) + body.weightShiftKg : null;
+            }
+            st.plans.push(planRec);
             if (st.mode === 'C' && world.spec.robustness) st.targeting = false;
           } else {
             st.planFailures.push(`${d}:${r.reason}`);
@@ -964,6 +988,10 @@ function eatAndLog(world: World, st: SimState, d: number): void {
   } else if (spec.behavior === 'follower') {
     real = plan.calorieTarget * eatNoise;
     proteinG = plan.macros.proteinG;
+  } else if (spec.behavior === 'steady') {
+    // Regular non-follower (iteration 2a): the plan in force + s, every day.
+    real = (plan.calorieTarget + spec.slot.shiftKcal) * eatNoise;
+    proteinG = plan.macros.proteinG;
   } else {
     real = (world.onboardingPlan.calorieTarget + spec.slot.shiftKcal) * eatNoise;
     proteinG = plan.macros.proteinG;
@@ -990,6 +1018,7 @@ function eatAndLog(world: World, st: SimState, d: number): void {
   let adherence: 'on_plan' | 'minor_deviation' | 'major_deviation';
   if (st.mode === 'C' && st.tc) adherence = (draws.deviation[d] as boolean) ? 'major_deviation' : 'on_plan';
   else if (spec.behavior === 'follower') adherence = a < 0.85 ? 'on_plan' : a < 0.95 ? 'minor_deviation' : 'major_deviation';
+  else if (spec.behavior === 'steady') adherence = 'on_plan';
   else adherence = a < 0.8 ? 'major_deviation' : 'on_plan';
 
   const steps = Math.max(0, Math.round(plan.stepTarget * (1 + STEPS_NOISE_SD * (draws.zSteps[d] as number))));
@@ -1075,6 +1104,17 @@ export function simulateUser(spec: UserSpec, arms: readonly ArmConfig[]): UserOu
     return { arm, state: st };
   });
   return { world, commonUntil: proposalDay, proposalDay, arms: outcomes };
+}
+
+/** Iteration 2a timing (prompt 37 s5.5): one arm simulated from day 0 for the given number of days (no bifurcation). */
+export function simulateArmDays(spec: UserSpec, arm: ArmConfig, days: number): { world: World; state: SimState } {
+  const world = buildWorld(spec);
+  const st = initialState(world);
+  for (let d = 0; d < days; d++) {
+    if (morning(world, st, d, arm) === 'proposal') applySwitch(world, st, d, arm);
+    eatAndLog(world, st, d);
+  }
+  return { world, state: st };
 }
 
 /** s6.2: the same arm replayed from day 0 without bifurcation. */

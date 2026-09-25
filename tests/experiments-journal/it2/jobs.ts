@@ -266,7 +266,7 @@ function smallSlots(n: number, base: number): ProfileSlot[] {
 
 const r1 = (v: number) => Math.round(v * 10) / 10;
 
-function specColumns(spec: UserSpec, world: World): Record<string, CsvValue> {
+export function specColumns(spec: UserSpec, world: World): Record<string, CsvValue> {
   const p = spec.slot.profile;
   return {
     pass: spec.pass,
@@ -315,7 +315,7 @@ function armColumns(arm: ArmConfig): Record<string, CsvValue> {
   };
 }
 
-function stateColumns(st: SimState): Record<string, CsvValue> {
+export function stateColumns(st: SimState): Record<string, CsvValue> {
   return {
     proposal_day: st.proposalDay,
     accepted: st.accepted,
