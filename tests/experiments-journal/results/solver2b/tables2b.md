@@ -442,6 +442,175 @@ Règle commune de THRESHOLDS.md (INCONCLUSIF : n doublé une fois, graines neuve
 - prise : 341 recalculs, écart médian 23,1 [P10 16,8 ; P90 31,5] kcal/j, |écart| < 10 : 0.
 - maintien : 341 recalculs, écart médian 0,0 [P10 0,0 ; P90 0,0] kcal/j, |écart| < 10 : 341.
 
+## 5.2 Validation (monde idéal, graines de validation 2,8·10⁹)
+
+500 utilisateurs (perte 196, prise 152, maintien 152), bras S0 et K2.
+
+### Médianes par fenêtre [IC 95 %]
+
+| Bras | Objectif | Fenêtre | Blocs (utilisateurs) | Tissus | P10 / P90 tissus | Poids total | P10 / P90 poids |
+|---|---|---|---|---|---|---|---|
+| S0 témoin | perte | semaines 5 à 12 | 392 (196) | 0,718 [0,710 ; 0,722] | 0,621 / 0,784 | 0,706 [0,697 ; 0,714] | 0,574 / 0,787 |
+| S0 témoin | perte | semaines 13 à 24 | 588 (196) | 0,638 [0,631 ; 0,644] | 0,512 / 0,713 | 0,636 [0,631 ; 0,644] | 0,482 / 0,713 |
+| S0 témoin | perte | semaines 5 à 24 | 980 (196) | 0,667 [0,658 ; 0,675] | 0,539 / 0,753 | 0,663 [0,654 ; 0,671] | 0,519 / 0,752 |
+| S0 témoin | prise | semaines 5 à 12 | 304 (152) | 0,766 [0,754 ; 0,778] | 0,666 / 0,853 | 0,765 [0,752 ; 0,782] | 0,640 / 0,872 |
+| S0 témoin | prise | semaines 13 à 24 | 456 (152) | 0,668 [0,659 ; 0,679] | 0,556 / 0,757 | 0,670 [0,662 ; 0,682] | 0,561 / 0,763 |
+| S0 témoin | prise | semaines 5 à 24 | 760 (152) | 0,706 [0,695 ; 0,716] | 0,579 / 0,812 | 0,706 [0,694 ; 0,717] | 0,577 / 0,824 |
+| K2 (recalcul 28 j, horizon 28 j) | perte | semaines 5 à 12 | 392 (196) | 1,016 [1,010 ; 1,020] | 0,967 / 1,092 | 1,013 [1,009 ; 1,020] | 0,961 / 1,105 |
+| K2 (recalcul 28 j, horizon 28 j) | perte | semaines 13 à 24 | 588 (196) | 0,990 [0,987 ; 0,993] | 0,952 / 1,031 | 0,994 [0,991 ; 0,996] | 0,899 / 1,037 |
+| K2 (recalcul 28 j, horizon 28 j) | perte | semaines 5 à 24 | 980 (196) | 0,998 [0,994 ; 1,001] | 0,959 / 1,054 | 1,001 [0,997 ; 1,005] | 0,923 / 1,062 |
+| K2 (recalcul 28 j, horizon 28 j) | prise | semaines 5 à 12 | 304 (152) | 1,045 [1,040 ; 1,049] | 0,990 / 1,081 | 1,053 [1,049 ; 1,062] | 0,990 / 1,129 |
+| K2 (recalcul 28 j, horizon 28 j) | prise | semaines 13 à 24 | 456 (152) | 1,008 [1,005 ; 1,011] | 0,981 / 1,030 | 1,025 [1,020 ; 1,028] | 0,998 / 1,049 |
+| K2 (recalcul 28 j, horizon 28 j) | prise | semaines 5 à 24 | 760 (152) | 1,016 [1,012 ; 1,021] | 0,982 / 1,067 | 1,032 [1,027 ; 1,035] | 0,994 / 1,088 |
+
+### Médianes par bloc de 4 semaines, tissus [IC 95 %]
+
+| Bras | Objectif | Semaines 5-8 | 9-12 | 13-16 | 17-20 | 21-24 |
+|---|---|---|---|---|---|---|
+| S0 témoin | perte | 0,729 [0,724 ; 0,739] | 0,686 [0,680 ; 0,695] | 0,659 [0,651 ; 0,665] | 0,635 [0,629 ; 0,641] | 0,617 [0,605 ; 0,627] |
+| S0 témoin | prise | 0,786 [0,773 ; 0,796] | 0,743 [0,731 ; 0,756] | 0,718 [0,705 ; 0,729] | 0,664 [0,650 ; 0,678] | 0,631 [0,610 ; 0,644] |
+| K2 (recalcul 28 j, horizon 28 j) | perte | 1,031 [1,026 ; 1,037] | 1,002 [0,997 ; 1,006] | 0,989 [0,986 ; 0,993] | 0,991 [0,989 ; 0,993] | 0,990 [0,987 ; 0,993] |
+| K2 (recalcul 28 j, horizon 28 j) | prise | 1,064 [1,057 ; 1,067] | 1,026 [1,022 ; 1,031] | 1,007 [1,005 ; 1,011] | 1,007 [1,004 ; 1,010] | 1,010 [1,006 ; 1,012] |
+
+### Médianes par bloc de 4 semaines, poids total [IC 95 %]
+
+| Bras | Objectif | Semaines 5-8 | 9-12 | 13-16 | 17-20 | 21-24 |
+|---|---|---|---|---|---|---|
+| S0 témoin | perte | 0,724 [0,714 ; 0,735] | 0,683 [0,675 ; 0,694] | 0,659 [0,650 ; 0,665] | 0,635 [0,629 ; 0,641] | 0,615 [0,597 ; 0,622] |
+| S0 témoin | prise | 0,800 [0,768 ; 0,811] | 0,750 [0,739 ; 0,764] | 0,721 [0,707 ; 0,731] | 0,664 [0,650 ; 0,678] | 0,644 [0,628 ; 0,651] |
+| K2 (recalcul 28 j, horizon 28 j) | perte | 1,028 [1,020 ; 1,034] | 1,005 [1,000 ; 1,008] | 0,992 [0,989 ; 0,995] | 0,994 [0,991 ; 0,998] | 0,993 [0,990 ; 0,997] |
+| K2 (recalcul 28 j, horizon 28 j) | prise | 1,082 [1,071 ; 1,089] | 1,042 [1,035 ; 1,048] | 1,022 [1,019 ; 1,026] | 1,023 [1,019 ; 1,026] | 1,030 [1,026 ; 1,032] |
+
+### Ratio selon l’âge moyen du plan actif sur le bloc (tous blocs, médiane [IC 95 %])
+
+| Bras | Objectif | Âge (j) | Utilisateurs-blocs | Tissus | Poids total |
+|---|---|---|---|---|---|
+| S0 | perte | 0 à 7 | 194 | 0,729 [0,724 ; 0,739] | 0,724 [0,714 ; 0,735] |
+| S0 | perte | 7 à 14 | 385 | 0,679 [0,671 ; 0,686] | 0,674 [0,670 ; 0,683] |
+| S0 | perte | 14 à 21 | 75 | 0,661 [0,641 ; 0,674] | 0,660 [0,645 ; 0,674] |
+| S0 | perte | 21 à 28 | 32 | 0,608 [0,393 ; 0,639] | 0,608 [0,210 ; 0,632] |
+| S0 | perte | 28 à 42 | 149 | 0,630 [0,620 ; 0,636] | 0,630 [0,620 ; 0,636] |
+| S0 | perte | 42 à … | 145 | 0,604 [0,583 ; 0,620] | 0,594 [0,567 ; 0,615] |
+| S0 | prise | 0 à 7 | 153 | 0,785 [0,772 ; 0,796] | 0,800 [0,767 ; 0,810] |
+| S0 | prise | 7 à 14 | 252 | 0,738 [0,729 ; 0,754] | 0,743 [0,735 ; 0,760] |
+| S0 | prise | 14 à 21 | 54 | 0,682 [0,663 ; 0,701] | 0,682 [0,663 ; 0,701] |
+| S0 | prise | 21 à 28 | 9 | 0,643 [0,489 ; 0,775] | 0,671 [0,489 ; 0,810] |
+| S0 | prise | 28 à 42 | 111 | 0,691 [0,677 ; 0,705] | 0,692 [0,679 ; 0,706] |
+| S0 | prise | 42 à … | 181 | 0,623 [0,610 ; 0,641] | 0,626 [0,612 ; 0,642] |
+| K2 | perte | 0 à 7 | 214 | 1,028 [1,022 ; 1,035] | 1,022 [1,015 ; 1,031] |
+| K2 | perte | 7 à 14 | 700 | 0,993 [0,991 ; 0,997] | 0,997 [0,994 ; 1,001] |
+| K2 | perte | 14 à 21 | 31 | 0,990 [0,976 ; 1,000] | 0,990 [0,976 ; 1,000] |
+| K2 | perte | 28 à 42 | 7 | 0,873 [0,786 ; 0,909] | 0,873 [0,786 ; 0,909] |
+| K2 | perte | 42 à … | 28 | 0,795 [0,693 ; 0,863] | 0,795 [0,693 ; 0,863] |
+| K2 | prise | 0 à 7 | 166 | 1,060 [1,055 ; 1,066] | 1,074 [1,067 ; 1,085] |
+| K2 | prise | 7 à 14 | 594 | 1,011 [1,007 ; 1,013] | 1,027 [1,024 ; 1,031] |
+
+### Âge moyen du plan actif et plans démarrés, par bloc (médianes par utilisateur-bloc)
+
+| Bras | Objectif | Semaines 5-8 | 9-12 | 13-16 | 17-20 | 21-24 |
+|---|---|---|---|---|---|---|
+| S0 | perte | 3,0 j ; 4,0 | 10,0 j ; 1,0 | 13,5 j ; 1,0 | 41,5 j ; 0,0 | 50,3 j ; 0,0 |
+| S0 | prise | 3,0 j ; 4,0 | 10,0 j ; 1,0 | 13,5 j ; 1,0 | 41,5 j ; 0,0 | 69,5 j ; 0,0 |
+| K2 | perte | 3,0 j ; 4,0 | 10,0 j ; 1,0 | 13,5 j ; 1,0 | 13,5 j ; 1,0 | 13,5 j ; 1,0 |
+| K2 | prise | 3,0 j ; 4,0 | 10,0 j ; 1,0 | 13,5 j ; 1,0 | 13,5 j ; 1,0 | 13,5 j ; 1,0 |
+
+### Différences appariées de médiane, tissus (bras b − bras a)
+
+| a → b | Objectif | Fenêtre | Δ médiane [IC 95 %] |
+|---|---|---|---|
+| S0 → K2 | perte | semaines 5 à 12 | 0,298 [0,293 ; 0,305] |
+| S0 → K2 | perte | semaines 13 à 24 | 0,353 [0,347 ; 0,359] |
+| S0 → K2 | perte | semaines 5 à 24 | 0,330 [0,322 ; 0,339] |
+| S0 → K2 | prise | semaines 5 à 12 | 0,278 [0,268 ; 0,289] |
+| S0 → K2 | prise | semaines 13 à 24 | 0,340 [0,330 ; 0,348] |
+| S0 → K2 | prise | semaines 5 à 24 | 0,310 [0,301 ; 0,319] |
+
+### Autres constats
+
+| Bras | Recalibrations appliquées (médiane) | Recalculs périodiques faits (médiane ; total) | Dus sans snapshot (total) | Refusés (total) | Utilisateurs avec échec de recalibration | Échecs `no_feasible_speed` des recalibrations |
+|---|---|---|---|---|---|---|
+| S0 | 8,0 | 0,0 ; 0 | 0 | 0 | 2 | 11 |
+| K2 | 8,0 | 2,0 ; 981 | 5 | 61 | 3 | 12 |
+
+### Strates (médiane du ratio sur les tissus ; poids total entre parenthèses)
+
+| Strate | Valeur | Objectif | Utilisateurs | S0 sem. 5-12 | S0 sem. 13-24 | K2 sem. 5-12 | K2 sem. 13-24 |
+|---|---|---|---|---|---|---|---|
+| sexe | female | perte | 124 | 0,699 (0,689) | 0,627 (0,626) | 1,021 (1,020) | 0,993 (0,994) |
+| sexe | female | prise | 77 | 0,746 (0,739) | 0,649 (0,656) | 1,049 (1,057) | 1,008 (1,025) |
+| sexe | male | perte | 72 | 0,748 (0,742) | 0,681 (0,682) | 1,007 (1,004) | 0,986 (0,990) |
+| sexe | male | prise | 75 | 0,794 (0,799) | 0,694 (0,700) | 1,041 (1,052) | 1,008 (1,025) |
+| classe d’IMC | 21 | perte | 42 | 0,735 (0,738) | 0,604 (0,604) | 1,043 (1,059) | 0,993 (1,007) |
+| classe d’IMC | 21 | prise | 34 | 0,737 (0,740) | 0,588 (0,588) | 1,043 (1,066) | 0,997 (1,025) |
+| classe d’IMC | 26 | perte | 38 | 0,702 (0,668) | 0,609 (0,613) | 1,004 (1,001) | 0,980 (0,996) |
+| classe d’IMC | 26 | prise | 39 | 0,756 (0,756) | 0,648 (0,657) | 1,045 (1,057) | 1,005 (1,031) |
+| classe d’IMC | 31 | perte | 44 | 0,726 (0,724) | 0,670 (0,670) | 1,013 (1,010) | 0,991 (0,993) |
+| classe d’IMC | 31 | prise | 36 | 0,764 (0,761) | 0,676 (0,679) | 1,049 (1,056) | 1,012 (1,024) |
+| classe d’IMC | 38 | perte | 32 | 0,728 (0,713) | 0,679 (0,679) | 1,007 (1,005) | 0,989 (0,991) |
+| classe d’IMC | 38 | prise | 43 | 0,793 (0,800) | 0,722 (0,725) | 1,043 (1,049) | 1,013 (1,018) |
+| classe d’IMC | case_R | perte | 20 | 0,682 (0,674) | 0,620 (0,610) | 1,012 (1,012) | 0,990 (0,989) |
+| classe d’IMC | case_S | perte | 20 | 0,701 (0,688) | 0,615 (0,613) | 1,021 (1,019) | 1,000 (0,996) |
+| activité | sedentary | perte | 82 | 0,723 (0,711) | 0,645 (0,644) | 1,014 (1,012) | 0,992 (0,995) |
+| activité | sedentary | prise | 77 | 0,771 (0,772) | 0,679 (0,682) | 1,042 (1,051) | 1,006 (1,025) |
+| activité | strength | perte | 114 | 0,714 (0,701) | 0,636 (0,634) | 1,017 (1,013) | 0,990 (0,992) |
+| activité | strength | prise | 75 | 0,762 (0,757) | 0,659 (0,662) | 1,049 (1,057) | 1,009 (1,026) |
+| vitesse demandée | 0.0025 | perte | 42 | 0,735 (0,738) | 0,604 (0,604) | 1,043 (1,059) | 0,993 (1,007) |
+| vitesse demandée | 0.0025 | prise | 152 | 0,766 (0,765) | 0,668 (0,670) | 1,045 (1,053) | 1,008 (1,025) |
+| vitesse demandée | 0.005 | perte | 51 | 0,729 (0,722) | 0,666 (0,666) | 1,032 (1,029) | 1,001 (1,008) |
+| vitesse demandée | 0.01 | perte | 103 | 0,706 (0,688) | 0,634 (0,632) | 1,007 (1,004) | 0,986 (0,986) |
+| objectif | gain | prise | 152 | 0,766 (0,765) | 0,668 (0,670) | 1,045 (1,053) | 1,008 (1,025) |
+| objectif | loss | perte | 196 | 0,718 (0,706) | 0,638 (0,636) | 1,016 (1,013) | 0,990 (0,994) |
+
+### Verdict A3.1 sur les tissus (A4.1), candidat K2
+
+| Critère | Objectif | Unité | Médiane tissus [IC 95 %] | Bande | IC dans la bande | Statut | Médiane seule dans la bande |
+|---|---|---|---|---|---|---|---|
+| fenêtre | perte | w1 | 1,016 [1,010 ; 1,020] | [0,950 ; 1,050] | oui | passe | oui |
+| fenêtre | perte | w2 | 0,990 [0,987 ; 0,993] | [0,950 ; 1,050] | oui | passe | oui |
+| bloc | perte | b1 | 1,031 [1,026 ; 1,037] | [0,900 ; 1,100] | oui | passe | oui |
+| bloc | perte | b2 | 1,002 [0,997 ; 1,006] | [0,900 ; 1,100] | oui | passe | oui |
+| bloc | perte | b3 | 0,989 [0,986 ; 0,993] | [0,900 ; 1,100] | oui | passe | oui |
+| bloc | perte | b4 | 0,991 [0,989 ; 0,993] | [0,900 ; 1,100] | oui | passe | oui |
+| bloc | perte | b5 | 0,990 [0,987 ; 0,993] | [0,900 ; 1,100] | oui | passe | oui |
+| fenêtre | prise | w1 | 1,045 [1,040 ; 1,049] | [0,950 ; 1,050] | oui | passe | oui |
+| fenêtre | prise | w2 | 1,008 [1,005 ; 1,011] | [0,950 ; 1,050] | oui | passe | oui |
+| bloc | prise | b1 | 1,064 [1,057 ; 1,067] | [0,900 ; 1,100] | oui | passe | oui |
+| bloc | prise | b2 | 1,026 [1,022 ; 1,031] | [0,900 ; 1,100] | oui | passe | oui |
+| bloc | prise | b3 | 1,007 [1,005 ; 1,011] | [0,900 ; 1,100] | oui | passe | oui |
+| bloc | prise | b4 | 1,007 [1,004 ; 1,010] | [0,900 ; 1,100] | oui | passe | oui |
+| bloc | prise | b5 | 1,010 [1,006 ; 1,012] | [0,900 ; 1,100] | oui | passe | oui |
+
+**A3.1 (validation, K2) : PASSÉ.**
+
+### Critères de A3.1 appliqués au témoin S0 (rapporté, sans verdict)
+
+| Critère | Objectif | Unité | Médiane tissus [IC 95 %] | Bande | IC dans la bande | Statut | Médiane seule dans la bande |
+|---|---|---|---|---|---|---|---|
+| fenêtre | perte | w1 | 0,718 [0,710 ; 0,722] | [0,950 ; 1,050] | **non** | **échoue** | non |
+| fenêtre | perte | w2 | 0,638 [0,631 ; 0,644] | [0,950 ; 1,050] | **non** | **échoue** | non |
+| bloc | perte | b1 | 0,729 [0,724 ; 0,739] | [0,900 ; 1,100] | **non** | **échoue** | non |
+| bloc | perte | b2 | 0,686 [0,680 ; 0,695] | [0,900 ; 1,100] | **non** | **échoue** | non |
+| bloc | perte | b3 | 0,659 [0,651 ; 0,665] | [0,900 ; 1,100] | **non** | **échoue** | non |
+| bloc | perte | b4 | 0,635 [0,629 ; 0,641] | [0,900 ; 1,100] | **non** | **échoue** | non |
+| bloc | perte | b5 | 0,617 [0,605 ; 0,627] | [0,900 ; 1,100] | **non** | **échoue** | non |
+| fenêtre | prise | w1 | 0,766 [0,754 ; 0,778] | [0,950 ; 1,050] | **non** | **échoue** | non |
+| fenêtre | prise | w2 | 0,668 [0,659 ; 0,679] | [0,950 ; 1,050] | **non** | **échoue** | non |
+| bloc | prise | b1 | 0,786 [0,773 ; 0,796] | [0,900 ; 1,100] | **non** | **échoue** | non |
+| bloc | prise | b2 | 0,743 [0,731 ; 0,756] | [0,900 ; 1,100] | **non** | **échoue** | non |
+| bloc | prise | b3 | 0,718 [0,705 ; 0,729] | [0,900 ; 1,100] | **non** | **échoue** | non |
+| bloc | prise | b4 | 0,664 [0,650 ; 0,678] | [0,900 ; 1,100] | **non** | **échoue** | non |
+| bloc | prise | b5 | 0,631 [0,610 ; 0,644] | [0,900 ; 1,100] | **non** | **échoue** | non |
+
+### Recalculs périodiques, validation : bras K2
+
+- Utilisateurs : 500. Recalculs périodiques faits : 981 ; par utilisateur, médiane 2,0 [P10 1,0 ; P90 3,0], max 3, 25 utilisateurs sans recalcul.
+- Écart de cible (nouvelle − ancienne), kcal/j : médiane 0,0 [P10 -16,8 ; P90 27,3] ; |écart| médian 12,6, P90 28,3.
+- Part des recalculs avec |écart| < 10 kcal/j : 420 / 981 = 42,81 % [39,75 % ; 45,93 %].
+- Recalculs dus mais non faits sans snapshot appliqué : 5. Refusés (plan laissé en place) : 61 (loss_unavailable_low_bmi : 56, no_feasible_speed : 5).
+- perte : 310 recalculs, écart médian -12,6 [P10 -24,1 ; P90 -0,9] kcal/j, |écart| < 10 : 84.
+- prise : 335 recalculs, écart médian 22,1 [P10 16,8 ; P90 30,4] kcal/j, |écart| < 10 : 0.
+- maintien : 336 recalculs, écart médian 0,0 [P10 0,0 ; P90 0,0] kcal/j, |écart| < 10 : 336.
+
 ## 5.6 Invariants du curseur calories ↔ pas (par candidat)
 
 - premiers plans (hypercube) (K1, horizon 42 j) : 200 plans, 5936 points du curseur ; violations de monotonie : **0** ; écart |masse tissulaire à l’horizon − cible| max par plan (curseur) : médiane 0,002 kg, max 0,003 kg ; plan lui-même : max 0,003 kg ; points non convergés : 0.
@@ -477,5 +646,7 @@ Règle commune de THRESHOLDS.md (INCONCLUSIF : n doublé une fois, graines neuve
 2026-09-25T20:06:42+02:00 end timing2bK2 wall_s=105 exit=0
 2026-09-25T20:06:52+02:00 start select2bx2 shards=16 candidate=
 2026-09-25T20:15:20+02:00 end select2bx2 wall_s=508 failed_shards=0
+2026-09-25T23:31:47+02:00 start valid2b shards=16 candidate=K2
+2026-09-25T23:41:43+02:00 end valid2b wall_s=596 failed_shards=0
 ```
 

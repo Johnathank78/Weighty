@@ -1,0 +1,10 @@
+{
+  "job": "valid2b",
+  "shard": 12,
+  "users": 31,
+  "runs": 62,
+  "wallMs": 573869.9907,
+  "runMsTotal": 573789.9908,
+  "runMsP50": 9307.1734,
+  "runMsMax": 12961.250699999975
+}
