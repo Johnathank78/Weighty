@@ -130,6 +130,59 @@ Script : `tests/experiments-journal/it2a/tables2a.experiment.ts`. Bootstrap : 20
 | vitesse demandée | 0.005 | perte | 53 | 0,722 | 0,665 | 1,029 | 1,002 |
 | vitesse demandée | 0.01 | perte | 97 | 0,677 | 0,616 | 1,006 | 0,974 |
 
+### Diagnostic de l’échec de A3.1 (sans critère)
+
+Script : `it2a/diag2a.experiment.ts`. Utilisateurs en perte et en prise de ideal2a, rejoués avec les mêmes graines. Chaque plan de recalibration FX est reconstruit depuis le magasin tronqué au jour D : 2785 / 2785 cibles identiques au bit près à celles de la simulation.
+
+**Cadence des recalibrations et âge du plan actif** (médianes par utilisateur-bloc)
+
+| Bras | Objectif | Bloc | Ratio | Âge moyen du plan actif (j) | Plans démarrés dans le bloc |
+|---|---|---|---|---|---|
+| S0 | perte | 1 | 0,715 | 3,0 | 4,0 |
+| S0 | perte | 2 | 0,673 | 10,0 | 1,0 |
+| S0 | perte | 3 | 0,647 | 13,5 | 1,0 |
+| S0 | perte | 4 | 0,628 | 41,5 | 0,0 |
+| S0 | perte | 5 | 0,594 | 34,5 | 1,0 |
+| S0 | prise | 1 | 0,803 | 3,0 | 4,0 |
+| S0 | prise | 2 | 0,756 | 10,0 | 1,0 |
+| S0 | prise | 3 | 0,723 | 13,5 | 1,0 |
+| S0 | prise | 4 | 0,663 | 41,5 | 0,0 |
+| S0 | prise | 5 | 0,641 | 69,5 | 0,0 |
+| FX | perte | 1 | 1,027 | 3,0 | 4,0 |
+| FX | perte | 2 | 1,008 | 10,0 | 1,0 |
+| FX | perte | 3 | 0,993 | 13,5 | 1,0 |
+| FX | perte | 4 | 0,972 | 41,5 | 0,0 |
+| FX | perte | 5 | 0,953 | 34,5 | 0,0 |
+| FX | prise | 1 | 1,103 | 3,0 | 4,0 |
+| FX | prise | 2 | 1,060 | 10,0 | 1,0 |
+| FX | prise | 3 | 1,026 | 13,5 | 1,0 |
+| FX | prise | 4 | 0,946 | 41,5 | 0,0 |
+| FX | prise | 5 | 0,909 | 62,5 | 0,0 |
+
+**Ratio du monde sous FX selon l’âge moyen du plan actif sur le bloc** (tous blocs)
+
+| Objectif | Âge (j) | Utilisateurs-blocs | Médiane [IC 95 %] |
+|---|---|---|---|
+| perte | 0 à 7 | 187 | 1,029 [1,021 ; 1,034] |
+| perte | 7 à 14 | 395 | 0,999 [0,997 ; 1,003] |
+| perte | 14 à 21 | 90 | 0,991 [0,988 ; 1,001] |
+| perte | 21 à 28 | 31 | 0,979 [0,958 ; 0,989] |
+| perte | 28 à 42 | 122 | 0,974 [0,967 ; 0,981] |
+| perte | 42 à … | 145 | 0,884 [0,853 ; 0,899] |
+| prise | 0 à 7 | 151 | 1,103 [1,086 ; 1,117] |
+| prise | 7 à 14 | 247 | 1,050 [1,040 ; 1,056] |
+| prise | 14 à 21 | 62 | 1,013 [1,004 ; 1,020] |
+| prise | 21 à 28 | 19 | 1,053 [1,051 ; 1,063] |
+| prise | 28 à 42 | 105 | 0,964 [0,961 ; 0,969] |
+| prise | 42 à … | 166 | 0,900 [0,898 ; 0,907] |
+
+**Trajectoire propre du modèle du solveur FX** (départ : corps modélisé du jour D, apport constant du plan ; pente MCO / (vitesse appliquée × poids de référence)), médianes sur les plans de recalibration
+
+| Objectif | Plans | Jours 0-7 | 0-28 | 7-35 | 0-42 | 28-42 | 42-70 | Monde, 28 premiers jours des plans de ≥ 28 j (n) | Durée de vie du plan (j) | AT de départ (kcal/j) | Glycogène − base (kg) | LEC − base (kg) | Cible − cible précédente (kcal/j) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| perte | 1595 | 1,014 | 0,997 | 0,984 | 0,984 | 0,953 | 0,913 | 0,995 (305) | 7,0 | -103,6 | -0,138 | -0,634 | 0,0 |
+| prise | 1190 | 1,093 | 1,028 | 1,005 | 1,007 | 0,968 | 0,923 | 1,035 (189) | 7,0 | 44,6 | 0,043 | 0,239 | 10,5 |
+
 ## Temps réel des lancements
 
 ```

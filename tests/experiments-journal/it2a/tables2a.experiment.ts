@@ -252,6 +252,73 @@ it('iteration 2a tables', () => {
   }
 
   // -------------------------------------------------------------------------
+  // Diagnostic of A3.1 (no criterion): diag2a-plans / diag2a-blocks
+  // -------------------------------------------------------------------------
+  const dPlans = readAll('diag2a-plans');
+  const dBlocks = readAll('diag2a-blocks');
+  if (dPlans.length > 0 && dBlocks.length > 0) {
+    const numOf = (rows: readonly Row[], k: string) => rows.map((r) => r[k]).filter((v) => v !== '' && v !== undefined).map(Number);
+    const med = (rows: readonly Row[], k: string) => median(numOf(rows, k));
+    const recal = dPlans.filter((r) => r.kind === 'recal');
+    const diag: Record<string, unknown> = { recalPlans: recal.length, rebuiltMatches: recal.filter((r) => r.rebuilt_matches === '1').length };
+    md.push('### Diagnostic de l’échec de A3.1 (sans critère)', '', `Script : \`it2a/diag2a.experiment.ts\`. Utilisateurs en perte et en prise de ideal2a, rejoués avec les mêmes graines. Chaque plan de recalibration FX est reconstruit depuis le magasin tronqué au jour D : ${diag.rebuiltMatches as number} / ${recal.length} cibles identiques au bit près à celles de la simulation.`, '');
+    md.push('**Cadence des recalibrations et âge du plan actif** (médianes par utilisateur-bloc)', '', '| Bras | Objectif | Bloc | Ratio | Âge moyen du plan actif (j) | Plans démarrés dans le bloc |', '|---|---|---|---|---|---|');
+    for (const arm of ['S0', 'FX']) {
+      for (const goal of ['loss', 'gain']) {
+        for (let b = 1; b <= 5; b++) {
+          const rows = dBlocks.filter((r) => r.solver_arm === arm && r.goal === goal && r.block === String(b));
+          diag[`cadence_${arm}_${goal}_b${b}`] = { ratio: med(rows, 'ratio'), age: med(rows, 'mean_plan_age'), started: med(rows, 'plans_started') };
+          md.push(`| ${arm} | ${goalFr(goal)} | ${b} | ${f3(med(rows, 'ratio'))} | ${f1(med(rows, 'mean_plan_age'))} | ${f1(med(rows, 'plans_started'))} |`);
+        }
+      }
+    }
+    md.push('', '**Ratio du monde sous FX selon l’âge moyen du plan actif sur le bloc** (tous blocs)', '', '| Objectif | Âge (j) | Utilisateurs-blocs | Médiane [IC 95 %] |', '|---|---|---|---|');
+    const ages: Array<[number, number]> = [
+      [0, 7],
+      [7, 14],
+      [14, 21],
+      [21, 28],
+      [28, 42],
+      [42, 1000],
+    ];
+    for (const goal of ['loss', 'gain']) {
+      for (const [lo, hi] of ages) {
+        const rows = dBlocks.filter((r) => r.solver_arm === 'FX' && r.goal === goal && Number(r.mean_plan_age) >= lo && Number(r.mean_plan_age) < hi && r.ratio !== '');
+        const byUser = new Map<string, number[]>();
+        for (const r of rows) byUser.set(r.job_index as string, [...(byUser.get(r.job_index as string) ?? []), Number(r.ratio)]);
+        const s = bootstrapQuantile([...byUser.values()], 0.5);
+        diag[`age_${goal}_${lo}_${hi}`] = s;
+        md.push(`| ${goalFr(goal)} | ${lo} à ${hi === 1000 ? '…' : hi} | ${s.n} | ${f3(s.value)} [${f3(s.lo)} ; ${f3(s.hi)}] |`);
+      }
+    }
+    md.push('', '**Trajectoire propre du modèle du solveur FX** (départ : corps modélisé du jour D, apport constant du plan ; pente MCO / (vitesse appliquée × poids de référence)), médianes sur les plans de recalibration', '', '| Objectif | Plans | Jours 0-7 | 0-28 | 7-35 | 0-42 | 28-42 | 42-70 | Monde, 28 premiers jours des plans de ≥ 28 j (n) | Durée de vie du plan (j) | AT de départ (kcal/j) | Glycogène − base (kg) | LEC − base (kg) | Cible − cible précédente (kcal/j) |', '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+    for (const goal of ['loss', 'gain']) {
+      const rows = recal.filter((r) => r.goal === goal);
+      const world = numOf(rows, 'world_ratio_0_28');
+      const line = {
+        plans: rows.length,
+        own_0_7: med(rows, 'solver_weight_ratio_0_7'),
+        own_0_28: med(rows, 'solver_weight_ratio_0_28'),
+        own_7_35: med(rows, 'solver_weight_ratio_7_35'),
+        own_0_42: med(rows, 'solver_weight_ratio_0_42'),
+        own_28_42: med(rows, 'solver_weight_ratio_28_42'),
+        own_42_70: med(rows, 'solver_weight_ratio_42_70'),
+        world_0_28: median(world),
+        world_0_28_n: world.length,
+        duration: med(rows, 'duration'),
+        at: med(rows, 'start_at_kcal'),
+        glycogen: median(rows.map((r) => Number(r.start_glycogen_kg) - Number(r.start_glycogen_baseline_kg))),
+        ecf: med(rows, 'start_ecf_minus_baseline_kg'),
+        targetChange: median(rows.map((r) => Number(r.target) - Number(r.previous_target))),
+      };
+      diag[`own_${goal}`] = line;
+      md.push(`| ${goalFr(goal)} | ${line.plans} | ${f3(line.own_0_7)} | ${f3(line.own_0_28)} | ${f3(line.own_7_35)} | ${f3(line.own_0_42)} | ${f3(line.own_28_42)} | ${f3(line.own_42_70)} | ${f3(line.world_0_28)} (${line.world_0_28_n}) | ${f1(line.duration)} | ${f1(line.at)} | ${f3(line.glycogen)} | ${f3(line.ecf)} | ${f1(line.targetChange)} |`);
+    }
+    md.push('');
+    verdicts.idealDiagnostic = diag;
+  }
+
+  // -------------------------------------------------------------------------
   // 5.2 realistic world
   // -------------------------------------------------------------------------
   const real = readAll('real2a');
