@@ -26,7 +26,9 @@ import { BLOCKS, POPULATIONS, SIM_DAYS, armMetrics, closedLoopSlots, lhsSeed, ma
 import type { ArmConfig, Behavior, Population, ProfileSlot, SimState, UserSpec } from '../../helpers/closedLoop';
 import { writeCsvGz } from '../../helpers/journalExport';
 import type { CsvValue } from '../../helpers/journalExport';
-import { guardrailMaxWeeklyRate } from '@/science/goals';
+import { guardrailMaxWeeklyRate, sliderBounds, solveSliderPoint } from '@/science/goals';
+import type { PlanContext } from '@/science/goals';
+import type { Goal } from '@/science/types';
 import { GAIN_RATE_HARD_MAX } from '@/science/constants';
 import { RESULTS, specColumns, stateColumns } from '../it2/jobs';
 
@@ -239,4 +241,24 @@ export function writeShard2b(job: Job2b, shard: number, out: ShardOutput2b, wall
   if (out.daily.length > 0) writeCsvGz(`${dir}/${job.name}-daily-shard${shard}.csv.gz`, cols(out.daily), out.daily);
   const sorted = [...out.ms].sort((a, b) => a - b);
   writeFileSync(`${dir}/${job.name}-timing-shard${shard}.json`, `${JSON.stringify({ job: job.name, shard, users: out.users, runs: out.ms.length, wallMs, runMsTotal: sorted.reduce((a, b) => a + b, 0), runMsP50: sorted[Math.floor(sorted.length / 2)] ?? null, runMsMax: sorted[sorted.length - 1] ?? null }, null, 2)}\n`);
+}
+
+/** Monotone calories in steps, horizon value of each slider point on the baseline's, over the whole slider range. */
+export function sliderInvariants(ctx: PlanContext, goal: Goal, calorieTargetKcal: number, steps: number): { points: number; monotone: boolean; maxGap: number; notConverged: number } {
+  const baseline = { goal, scenario: { calorieTargetKcal, stepsPerDay: steps } };
+  const bounds = sliderBounds(steps);
+  let previous = Number.NEGATIVE_INFINITY;
+  let monotone = true;
+  let maxGap = 0;
+  let points = 0;
+  let notConverged = 0;
+  for (let s = bounds.minSteps; s <= bounds.maxSteps; s += 500) {
+    const pt = solveSliderPoint(ctx, baseline, s);
+    points++;
+    if (!pt.converged) notConverged++;
+    if (pt.calorieTargetKcal < previous - 1e-9) monotone = false;
+    previous = pt.calorieTargetKcal;
+    maxGap = Math.max(maxGap, Math.abs(pt.weightAtHorizonKg - pt.baselineWeightAtHorizonKg));
+  }
+  return { points, monotone, maxGap, notConverged };
 }
