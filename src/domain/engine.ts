@@ -23,7 +23,8 @@ import {
   weeklyRateRange,
   weightAtDay,
 } from '@/science/goals';
-import type { GoalPlan, PlanContext, SelectableRateLimit, SliderBaseline, SliderBounds, SliderPoint } from '@/science/goals';
+import type { GoalPlan, PlanContext, RateDefinition, SelectableRateLimit, SliderBaseline, SliderBounds, SliderPoint, SolverOptions, SolverStart } from '@/science/goals';
+import { modeledBodyAt } from '@/science/modeledBody';
 import { BODY_FAT_QUALITY } from '@/science/ree';
 import { computeTrend, summarizeTrend } from '@/science/trend';
 import type { TrendPoint, TrendSummary } from '@/science/trend';
@@ -57,7 +58,15 @@ export type PlanBuildInput = {
   targetWeightKg?: number;
   /** Requested weekly rate (fraction of body weight per week); defaults to the profile value. */
   weeklyRate?: number;
+  /** Solver prototype only (prompt 37, measurement): never passed by the store, the worker or the UI. */
+  solver?: SolverOptions;
 };
+
+/**
+ * Solver prototype request (prompt 37, measurement only). Reachable from tests and the simulator through the optional last
+ * argument of completeOnboarding and applyRecalibration; the store, the worker and the UI never pass it.
+ */
+export type SolverRequest = { solverStart?: SolverStart; rateDefinition?: RateDefinition };
 
 export type PlanBuildResult =
   | { ok: true; plan: CurrentPlan; assessment: BaselineAssessment; goalPlan: GoalPlan; context: PlanContext }
@@ -70,7 +79,8 @@ export function buildPlan(input: PlanBuildInput): PlanBuildResult {
 
   const offset = input.personalOffsetKcal ?? 0;
   const maintenanceKcal = assessment.populationTdeeKcal + offset;
-  const context = planContextFrom(profile, assessment, maintenanceKcal);
+  const baseContext = planContextFrom(profile, assessment, maintenanceKcal);
+  const context: PlanContext = input.solver ? { ...baseContext, solver: input.solver } : baseContext;
   const goal = input.goal ?? profile.goal;
   const targetWeightKg = goal === 'maintenance' ? (input.targetWeightKg ?? profile.targetWeightKg) : (input.targetWeightKg ?? profile.targetWeightKg);
   const weeklyRate = goal === 'maintenance' ? 0 : (input.weeklyRate ?? profile.weeklyRateTarget);
@@ -178,7 +188,25 @@ type RebuildOptions = {
   targetWeightKg?: number;
   weeklyRate?: number;
   snapshot?: CalibrationSnapshot | null;
+  solver?: SolverRequest;
 };
+
+/**
+ * Solver options of a rebuilt plan (prompt 37). currentState with an applied calibration: the modeled body today, from the
+ * calibration input of the store at the snapshot's posterior median offset. Without a calibration window the modeled body
+ * is null and the solver keeps the equilibrium start.
+ */
+export function solverOptionsFor(store: WheightyStore, today: string, snapshot: CalibrationSnapshot | null, request: SolverRequest): SolverOptions {
+  const out: SolverOptions = { ...request };
+  if (request.solverStart === 'currentState' && snapshot) {
+    const input = calibrationInputFromStore(store, today);
+    const median = snapshot.posteriorMedianOffsetKcal;
+    const body = input ? modeledBodyAt(input, median, today) : null;
+    out.modeledBody = body;
+    if (input && body) out.modeledBodyAtOffsetDelta = (delta) => modeledBodyAt(input, median + delta, today);
+  }
+  return out;
+}
 
 export function buildPlanFromStore(store: WheightyStore, today: string, options: RebuildOptions): PlanBuildResult | { ok: false; reason: 'no_profile' } {
   const profile = store.profile;
@@ -202,6 +230,7 @@ export function buildPlanFromStore(store: WheightyStore, today: string, options:
     ...(options.goal ? { goal: options.goal } : {}),
     ...(options.targetWeightKg !== undefined ? { targetWeightKg: options.targetWeightKg } : {}),
     ...(options.weeklyRate !== undefined ? { weeklyRate: options.weeklyRate } : {}),
+    ...(options.solver ? { solver: solverOptionsFor(store, today, snapshot, options.solver) } : {}),
   });
 }
 
@@ -282,7 +311,7 @@ export type InitialPreview = PlanBuildResult & {
 };
 
 /** Initial assessment preview for the Result screen, before anything is saved. */
-export function previewInitialPlan(profile: UserProfile, today: string, evidence: HistoricalIntakeEvidence | null = null): InitialPreview {
+export function previewInitialPlan(profile: UserProfile, today: string, evidence: HistoricalIntakeEvidence | null = null, solver?: SolverRequest): InitialPreview {
   const usable = evidence !== null && validateHistoricalEvidence(evidence).ok ? evidence : null;
   const warmStart = usable ? warmStartFor(profile, usable, today) : null;
   const applied = warmStart?.status === 'used' ? warmStart : null;
@@ -291,6 +320,8 @@ export function previewInitialPlan(profile: UserProfile, today: string, evidence
     today,
     weightKg: profile.currentWeightKg,
     source: 'initial',
+    // No weigh-in calibration before onboarding: the solver start stays at equilibrium (prompt 37 s3.1).
+    ...(solver ? { solver: { ...solver } } : {}),
     ...(applied
       ? {
           personalOffsetKcal: applied.posterior.medianKcal,
@@ -308,8 +339,9 @@ export function completeOnboarding(
   today: string,
   nowIso: string,
   evidence: HistoricalIntakeEvidence | null = null,
+  solver?: SolverRequest,
 ): { ok: true; store: WheightyStore } | { ok: false; reason: string } {
-  const preview = previewInitialPlan(profile, today, evidence);
+  const preview = previewInitialPlan(profile, today, evidence, solver);
   if (!preview.ok) return { ok: false, reason: preview.reason };
   const { plan, assessment, warmStart } = preview;
   const weightEntry: WeightEntry = { id: newId(nowIso, 'w'), date: today, weightKg: profile.currentWeightKg, createdAt: nowIso };
@@ -691,12 +723,12 @@ export function markRecalibrationSeen(store: WheightyStore, state: CalibrationSt
   };
 }
 
-export function applyRecalibration(store: WheightyStore, state: CalibrationState, today: string, nowIso: string): { ok: true; store: WheightyStore } | { ok: false; reason: string } {
+export function applyRecalibration(store: WheightyStore, state: CalibrationState, today: string, nowIso: string, solver?: SolverRequest): { ok: true; store: WheightyStore } | { ok: false; reason: string } {
   if (!state.candidate || !state.gate.met) return { ok: false, reason: 'gate_not_met' };
   const snapshot: CalibrationSnapshot = { ...state.candidate, appliedAt: nowIso };
   const withLogs = ensureDailyLogs(store, today);
   const withSnapshot: WheightyStore = { ...withLogs, calibrationSnapshots: [...withLogs.calibrationSnapshots, snapshot] };
-  const result = buildPlanFromStore(withSnapshot, today, { source: 'recalibrated', snapshot, ...(store.plan ? { stepTarget: store.plan.stepTarget } : {}) });
+  const result = buildPlanFromStore(withSnapshot, today, { source: 'recalibrated', snapshot, ...(store.plan ? { stepTarget: store.plan.stepTarget } : {}), ...(solver ? { solver } : {}) });
   if (!result.ok) return { ok: false, reason: result.reason };
   const seen = markRecalibrationSeen(withSnapshot, state, today);
   return { ok: true, store: syncTodayLogTargets({ ...seen, plan: result.plan }, today) };

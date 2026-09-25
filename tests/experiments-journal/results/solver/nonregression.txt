@@ -1,0 +1,11 @@
+Iteration 2a non-regression (prompt 37 s3.5), options absent.
+Capture before: 0b92a47 (src identical to b36a773). Capture after: s3 prototype options (solverStart, rateDefinition, modeledBody), all absent.
+sha256 prefixes (before): t03=3447793aaab0a3d4 t04=c65c47cfed27e2f0 golden=e20b17f402509bfc cases-rs=31ce91b8fc8a5c24 journey=b0d771bf3e749096 
+sha256 prefixes (after): t03=3447793aaab0a3d4 t04=c65c47cfed27e2f0 golden=e20b17f402509bfc cases-rs=73c91427ab1a19cb journey=18bf03c372735ca8 
+t03, t04, golden: byte-identical before/after and to the phase 1, 1b and iteration 2 captures. cases-rs, journey: random store ids differ (masked).
+t03: 1003779 numeric values, 0 numeric differences, 0 other differences
+t04: 1497006 numeric values, 0 numeric differences, 0 other differences
+golden: 3483 numeric values, 0 numeric differences, 0 other differences
+cases-rs: 9847 numeric values, 0 numeric differences, 0 other differences
+journey: 8896 numeric values, 0 numeric differences, 0 other differences
+TOTAL 2523011 numeric values compared, 0 differences, 554 random ids masked

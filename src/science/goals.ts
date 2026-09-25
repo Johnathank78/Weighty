@@ -22,6 +22,7 @@ import {
   GOAL_SOLVER_MIN_INTAKE_KCAL,
   GOAL_SOLVER_WEIGHT_TOLERANCE_KG,
   HALL_BASELINE_CARB_FRACTION,
+  HALL_DT_DAYS,
   HALL_BODY_FAT_MIN_QUALITY,
   KCAL_PER_G_CARB,
   LOSS_GENTLE_ONLY_BMI_BELOW,
@@ -50,8 +51,8 @@ import {
   WEEKLY_RATE_STEP,
 } from './constants';
 import { bisect } from './hall/solver';
-import { initializeHall, simulateHall } from './hall/model';
-import type { HallDailyInput, HallParameters } from './hall/model';
+import { advance, bodyWeightOf, derivatives, fatFromLean, initialState, initializeHall, simulateHall } from './hall/model';
+import type { HallDailyInput, HallParameters, HallState } from './hall/model';
 import { bmi, computeMacros, roundToStep } from './macros';
 import type { MacroResult } from './macros';
 import { BODY_FAT_QUALITY } from './ree';
@@ -89,6 +90,38 @@ export type PlanContext = {
    * that the solved target is checked against (1.10 in the raised-floor arm). Absent: the production floor, unchanged.
    */
   hardFloorMultiplier?: number | undefined;
+  /**
+   * Solver prototype only (prompt 37, measurement, never set by the app): start of the solver and definition of the
+   * requested rate. Absent: the production solver, unchanged.
+   */
+  solver?: SolverOptions | undefined;
+};
+
+/** Where the solver starts the Hall model (prompt 37 s3.1). */
+export type SolverStart = 'equilibrium' | 'currentState';
+/** What the requested rate constrains at the 42-day horizon (prompt 37 s3.2). */
+export type RateDefinition = 'fortyTwoDayWeight' | 'sustainedTissue';
+
+/**
+ * Modeled body today (prompt 37 s3.1): the calibration's own Hall model (window-start parameters, retained offset) run over
+ * the window up to today. Built by `modeledBodyAt` (src/science/modeledBody.ts).
+ */
+export type ModeledBody = {
+  params: HallParameters;
+  state: HallState;
+  /** Latent starting-weight intercept of the calibration (conditional posterior median), kg: modeled weight = Hall weight + shift. */
+  weightShiftKg: number;
+  /** Activity input of the calibration: per-kg step energy at the window-start weight, relative to its maintenance steps. */
+  steps: { weightKg: number; ageYears: number; pace: WalkingPace; maintenanceStepsPerDay: number };
+};
+
+export type SolverOptions = {
+  solverStart?: SolverStart | undefined;
+  rateDefinition?: RateDefinition | undefined;
+  /** currentState: the modeled body today. Null or absent (no calibration yet): the solver keeps the equilibrium start. */
+  modeledBody?: ModeledBody | null | undefined;
+  /** currentState projection band: the modeled body at the retained offset + delta (kcal/day). */
+  modeledBodyAtOffsetDelta?: ((deltaKcal: number) => ModeledBody | null) | undefined;
 };
 
 export type Scenario = {
@@ -174,6 +207,10 @@ export function hallInputFor(ctx: PlanContext, goal: Goal, scenario: Scenario): 
 }
 
 export function weightAtDay(ctx: PlanContext, goal: Goal, scenario: Scenario, day: number, maintenanceOffsetKcal = 0): number {
+  if (currentStateBody(ctx) !== null) {
+    const o = solverOrigin(ctx, goal, maintenanceOffsetKcal);
+    return bodyWeightOf(o.p, simulateFromOrigin(o, day, originInput(ctx, goal, o, scenario)).finalState) + o.shiftKg;
+  }
   const p = hallParametersFor(ctx, goal, maintenanceOffsetKcal);
   const u = hallInputFor(ctx, goal, scenario);
   const r = simulateHall(p, day, () => u, { recordEveryDays: day });
@@ -182,11 +219,157 @@ export function weightAtDay(ctx: PlanContext, goal: Goal, scenario: Scenario, da
 
 export type CalorieSolve = {
   calorieTargetKcal: number;
+  /** Model value at the horizon: the body weight, or the tissue mass (fat + lean) under `sustainedTissue`. */
   weightAtHorizonKg: number;
+  /** Target of that value (same unit). */
   targetWeightAtHorizonKg: number;
   iterations: number;
   converged: boolean;
+  /** Solver prototype only (prompt 37): present when a solver option is active. */
+  origin?: SolverOriginSummary;
 };
+
+// ---------------------------------------------------------------------------
+// Solver prototype (prompt 37, measurement only): start state and rate definition
+// ---------------------------------------------------------------------------
+
+export type SolverOriginSummary = {
+  solverStart: SolverStart;
+  rateDefinition: RateDefinition;
+  /** Reference weight of the plan: modeled weight today (currentState) or the context weight (equilibrium), kg. */
+  referenceWeightKg: number;
+  /** Tissue mass (fat + lean) of the start state, kg. */
+  startTissueKg: number;
+};
+
+type SolverOrigin = {
+  p: HallParameters;
+  s0: HallState;
+  shiftKg: number;
+  referenceWeightKg: number;
+  paDelta: (stepsPerDay: number) => number;
+  start: SolverStart;
+};
+
+function currentStateBody(ctx: PlanContext): ModeledBody | null {
+  return ctx.solver?.solverStart === 'currentState' ? (ctx.solver.modeledBody ?? null) : null;
+}
+
+function rateDefinitionOf(ctx: PlanContext): RateDefinition {
+  return ctx.solver?.rateDefinition ?? 'fortyTwoDayWeight';
+}
+
+/** True when a prototype option changes the solver. False: every production path runs unchanged, bit for bit. */
+export function solverOptionsActive(ctx: PlanContext): boolean {
+  return currentStateBody(ctx) !== null || rateDefinitionOf(ctx) === 'sustainedTissue';
+}
+
+function originFromBody(body: ModeledBody): SolverOrigin {
+  const s = body.steps;
+  const net = (steps: number) => netStepKcal({ steps, pace: s.pace, weightKg: s.weightKg, ageYears: s.ageYears });
+  return {
+    p: body.params,
+    s0: body.state,
+    shiftKg: body.weightShiftKg,
+    referenceWeightKg: bodyWeightOf(body.params, body.state) + body.weightShiftKg,
+    // Same expression as the calibration's Hall input (src/science/calibration.ts, fitCalibration).
+    paDelta: (steps) => (net(steps) - net(s.maintenanceStepsPerDay)) / s.weightKg,
+    start: 'currentState',
+  };
+}
+
+/**
+ * Start of the solver: the modeled body today (currentState with a calibration), else the production equilibrium at the
+ * context weight and maintenance (+ offset).
+ */
+function solverOrigin(ctx: PlanContext, goal: Goal, maintenanceOffsetKcal = 0): SolverOrigin {
+  const body = currentStateBody(ctx);
+  if (body !== null) {
+    if (maintenanceOffsetKcal === 0) return originFromBody(body);
+    const shifted = ctx.solver?.modeledBodyAtOffsetDelta?.(maintenanceOffsetKcal) ?? null;
+    if (shifted === null) throw new Error(`currentState: no modeled body at offset delta ${maintenanceOffsetKcal}`);
+    return originFromBody(shifted);
+  }
+  const p = hallParametersFor(ctx, goal, maintenanceOffsetKcal);
+  return { p, s0: initialState(p), shiftKg: 0, referenceWeightKg: ctx.currentWeightKg, paDelta: (steps) => paDeltaForSteps(ctx, steps), start: 'equilibrium' };
+}
+
+function originInput(ctx: PlanContext, goal: Goal, o: SolverOrigin, scenario: Scenario): HallDailyInput {
+  const u = hallInputFor(ctx, goal, scenario);
+  return o.start === 'equilibrium' ? u : { ...u, paDeltaKcalPerKgDay: o.paDelta(scenario.stepsPerDay) };
+}
+
+type OriginDay = { day: number; weightKg: number; energyExpenditureKcal: number };
+
+/** simulateHall (src/science/hall/model.ts) started from the origin state instead of the baseline state; same integration. */
+function simulateFromOrigin(o: SolverOrigin, days: number, u: HallDailyInput, options: { recordEveryDays?: number; stopWhen?: (weightKg: number) => boolean } = {}) {
+  const stepsPerDay = Math.max(1, Math.round(1 / HALL_DT_DAYS));
+  const h = 1 / stepsPerDay;
+  const record = options.recordEveryDays ?? 1;
+  const snapshot = (day: number, s: HallState): OriginDay => ({ day, weightKg: bodyWeightOf(o.p, s) + o.shiftKg, energyExpenditureKcal: derivatives(o.p, s, u).energyExpenditureKcal });
+  let s = o.s0;
+  const out: OriginDay[] = [snapshot(0, s)];
+  let stoppedAt: number | null = null;
+  for (let day = 0; day < days; day++) {
+    for (let i = 0; i < stepsPerDay; i++) s = advance(o.p, s, u, h);
+    const next = day + 1;
+    const result = snapshot(next, s);
+    if (next % record === 0 || next === days) out.push(result);
+    if (options.stopWhen && options.stopWhen(result.weightKg)) {
+      if (out[out.length - 1]?.day !== next) out.push(result);
+      stoppedAt = next;
+      break;
+    }
+  }
+  return { days: out, finalState: s, finalDay: stoppedAt ?? days, stoppedEarly: stoppedAt !== null };
+}
+
+function tissueOf(p: HallParameters, s: HallState): number {
+  return s.lean + fatFromLean(p, s.lean);
+}
+
+function metricOf(ctx: PlanContext, o: SolverOrigin, s: HallState): number {
+  return rateDefinitionOf(ctx) === 'sustainedTissue' ? tissueOf(o.p, s) : bodyWeightOf(o.p, s) + o.shiftKg;
+}
+
+function metricAtDay(ctx: PlanContext, goal: Goal, o: SolverOrigin, scenario: Scenario, day: number): number {
+  return metricOf(ctx, o, simulateFromOrigin(o, day, originInput(ctx, goal, o, scenario)).finalState);
+}
+
+/**
+ * Horizon target of a weekly rate. fortyTwoDayWeight: W x (1 -/+ r)^6 (production). sustainedTissue (definition (a)):
+ * start tissue mass + W x ((1 -/+ r)^6 - 1). W: reference weight of the plan.
+ */
+function horizonTarget(ctx: PlanContext, goal: Goal, weeklyRate: number): number {
+  if (!solverOptionsActive(ctx)) return targetWeightAtHorizon(goal, ctx.currentWeightKg, weeklyRate);
+  const o = solverOrigin(ctx, goal);
+  const w42 = targetWeightAtHorizon(goal, o.referenceWeightKg, weeklyRate);
+  return rateDefinitionOf(ctx) === 'sustainedTissue' ? tissueOf(o.p, o.s0) + (w42 - o.referenceWeightKg) : w42;
+}
+
+/** Constant daily intake giving the horizon target of the active rate definition, from the solver start (prompt 37). */
+export function solveCaloriesAtHorizon(ctx: PlanContext, goal: Goal, stepsPerDay: number, target: number): CalorieSolve {
+  if (!solverOptionsActive(ctx)) return solveCaloriesForWeightAtHorizon(ctx, goal, stepsPerDay, target);
+  const o = solverOrigin(ctx, goal);
+  const r = bisect({
+    lo: GOAL_SOLVER_MIN_INTAKE_KCAL,
+    hi: GOAL_SOLVER_MAX_INTAKE_KCAL,
+    f: (kcal) => metricAtDay(ctx, goal, o, { calorieTargetKcal: kcal, stepsPerDay }, GOAL_SOLVER_HORIZON_DAYS),
+    target,
+    increasing: true,
+    maxIterations: GOAL_SOLVER_MAX_ITERATIONS,
+    xTolerance: GOAL_SOLVER_CALORIE_TOLERANCE_KCAL,
+    yTolerance: GOAL_SOLVER_WEIGHT_TOLERANCE_KG,
+  });
+  return {
+    calorieTargetKcal: r.x,
+    weightAtHorizonKg: r.y,
+    targetWeightAtHorizonKg: target,
+    iterations: r.iterations,
+    converged: r.converged && r.bracketed,
+    origin: { solverStart: o.start, rateDefinition: rateDefinitionOf(ctx), referenceWeightKg: o.referenceWeightKg, startTissueKg: tissueOf(o.p, o.s0) },
+  };
+}
 
 /** Constant daily intake giving the requested Hall-model weight at the 42-day horizon (04 s6). */
 export function solveCaloriesForWeightAtHorizon(ctx: PlanContext, goal: Goal, stepsPerDay: number, targetWeightKg: number): CalorieSolve {
@@ -321,8 +504,8 @@ export type RateEvaluation =
 
 /** Solves the 42-day calorie target for one weekly rate and checks the floor and macro feasibility. */
 export function evaluateWeeklyRate(ctx: PlanContext, goal: Goal, weeklyRate: number, stepTarget: number): RateEvaluation {
-  const target42 = targetWeightAtHorizon(goal, ctx.currentWeightKg, weeklyRate);
-  const solve = solveCaloriesForWeightAtHorizon(ctx, goal, stepTarget, target42);
+  const target42 = horizonTarget(ctx, goal, weeklyRate);
+  const solve = solveCaloriesAtHorizon(ctx, goal, stepTarget, target42);
   if (!solve.converged) return { ok: false, weeklyRate, reason: 'solver_not_converged' };
   if (solve.calorieTargetKcal < planHardFloorKcal(ctx)) return { ok: false, weeklyRate, reason: 'below_hard_floor' };
   const macros = macrosFor(ctx, goal, solve.calorieTargetKcal);
@@ -460,6 +643,11 @@ export type ProjectionInput = {
 };
 
 function sampleTrajectory(ctx: PlanContext, goal: Goal, scenario: Scenario, days: number, offset: number, stopAt?: (w: number) => boolean) {
+  if (currentStateBody(ctx) !== null) {
+    const o = solverOrigin(ctx, goal, offset);
+    const r = simulateFromOrigin(o, days, originInput(ctx, goal, o, scenario), { recordEveryDays: PROJECTION_SAMPLE_EVERY_DAYS, ...(stopAt ? { stopWhen: stopAt } : {}) });
+    return { ...r, days: r.days.map((d) => ({ day: d.day, bodyWeightKg: d.weightKg })) };
+  }
   const p = hallParametersFor(ctx, goal, offset);
   const u = hallInputFor(ctx, goal, scenario);
   return simulateHall(p, days, () => u, {
@@ -547,7 +735,9 @@ export type SliderBaseline = {
   scenario: Scenario;
 };
 
+/** Horizon value of the baseline plan: weight, or tissue mass under the `sustainedTissue` prototype option (prompt 37). */
 export function baselineWeightAtHorizon(ctx: PlanContext, baseline: SliderBaseline): number {
+  if (solverOptionsActive(ctx)) return metricAtDay(ctx, baseline.goal, solverOrigin(ctx, baseline.goal), baseline.scenario, GOAL_SOLVER_HORIZON_DAYS);
   return weightAtDay(ctx, baseline.goal, baseline.scenario, GOAL_SOLVER_HORIZON_DAYS);
 }
 
@@ -559,15 +749,28 @@ export function sliderZone(steps: number, bounds: SliderBounds, blocked: boolean
 
 export function solveSliderPoint(ctx: PlanContext, baseline: SliderBaseline, stepsPerDay: number, baselineWeight42?: number): SliderPoint {
   const target = baselineWeight42 ?? baselineWeightAtHorizon(ctx, baseline);
-  const solve = solveCaloriesForWeightAtHorizon(ctx, baseline.goal, stepsPerDay, target);
+  const solve = solveCaloriesAtHorizon(ctx, baseline.goal, stepsPerDay, target);
   const macros = macrosFor(ctx, baseline.goal, solve.calorieTargetKcal);
   const floor = planHardFloorKcal(ctx);
   const belowHardFloor = solve.calorieTargetKcal < floor;
   const bounds = sliderBounds(baseline.scenario.stepsPerDay);
-  const p = hallParametersFor(ctx, baseline.goal);
-  const u = hallInputFor(ctx, baseline.goal, { calorieTargetKcal: solve.calorieTargetKcal, stepsPerDay });
-  const sim = simulateHall(p, 0, () => u);
-  const ee0 = sim.days[0]?.energyExpenditureKcal ?? Number.NaN;
+  let ee0: number;
+  let projectedWeeklyChangeKg: number;
+  if (solverOptionsActive(ctx)) {
+    // Prototype (prompt 37): expenditure at the solver start; weekly change from the modeled weight at the horizon.
+    const o = solverOrigin(ctx, baseline.goal);
+    const u = originInput(ctx, baseline.goal, o, { calorieTargetKcal: solve.calorieTargetKcal, stepsPerDay });
+    const sim = simulateFromOrigin(o, GOAL_SOLVER_HORIZON_DAYS, u, { recordEveryDays: GOAL_SOLVER_HORIZON_DAYS });
+    ee0 = sim.days[0]?.energyExpenditureKcal ?? Number.NaN;
+    const w42 = sim.days[sim.days.length - 1]?.weightKg ?? Number.NaN;
+    projectedWeeklyChangeKg = ((w42 - o.referenceWeightKg) / GOAL_SOLVER_HORIZON_DAYS) * DAYS_PER_WEEK;
+  } else {
+    const p = hallParametersFor(ctx, baseline.goal);
+    const u = hallInputFor(ctx, baseline.goal, { calorieTargetKcal: solve.calorieTargetKcal, stepsPerDay });
+    const sim = simulateHall(p, 0, () => u);
+    ee0 = sim.days[0]?.energyExpenditureKcal ?? Number.NaN;
+    projectedWeeklyChangeKg = ((solve.weightAtHorizonKg - ctx.currentWeightKg) / GOAL_SOLVER_HORIZON_DAYS) * DAYS_PER_WEEK;
+  }
   return {
     stepsPerDay,
     calorieTargetKcal: solve.calorieTargetKcal,
@@ -578,7 +781,7 @@ export function solveSliderPoint(ctx: PlanContext, baseline: SliderBaseline, ste
     macroFeasible: macros.feasible,
     macros,
     initialEnergyBalanceKcal: solve.calorieTargetKcal - ee0,
-    projectedWeeklyChangeKg: ((solve.weightAtHorizonKg - ctx.currentWeightKg) / GOAL_SOLVER_HORIZON_DAYS) * DAYS_PER_WEEK,
+    projectedWeeklyChangeKg,
     converged: solve.converged,
   };
 }
