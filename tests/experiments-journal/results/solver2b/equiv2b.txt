@@ -1,0 +1,8 @@
+Iteration 2b equivalence test (prompt 38 s3.3): 150 fixtures (50 ideal users x D = 28, 56, 84 days), seed base 3300000000.
+Declared tolerance: posterior median and plan target |delta| <= 1 kcal/day, same applied rate, modeled weight and tissue |delta| <= 0.001 kg.
+max |delta| posterior median (kcal/day): 0.004489387591590344
+max |delta| modeled weight (kg): 0.000013988375300755251; tissue (kg): 0.00001221433450382392; AT (kcal/day): 0.0006916621958623637; glycogen (kg): 8.992943120178509e-7; ECF (kg): 0.000004472785670728285; intercept (kg): 0.000012869999103271024
+modeled bodies bit-identical: 0 / 150; posterior medians bit-identical: 0 / 150
+FX plans: max |delta target| 0 kcal/day; same rate 148 / 150; bit-identical targets 150 / 150; same status 150 / 150; status ok 148 / 150
+K2 plans: max |delta target| 0 kcal/day; same rate 148 / 150; bit-identical targets 150 / 150; same status 150 / 150; status ok 148 / 150
+VERDICT: PASS

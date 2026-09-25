@@ -1,0 +1,1 @@
+Iteration 2a raw rows (ideal2a shard 0: 128 user x arm rows, committed 128) replayed with the 2b simulator: 12160 values compared, 0 differences.
