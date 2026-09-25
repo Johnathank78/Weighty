@@ -14,3 +14,7 @@
 2026-09-25T20:15:20+02:00 end select2bx2 wall_s=508 failed_shards=0
 2026-09-25T23:31:47+02:00 start valid2b shards=16 candidate=K2
 2026-09-25T23:41:43+02:00 end valid2b wall_s=596 failed_shards=0
+2026-09-25T23:43:29+02:00 start real2b shards=16 candidate=K2
+2026-09-26T00:07:05+02:00 end real2b wall_s=1416 failed_shards=0
+2026-09-26T00:07:19+02:00 start firstplan2b shards=8
+2026-09-26T00:07:31+02:00 end firstplan2b wall_s=12

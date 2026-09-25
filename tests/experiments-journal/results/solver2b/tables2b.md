@@ -611,6 +611,211 @@ Règle commune de THRESHOLDS.md (INCONCLUSIF : n doublé une fois, graines neuve
 - prise : 335 recalculs, écart médian 22,1 [P10 16,8 ; P90 30,4] kcal/j, |écart| < 10 : 0.
 - maintien : 336 recalculs, écart médian 0,0 [P10 0,0 ; P90 0,0] kcal/j, |écart| < 10 : 336.
 
+## 5.3 Monde réaliste
+
+2000 suiveurs (graines 2,9·10⁹) et 500 non-suiveurs réguliers (graines 3,0·10⁹, s = −270 / +270), bras S0 et K2. Hall perturbé à ±20 %, pesées t + D + E, pas bruités.
+
+### Suiveurs : S1 et S2 (tissus, verdict ; poids total rapporté)
+
+| Bras | Objectif | Fenêtre | S1 tissus [IC 95 %] | S1 dans [0,85 ; 1,15] | S2 P90 tissus [IC 95 %] | S2 borne haute ≤ 1,25 | S1 poids total | S2 P90 poids total |
+|---|---|---|---|---|---|---|---|---|
+| S0 | perte | semaines 5 à 12 | 0,703 [0,691 ; 0,716] | (info) non | 1,026 [0,996 ; 1,063] | (info) oui | 0,704 [0,692 ; 0,715] | 1,041 [0,992 ; 1,081] |
+| S0 | perte | semaines 13 à 24 | 0,645 [0,636 ; 0,654] | (info) non | 0,821 [0,803 ; 0,842] | (info) oui | 0,645 [0,636 ; 0,653] | 0,839 [0,820 ; 0,864] |
+| S0 | perte | semaines 5 à 24 | 0,664 [0,655 ; 0,671] | (info) non | 0,916 [0,893 ; 0,945] | (info) oui | 0,664 [0,656 ; 0,671] | 0,930 [0,900 ; 0,954] |
+| S0 | prise | semaines 5 à 12 | 0,761 [0,722 ; 0,796] | (info) non | 1,407 [1,348 ; 1,480] | (info) non | 0,768 [0,729 ; 0,803] | 1,462 [1,415 ; 1,520] |
+| S0 | prise | semaines 13 à 24 | 0,699 [0,680 ; 0,716] | (info) non | 1,020 [0,990 ; 1,047] | (info) oui | 0,717 [0,703 ; 0,736] | 1,084 [1,060 ; 1,106] |
+| S0 | prise | semaines 5 à 24 | 0,714 [0,698 ; 0,730] | (info) non | 1,182 [1,142 ; 1,215] | (info) oui | 0,732 [0,710 ; 0,748] | 1,221 [1,188 ; 1,264] |
+| K2 | perte | semaines 5 à 12 | 1,013 [1,001 ; 1,027] | oui | 1,361 [1,324 ; 1,412] | **non** | 1,015 [1,003 ; 1,030] | 1,371 [1,325 ; 1,419] |
+| K2 | perte | semaines 13 à 24 | 0,993 [0,987 ; 1,000] | oui | 1,167 [1,153 ; 1,193] | oui | 0,996 [0,987 ; 1,003] | 1,198 [1,179 ; 1,225] |
+| K2 | perte | semaines 5 à 24 | 0,999 [0,992 ; 1,006] | (info) oui | 1,252 [1,235 ; 1,276] | (info) non | 1,002 [0,995 ; 1,007] | 1,273 [1,248 ; 1,303] |
+| K2 | prise | semaines 5 à 12 | 1,042 [1,002 ; 1,079] | oui | 1,644 [1,593 ; 1,707] | **non** | 1,060 [1,022 ; 1,088] | 1,689 [1,642 ; 1,746] |
+| K2 | prise | semaines 13 à 24 | 1,023 [1,007 ; 1,034] | oui | 1,311 [1,288 ; 1,337] | **non** | 1,049 [1,030 ; 1,067] | 1,397 [1,369 ; 1,426] |
+| K2 | prise | semaines 5 à 24 | 1,027 [1,010 ; 1,040] | (info) oui | 1,437 [1,413 ; 1,470] | (info) non | 1,053 [1,030 ; 1,069] | 1,515 [1,487 ; 1,547] |
+
+### Suiveurs : S3 (tissus), S4, S7 (poids, inchangés)
+
+| Bras | S3 tissus : utilisateurs-semaines au-dessus du plafond [Wilson] | S3 poids total (rapporté) | S4 utilisateurs ≥ 7 j sous le plancher réel [Wilson] | S7 maintien dans la zone à 8 semaines [Wilson] |
+|---|---|---|---|---|
+| S0 | 3892 / 48000 = 8,11 % [7,87 % ; 8,36 %] (info) échoue | 8491 / 48000 = 17,69 % [17,35 % ; 18,03 %] | 204 / 2000 = 10,20 % [8,95 % ; 11,60 %] (info) échoue | 306 / 620 = 49,35 % [45,44 % ; 53,28 %] (info) échoue |
+| K2 | 8089 / 48000 = 16,85 % [16,52 % ; 17,19 %] **échoue** | 12241 / 48000 = 25,50 % [25,11 % ; 25,89 %] | 370 / 2000 = 18,50 % [16,86 % ; 20,26 %] **échoue** | 310 / 620 = 50,00 % [46,08 % ; 53,92 %] **échoue** |
+
+**A3.2 (suiveurs, K2, S1 à S4 et S7 selon A4.1) : ÉCHOUÉ.**
+
+### Suiveurs : différences appariées de médiane, tissus (candidat − S0)
+
+| Objectif | Fenêtre | Δ médiane [IC 95 %] |
+|---|---|---|
+| perte | semaines 5 à 12 | 0,311 [0,303 ; 0,319] |
+| perte | semaines 13 à 24 | 0,349 [0,342 ; 0,355] |
+| perte | semaines 5 à 24 | 0,335 [0,330 ; 0,342] |
+| prise | semaines 5 à 12 | 0,280 [0,265 ; 0,298] |
+| prise | semaines 13 à 24 | 0,324 [0,312 ; 0,334] |
+| prise | semaines 5 à 24 | 0,312 [0,302 ; 0,322] |
+
+### Non-suiveurs réguliers (plan en cours + s), sans verdict
+
+| Bras | Objectif | s (kcal/j) | Fenêtre | Tissus [IC 95 %] | P10 / P90 tissus | Poids total [IC 95 %] |
+|---|---|---|---|---|---|---|
+| S0 | perte | -270 | semaines 5 à 12 | 0,704 [0,659 ; 0,733] | 0,336 / 1,195 | 0,659 [0,602 ; 0,709] |
+| S0 | perte | -270 | semaines 13 à 24 | 0,618 [0,585 ; 0,653] | 0,325 / 0,840 | 0,618 [0,584 ; 0,661] |
+| S0 | perte | 270 | semaines 5 à 12 | 0,702 [0,646 ; 0,750] | 0,257 / 0,948 | 0,699 [0,647 ; 0,740] |
+| S0 | perte | 270 | semaines 13 à 24 | 0,635 [0,613 ; 0,661] | 0,339 / 0,789 | 0,646 [0,620 ; 0,675] |
+| S0 | perte | tous | semaines 5 à 12 | 0,702 [0,663 ; 0,728] | 0,305 / 1,049 | 0,678 [0,648 ; 0,718] |
+| S0 | perte | tous | semaines 13 à 24 | 0,629 [0,609 ; 0,652] | 0,331 / 0,805 | 0,633 [0,613 ; 0,659] |
+| S0 | perte | tous | semaines 5 à 24 | 0,652 [0,631 ; 0,672] | 0,316 / 0,908 | 0,650 [0,627 ; 0,668] |
+| S0 | prise | -270 | semaines 5 à 12 | 0,736 [0,600 ; 0,844] | 0,183 / 1,330 | 0,813 [0,712 ; 0,848] |
+| S0 | prise | -270 | semaines 13 à 24 | 0,740 [0,690 ; 0,802] | 0,459 / 1,068 | 0,766 [0,709 ; 0,822] |
+| S0 | prise | 270 | semaines 5 à 12 | 0,760 [0,604 ; 0,864] | 0,075 / 1,377 | 0,726 [0,620 ; 0,849] |
+| S0 | prise | 270 | semaines 13 à 24 | 0,687 [0,630 ; 0,720] | 0,269 / 0,988 | 0,714 [0,666 ; 0,750] |
+| S0 | prise | tous | semaines 5 à 12 | 0,739 [0,630 ; 0,824] | 0,139 / 1,351 | 0,760 [0,704 ; 0,837] |
+| S0 | prise | tous | semaines 13 à 24 | 0,706 [0,672 ; 0,740] | 0,335 / 1,024 | 0,734 [0,707 ; 0,766] |
+| S0 | prise | tous | semaines 5 à 24 | 0,713 [0,680 ; 0,753] | 0,278 / 1,149 | 0,740 [0,709 ; 0,778] |
+| K2 | perte | -270 | semaines 5 à 12 | 1,043 [1,005 ; 1,073] | 0,765 / 1,535 | 1,023 [0,976 ; 1,054] |
+| K2 | perte | -270 | semaines 13 à 24 | 1,030 [1,010 ; 1,051] | 0,851 / 1,260 | 1,024 [1,008 ; 1,051] |
+| K2 | perte | 270 | semaines 5 à 12 | 0,999 [0,948 ; 1,054] | 0,454 / 1,333 | 1,009 [0,951 ; 1,058] |
+| K2 | perte | 270 | semaines 13 à 24 | 0,964 [0,939 ; 0,988] | 0,667 / 1,123 | 0,962 [0,937 ; 0,987] |
+| K2 | perte | tous | semaines 5 à 12 | 1,015 [0,993 ; 1,053] | 0,607 / 1,410 | 1,019 [0,976 ; 1,045] |
+| K2 | perte | tous | semaines 13 à 24 | 0,997 [0,984 ; 1,011] | 0,790 / 1,189 | 0,996 [0,977 ; 1,014] |
+| K2 | perte | tous | semaines 5 à 24 | 1,004 [0,989 ; 1,018] | 0,720 / 1,284 | 0,999 [0,980 ; 1,019] |
+| K2 | prise | -270 | semaines 5 à 12 | 0,997 [0,893 ; 1,119] | 0,496 / 1,530 | 1,066 [0,963 ; 1,131] |
+| K2 | prise | -270 | semaines 13 à 24 | 1,039 [0,995 ; 1,085] | 0,798 / 1,394 | 1,088 [1,041 ; 1,136] |
+| K2 | prise | 270 | semaines 5 à 12 | 1,050 [0,926 ; 1,119] | 0,443 / 1,730 | 1,075 [0,951 ; 1,159] |
+| K2 | prise | 270 | semaines 13 à 24 | 0,998 [0,956 ; 1,029] | 0,636 / 1,252 | 1,022 [0,973 ; 1,068] |
+| K2 | prise | tous | semaines 5 à 12 | 1,030 [0,925 ; 1,096] | 0,456 / 1,623 | 1,069 [0,982 ; 1,111] |
+| K2 | prise | tous | semaines 13 à 24 | 1,019 [0,992 ; 1,041] | 0,715 / 1,335 | 1,052 [1,022 ; 1,090] |
+| K2 | prise | tous | semaines 5 à 24 | 1,020 [0,987 ; 1,045] | 0,625 / 1,438 | 1,060 [1,023 ; 1,096] |
+
+Non-suiveurs réguliers en maintien, dans la zone à 8 semaines : S0 82 / 159, K2 81 / 159.
+
+### Autres constats (monde réaliste)
+
+| Population | Bras | Recalibrations appliquées (médiane) | Recalculs périodiques faits (total) | Dus sans snapshot | Refusés | Utilisateurs avec échec de recalibration | Échecs `no_feasible_speed` des recalibrations | Propositions de révision |
+|---|---|---|---|---|---|---|---|---|
+| suiveurs | S0 | 11,0 | 0 | 0 | 0 | 49 | 43 | 0 |
+| suiveurs | K2 | 11,0 | 2307 | 15 | 246 | 95 | 65 | 0 |
+| non-suiveurs réguliers | S0 | 11,0 | 0 | 0 | 0 | 25 | 79 | 0 |
+| non-suiveurs réguliers | K2 | 11,0 | 602 | 12 | 74 | 34 | 83 | 0 |
+
+### Strates des suiveurs (médiane du ratio sur les tissus, poids total entre parenthèses ; S4 et S7 du candidat)
+
+| Strate | Valeur | Objectif | Utilisateurs | S0 sem. 5-12 | S0 sem. 13-24 | K2 sem. 5-12 | K2 sem. 13-24 | S4 K2 (≥ 7 j) |
+|---|---|---|---|---|---|---|---|---|
+| sexe | female | perte | 466 | 0,679 (0,681) | 0,617 (0,616) | 1,014 (1,015) | 0,993 (0,991) | 260 / 466 |
+| sexe | female | prise | 310 | 0,715 (0,731) | 0,664 (0,693) | 1,023 (1,061) | 1,018 (1,053) | 0 / 310 |
+| sexe | female | maintien | 313 | — | — | — | — | 6 / 313 ; S7 147 / 313 |
+| sexe | male | perte | 305 | 0,739 (0,743) | 0,698 (0,696) | 1,013 (1,016) | 0,994 (0,999) | 101 / 305 |
+| sexe | male | prise | 299 | 0,816 (0,801) | 0,729 (0,738) | 1,064 (1,057) | 1,028 (1,047) | 2 / 299 |
+| sexe | male | maintien | 307 | — | — | — | — | 1 / 307 ; S7 163 / 307 |
+| classe d’IMC | 21 | perte | 158 | 0,676 (0,747) | 0,590 (0,609) | 1,070 (1,136) | 0,994 (1,028) | 18 / 158 |
+| classe d’IMC | 21 | prise | 156 | 0,754 (0,779) | 0,596 (0,620) | 1,042 (1,086) | 0,989 (1,014) | 1 / 156 |
+| classe d’IMC | 21 | maintien | 152 | — | — | — | — | 5 / 152 ; S7 60 / 152 |
+| classe d’IMC | 26 | perte | 147 | 0,671 (0,654) | 0,622 (0,632) | 0,991 (0,981) | 0,993 (1,003) | 58 / 147 |
+| classe d’IMC | 26 | prise | 157 | 0,745 (0,708) | 0,687 (0,697) | 1,048 (1,037) | 1,026 (1,032) | 1 / 157 |
+| classe d’IMC | 26 | maintien | 150 | — | — | — | — | 2 / 150 ; S7 74 / 150 |
+| classe d’IMC | 31 | perte | 148 | 0,720 (0,722) | 0,658 (0,656) | 1,025 (1,026) | 0,991 (0,995) | 94 / 148 |
+| classe d’IMC | 31 | prise | 147 | 0,741 (0,732) | 0,709 (0,735) | 1,020 (1,035) | 1,027 (1,063) | 0 / 147 |
+| classe d’IMC | 31 | maintien | 161 | — | — | — | — | 0 / 161 ; S7 85 / 161 |
+| classe d’IMC | 38 | perte | 158 | 0,729 (0,725) | 0,700 (0,702) | 1,002 (1,009) | 1,002 (1,000) | 84 / 158 |
+| classe d’IMC | 38 | prise | 149 | 0,779 (0,805) | 0,768 (0,774) | 1,055 (1,062) | 1,032 (1,067) | 0 / 149 |
+| classe d’IMC | 38 | maintien | 157 | — | — | — | — | 0 / 157 ; S7 91 / 157 |
+| classe d’IMC | case_R | perte | 80 | 0,667 (0,670) | 0,593 (0,576) | 1,001 (0,998) | 0,974 (0,948) | 61 / 80 |
+| classe d’IMC | case_S | perte | 80 | 0,702 (0,701) | 0,584 (0,558) | 1,047 (1,022) | 0,988 (0,964) | 46 / 80 |
+| activité | sedentary | perte | 309 | 0,703 (0,723) | 0,662 (0,665) | 1,022 (1,025) | 0,997 (1,006) | 160 / 309 |
+| activité | sedentary | prise | 290 | 0,773 (0,812) | 0,716 (0,735) | 1,051 (1,088) | 1,027 (1,053) | 2 / 290 |
+| activité | sedentary | maintien | 315 | — | — | — | — | 4 / 315 ; S7 156 / 315 |
+| activité | strength | perte | 462 | 0,702 (0,694) | 0,631 (0,628) | 1,010 (1,007) | 0,992 (0,988) | 201 / 462 |
+| activité | strength | prise | 319 | 0,752 (0,717) | 0,680 (0,703) | 1,034 (1,020) | 1,014 (1,044) | 0 / 319 |
+| activité | strength | maintien | 305 | — | — | — | — | 3 / 305 ; S7 154 / 305 |
+| vitesse demandée | 0 | maintien | 620 | — | — | — | — | 7 / 620 ; S7 310 / 620 |
+| vitesse demandée | 0.0025 | perte | 158 | 0,676 (0,747) | 0,590 (0,609) | 1,070 (1,136) | 0,994 (1,028) | 18 / 158 |
+| vitesse demandée | 0.0025 | prise | 609 | 0,761 (0,768) | 0,699 (0,717) | 1,042 (1,060) | 1,023 (1,049) | 2 / 609 |
+| vitesse demandée | 0.005 | perte | 227 | 0,736 (0,747) | 0,693 (0,694) | 1,029 (1,031) | 1,010 (1,016) | 52 / 227 |
+| vitesse demandée | 0.01 | perte | 386 | 0,696 (0,686) | 0,627 (0,627) | 1,004 (0,998) | 0,986 (0,981) | 291 / 386 |
+| fréquence de pesée | 0.75 | perte | 253 | 0,722 (0,715) | 0,648 (0,645) | 1,030 (1,038) | 0,997 (0,999) | 123 / 253 |
+| fréquence de pesée | 0.75 | prise | 191 | 0,792 (0,768) | 0,660 (0,693) | 1,080 (1,068) | 0,991 (1,028) | 1 / 191 |
+| fréquence de pesée | 0.75 | maintien | 222 | — | — | — | — | 4 / 222 ; S7 114 / 222 |
+| fréquence de pesée | 0.9 | perte | 265 | 0,688 (0,698) | 0,656 (0,655) | 1,002 (1,007) | 0,991 (0,996) | 126 / 265 |
+| fréquence de pesée | 0.9 | prise | 218 | 0,770 (0,786) | 0,710 (0,724) | 1,049 (1,070) | 1,032 (1,070) | 1 / 218 |
+| fréquence de pesée | 0.9 | maintien | 184 | — | — | — | — | 1 / 184 ; S7 96 / 184 |
+| fréquence de pesée | 1 | perte | 253 | 0,698 (0,698) | 0,631 (0,632) | 1,013 (1,007) | 0,993 (0,987) | 112 / 253 |
+| fréquence de pesée | 1 | prise | 200 | 0,729 (0,744) | 0,723 (0,737) | 0,996 (1,029) | 1,035 (1,051) | 0 / 200 |
+| fréquence de pesée | 1 | maintien | 214 | — | — | — | — | 2 / 214 ; S7 100 / 214 |
+
+### Recalculs périodiques, monde réaliste, suiveurs : bras K2
+
+- Utilisateurs : 2000. Recalculs périodiques faits : 2307 ; par utilisateur, médiane 1,0 [P10 0,0 ; P90 2,0], max 5, 252 utilisateurs sans recalcul.
+- Écart de cible (nouvelle − ancienne), kcal/j : médiane 0,0 [P10 -16,8 ; P90 27,3] ; |écart| médian 13,6, P90 28,4.
+- Part des recalculs avec |écart| < 10 kcal/j : 991 / 2307 = 42,96 % [40,95 % ; 44,99 %].
+- Recalculs dus mais non faits sans snapshot appliqué : 15. Refusés (plan laissé en place) : 246 (loss_unavailable_low_bmi : 234, target_not_above_current : 6, no_feasible_speed : 6).
+- perte : 742 recalculs, écart médian -13,6 [P10 -24,2 ; P90 -2,1] kcal/j, |écart| < 10 : 187.
+- prise : 763 recalculs, écart médian 22,1 [P10 15,7 ; P90 31,5] kcal/j, |écart| < 10 : 3.
+- maintien : 802 recalculs, écart médian 0,0 [P10 -2,1 ; P90 2,1] kcal/j, |écart| < 10 : 801.
+
+### Recalculs périodiques, monde réaliste, non-suiveurs réguliers : bras K2
+
+- Utilisateurs : 500. Recalculs périodiques faits : 602 ; par utilisateur, médiane 1,0 [P10 0,0 ; P90 2,0], max 5, 68 utilisateurs sans recalcul.
+- Écart de cible (nouvelle − ancienne), kcal/j : médiane 0,5 [P10 -15,8 ; P90 28,2] ; |écart| médian 12,6, P90 29,4.
+- Part des recalculs avec |écart| < 10 kcal/j : 270 / 602 = 44,85 % [40,92 % ; 48,84 %].
+- Recalculs dus mais non faits sans snapshot appliqué : 12. Refusés (plan laissé en place) : 74 (loss_unavailable_low_bmi : 67, no_feasible_speed : 5, target_not_above_current : 2).
+- perte : 185 recalculs, écart médian -12,6 [P10 -26,9 ; P90 -3,1] kcal/j, |écart| < 10 : 53.
+- prise : 200 recalculs, écart médian 23,0 [P10 15,8 ; P90 31,5] kcal/j, |écart| < 10 : 1.
+- maintien : 217 recalculs, écart médian 0,0 [P10 -2,1 ; P90 2,1] kcal/j, |écart| < 10 : 216.
+
+## 5.5 Premier plan (hypercube, sans seuil) : K2 contre S0 et contre FX
+
+1000 profils (graines 3,1·10⁹), chaque vitesse de la grille.
+
+| Objectif | Vitesse demandée (%/sem.) | Profils | Δ cible K2 − S0 médiane [P10 ; P90] | Δ cible K2 − FX médiane [P10 ; P90] | Ralentis par le plancher S0 → FX → K2 | Sans vitesse faisable S0 → FX → K2 | Plus lente sous K2 que S0 / que FX |
+|---|---|---|---|---|---|---|---|
+| perte | 0,20 | 391 | -45 [-69 ; -28] | 5 [4 ; 7] | 0,00 % → 0,00 % → 0,00 % | 0,00 % → 0,00 % → 0,00 % | 0 / 0 |
+| perte | 0,25 | 391 | -56 [-88 ; -36] | 6 [5 ; 9] | 0,00 % → 0,00 % → 0,00 % | 0,00 % → 0,00 % → 0,00 % | 0 / 0 |
+| perte | 0,30 | 391 | -67 [-106 ; -36] | 7 [5 ; 10] | 0,00 % → 0,00 % → 0,00 % | 0,00 % → 0,00 % → 0,00 % | 0 / 0 |
+| perte | 0,35 | 391 | -79 [-124 ; -36] | 8 [6 ; 12] | 0,00 % → 0,00 % → 0,00 % | 0,00 % → 0,00 % → 0,00 % | 0 / 0 |
+| perte | 0,40 | 391 | -91 [-143 ; -36] | 9 [6 ; 14] | 0,00 % → 0,00 % → 0,00 % | 0,00 % → 0,00 % → 0,00 % | 0 / 0 |
+| perte | 0,45 | 391 | -102 [-162 ; -36] | 9 [6 ; 15] | 0,00 % → 0,00 % → 0,00 % | 0,00 % → 0,00 % → 0,00 % | 0 / 0 |
+| perte | 0,50 | 391 | -113 [-180 ; -36] | 10 [6 ; 16] | 0,00 % → 0,00 % → 0,00 % | 0,00 % → 0,00 % → 0,00 % | 0 / 0 |
+| perte | 0,55 | 391 | -126 [-199 ; -36] | 10 [6 ; 17] | 0,00 % → 0,00 % → 0,00 % | 0,00 % → 0,00 % → 0,00 % | 0 / 0 |
+| perte | 0,60 | 391 | -138 [-219 ; -36] | 12 [6 ; 17] | 0,00 % → 0,26 % → 0,00 % | 0,00 % → 0,00 % → 0,00 % | 0 / 0 |
+| perte | 0,65 | 391 | -149 [-238 ; -36] | 12 [6 ; 18] | 0,00 % → 0,26 % → 0,26 % | 0,00 % → 0,00 % → 0,00 % | 1 / 0 |
+| perte | 0,70 | 391 | -161 [-258 ; -36] | 12 [6 ; 18] | 0,00 % → 1,02 % → 0,77 % | 0,00 % → 0,00 % → 0,00 % | 3 / 0 |
+| perte | 0,75 | 391 | -171 [-275 ; -36] | 12 [6 ; 18] | 0,00 % → 3,32 % → 2,56 % | 0,00 % → 0,00 % → 0,00 % | 10 / 0 |
+| perte | 0,80 | 391 | -181 [-287 ; -36] | 13 [5 ; 19] | 0,00 % → 9,21 % → 7,93 % | 0,00 % → 0,00 % → 0,00 % | 31 / 0 |
+| perte | 0,85 | 391 | -192 [-302 ; -36] | 13 [5 ; 19] | 0,00 % → 16,11 % → 15,09 % | 0,00 % → 0,00 % → 0,00 % | 59 / 0 |
+| perte | 0,90 | 391 | -199 [-303 ; -34] | 13 [5 ; 19] | 0,26 % → 23,27 % → 21,99 % | 0,00 % → 0,00 % → 0,00 % | 86 / 0 |
+| perte | 0,95 | 391 | -201 [-296 ; -34] | 13 [5 ; 18] | 0,26 % → 30,69 % → 29,67 % | 0,00 % → 0,00 % → 0,00 % | 116 / 0 |
+| perte | 1,00 | 391 | -212 [-298 ; -31] | 13 [4 ; 18] | 1,28 % → 37,60 % → 35,55 % | 0,00 % → 0,00 % → 0,00 % | 139 / 0 |
+| prise | 0,10 | 301 | 22 [13 ; 31] | -3 [-5 ; -2] | 0,00 % → 0,00 % → 0,00 % | 0,00 % → 0,00 % → 0,00 % | 0 / 0 |
+| prise | 0,15 | 301 | 34 [18 ; 47] | -5 [-7 ; -4] | 0,00 % → 0,00 % → 0,00 % | 0,00 % → 0,00 % → 0,00 % | 0 / 0 |
+| prise | 0,20 | 301 | 44 [24 ; 63] | -7 [-10 ; -5] | 0,00 % → 0,00 % → 0,00 % | 0,00 % → 0,00 % → 0,00 % | 0 / 0 |
+| prise | 0,25 | 301 | 55 [29 ; 79] | -9 [-14 ; -7] | 0,00 % → 0,00 % → 0,00 % | 0,00 % → 0,00 % → 0,00 % | 0 / 0 |
+| prise | 0,30 | 301 | 66 [36 ; 93] | -12 [-17 ; -8] | 0,00 % → 0,00 % → 0,00 % | 0,00 % → 0,00 % → 0,00 % | 0 / 0 |
+| prise | 0,35 | 301 | 77 [41 ; 109] | -14 [-20 ; -9] | 0,00 % → 0,00 % → 0,00 % | 0,00 % → 0,00 % → 0,00 % | 0 / 0 |
+| prise | 0,40 | 301 | 87 [47 ; 124] | -16 [-23 ; -12] | 0,00 % → 0,00 % → 0,00 % | 0,00 % → 0,00 % → 0,00 % | 0 / 0 |
+| prise | 0,45 | 301 | 98 [52 ; 139] | -18 [-26 ; -14] | 0,00 % → 0,00 % → 0,00 % | 0,00 % → 0,00 % → 0,00 % | 0 / 0 |
+| prise | 0,50 | 301 | 108 [59 ; 154] | -20 [-30 ; -16] | 0,00 % → 0,00 % → 0,00 % | 0,00 % → 0,00 % → 0,00 % | 0 / 0 |
+| maintien | 0,00 | 308 | 0 [0 ; 0] | 0 [0 ; 0] | 0,00 % → 0,00 % → 0,00 % | 0,00 % → 0,00 % → 0,00 % | 0 / 0 |
+
+## 5.5 Golden et cas R et S (premier plan)
+
+| Cas | Objectif | Vitesse demandée | Cible S0 | Cible FX | Cible K2 | K2 − S0 | K2 − FX | Vitesse retenue S0 → FX → K2 | Statut K2 | Rejets K2 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 01 female 25 sedentary normal BMI loss | perte | 0.005 | 1781 | 1683 | 1692 | -89 | 8 | 0.005 → 0.005 → 0.005 | ok |  |
+| 02 male 30 low active normal BMI maintenance | maintien | 0 | 2871 | 2871 | 2871 | 0 | 0 | 0 → 0 → 0 | ok |  |
+| 03 female 35 resistance training loss | perte | 0.005 | 1931 | 1809 | 1819 | -112 | 9 | 0.005 → 0.005 → 0.005 | ok |  |
+| 04 male 28 athlete-like resistance + endurance maintenance | maintien | 0 | 3162 | 3162 | 3162 | 0 | 0 | 0 → 0 → 0 | ok |  |
+| 05 female 42 obesity low active loss | perte | 0.005 | 1958 | 1777 | 1789 | -169 | 13 | 0.005 → 0.005 → 0.005 | ok |  |
+| 06 male 45 obesity active loss | perte | 0.0075 | 2423 | 2189 | 2212 | -211 | 23 | 0.0075 → 0.0075 → 0.0075 | ok |  |
+| 07 female 55 active maintenance | maintien | 0 | 2368 | 2368 | 2368 | 0 | 0 | 0 → 0 → 0 | ok |  |
+| 08 male 60 moderate activity maintenance | maintien | 0 | 2609 | 2609 | 2609 | 0 | 0 | 0 → 0 → 0 | ok |  |
+| 09 female 65 resistance training maintenance | maintien | 0 | 1941 | 1941 | 1941 | 0 | 0 | 0 → 0 → 0 | ok |  |
+| 10 male 35 resistance training gain | prise | 0.0025 | 3118 | 3157 | 3147 | 28 | -10 | 0.0025 → 0.0025 → 0.0025 | ok |  |
+| 11 female 30 endurance heavy gain | prise | 0.001 | 2357 | 2370 | 2368 | 10 | -2 | 0.001 → 0.001 → 0.001 | ok |  |
+| 12 valid indirect calorimetry | perte | 0.0025 | 1881 | 1819 | 1823 | -58 | 4 | 0.0025 → 0.0025 → 0.0025 | ok |  |
+| R (historique 1 450 kcal) | perte | 0.01 | 1405 | 1234 | 1242 | -163 | 8 | 0.01 → 0.009 → 0.009 | ok | 0.01:below_hard_floor/0.0095:below_hard_floor |
+| S (historique 1 450 kcal) | perte | 0.01 | 1503 | 1254 | 1265 | -238 | 10 | 0.01 → 0.01 → 0.01 | ok |  |
+| R (sans historique) | perte | 0.01 | 1562 | 1320 | 1333 | -229 | 13 | 0.01 → 0.01 → 0.01 | ok |  |
+| S (sans historique) | perte | 0.01 | 1682 | 1455 | 1469 | -213 | 15 | 0.01 → 0.01 → 0.01 | ok |  |
+
 ## 5.6 Invariants du curseur calories ↔ pas (par candidat)
 
 - premiers plans (hypercube) (K1, horizon 42 j) : 200 plans, 5936 points du curseur ; violations de monotonie : **0** ; écart |masse tissulaire à l’horizon − cible| max par plan (curseur) : médiane 0,002 kg, max 0,003 kg ; plan lui-même : max 0,003 kg ; points non convergés : 0.
@@ -648,5 +853,9 @@ Règle commune de THRESHOLDS.md (INCONCLUSIF : n doublé une fois, graines neuve
 2026-09-25T20:15:20+02:00 end select2bx2 wall_s=508 failed_shards=0
 2026-09-25T23:31:47+02:00 start valid2b shards=16 candidate=K2
 2026-09-25T23:41:43+02:00 end valid2b wall_s=596 failed_shards=0
+2026-09-25T23:43:29+02:00 start real2b shards=16 candidate=K2
+2026-09-26T00:07:05+02:00 end real2b wall_s=1416 failed_shards=0
+2026-09-26T00:07:19+02:00 start firstplan2b shards=8
+2026-09-26T00:07:31+02:00 end firstplan2b wall_s=12
 ```
 
