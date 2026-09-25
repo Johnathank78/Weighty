@@ -5,8 +5,8 @@
  *
  * Every 5th slot of the first-plan hypercube (seed base firstplan2b = 3.1e9, 200 profiles), own requested rate, solver
  * options of the candidate (first plan: equilibrium start, rate definition and horizon of the candidate). Slider steps from
- * the minimum to the maximum of the slider range by 500. Raw file: results/solver2b/invariants2b-shard<k>.csv.gz.
- * The invariants on modeled bodies (current state) are measured by timing2b (invariants2b-shard99).
+ * the minimum to the maximum of the slider range by 500. Raw file: results/solver2b/invariants2b<candidate>-shard<k>.csv.gz.
+ * The invariants on modeled bodies (current state) are measured by timing2b (invariants2b<candidate>-shard99).
  */
 import { it } from 'vitest';
 import { previewInitialPlan } from '@/domain/engine';
@@ -35,5 +35,5 @@ it('iteration 2b slider invariants on first plans (retained candidate)', () => {
     const inv = sliderInvariants(r.context, slot.goal, r.goalPlan.calorieTargetKcal, slot.profile.averageSteps7d);
     rows.push({ source: 'premiers plans (hypercube)', candidate, horizon: solverHorizonDaysOf(r.context), profile_index: i, goal: slot.goal, points: inv.points, monotone: inv.monotone, max_abs_tissue_gap: inv.maxGap, plan_tissue_gap: Math.abs(r.goalPlan.solve.weightAtHorizonKg - r.goalPlan.solve.targetWeightAtHorizonKg), not_converged: inv.notConverged });
   });
-  writeCsvGz(`${DIR}/invariants2b-shard${shard}.csv.gz`, [...new Set(rows.flatMap((r) => Object.keys(r)))], rows);
+  writeCsvGz(`${DIR}/invariants2b${candidate}-shard${shard}.csv.gz`, [...new Set(rows.flatMap((r) => Object.keys(r)))], rows);
 });

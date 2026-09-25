@@ -9,7 +9,7 @@
  * - 'recalcul périodique' (candidate only): the rebuild of the periodic replan from the applied snapshot, i.e.
  *   buildPlanFromStore with that snapshot and the solver options (current state + solver, without the calibration).
  * Each timed 3 times after one warm-up; the median of the 3 is the profile's time.
- * Raw files: results/solver2b/timing2b-shard0.csv.gz, invariants2b-shard99.csv.gz.
+ * Raw files: results/solver2b/timing2b<candidate>-shard0.csv.gz, invariants2b<candidate>-shard99.csv.gz.
  */
 import { it } from 'vitest';
 import { applyRecalibration, buildPlanFromStore, computeCalibrationState, latestAppliedSnapshot } from '@/domain/engine';
@@ -57,12 +57,12 @@ it('iteration 2b timing and invariants on modeled bodies', () => {
         const applied = cal ? applyRecalibration(store, cal, today, iso(today), a.solver) : null;
         return { cal, applied };
       });
-      rows.push({ profile_index: i, goal: slot.goal, sex: slot.sex, bmi_class: slot.bmiClass, solver_arm: arm, operation: 'recalcul complet', weigh_ins: store.weights.length, ms: full.ms, gate_met: full.value.cal?.gate.met ?? false, applied: full.value.applied?.ok ?? false });
+      rows.push({ run: candidate, profile_index: i, goal: slot.goal, sex: slot.sex, bmi_class: slot.bmiClass, solver_arm: arm, operation: 'recalcul complet', weigh_ins: store.weights.length, ms: full.ms, gate_met: full.value.cal?.gate.met ?? false, applied: full.value.applied?.ok ?? false });
       if (arm === 'S0') continue;
       const snapshot = latestAppliedSnapshot(store);
       if (snapshot) {
         const replan = timed(() => buildPlanFromStore(store, today, { source: 'recalibrated', snapshot, ...(store.plan ? { stepTarget: store.plan.stepTarget } : {}), solver: a.solver as SolverRequest }));
-        rows.push({ profile_index: i, goal: slot.goal, sex: slot.sex, bmi_class: slot.bmiClass, solver_arm: arm, operation: 'recalcul périodique', weigh_ins: store.weights.length, ms: replan.ms, gate_met: null, applied: replan.value.ok });
+        rows.push({ run: candidate, profile_index: i, goal: slot.goal, sex: slot.sex, bmi_class: slot.bmiClass, solver_arm: arm, operation: 'recalcul périodique', weigh_ins: store.weights.length, ms: replan.ms, gate_met: null, applied: replan.value.ok });
       }
       // Slider invariants of the candidate on the modeled body of day 83 (plan rebuilt from the day-83 snapshot).
       const cal = full.value.cal;
@@ -76,6 +76,6 @@ it('iteration 2b timing and invariants on modeled bodies', () => {
     }
   });
   const cols = (rs: ReadonlyArray<Record<string, CsvValue>>) => [...new Set(rs.flatMap((r) => Object.keys(r)))];
-  writeCsvGz(`${DIR}/timing2b-shard0.csv.gz`, cols(rows), rows);
-  writeCsvGz(`${DIR}/invariants2b-shard99.csv.gz`, cols(inv), inv);
+  writeCsvGz(`${DIR}/timing2b${candidate}-shard0.csv.gz`, cols(rows), rows);
+  writeCsvGz(`${DIR}/invariants2b${candidate}-shard99.csv.gz`, cols(inv), inv);
 });
