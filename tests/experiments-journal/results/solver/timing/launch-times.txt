@@ -2,3 +2,7 @@
 2026-09-25T18:46:26+02:00 end pilot2a wall_s=16 failed_shards=0
 2026-09-25T18:47:03+02:00 start ideal2a shards=16
 2026-09-25T18:55:18+02:00 end ideal2a wall_s=495 failed_shards=0
+2026-09-25T19:06:55+02:00 start firstplan2a shards=16
+2026-09-25T19:07:05+02:00 end firstplan2a wall_s=10
+2026-09-25T19:07:34+02:00 start timing2a single process
+2026-09-25T19:09:25+02:00 end timing2a wall_s=110

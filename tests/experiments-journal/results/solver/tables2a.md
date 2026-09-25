@@ -183,6 +183,73 @@ Script : `it2a/diag2a.experiment.ts`. Utilisateurs en perte et en prise de ideal
 | perte | 1595 | 1,014 | 0,997 | 0,984 | 0,984 | 0,953 | 0,913 | 0,995 (305) | 7,0 | -103,6 | -0,138 | -0,634 | 0,0 |
 | prise | 1190 | 1,093 | 1,028 | 1,005 | 1,007 | 0,968 | 0,923 | 1,035 (189) | 7,0 | 44,6 | 0,043 | 0,239 | 10,5 |
 
+## 5.3 Premier plan (hypercube, sans seuil)
+
+1000 profils. Pour chaque vitesse demandée : écart de cible FX − S0 sur les plans valides dans les deux bras, part des plans où le plancher ralentit la vitesse (rejet `below_hard_floor`), part sans vitesse faisable.
+
+| Objectif | Vitesse demandée (%/sem.) | Profils | Δ cible médiane [P10 ; P90] (kcal/j) | Ralentis par le plancher S0 → FX | Sans vitesse faisable S0 → FX | Vitesse retenue plus lente sous FX |
+|---|---|---|---|---|---|---|
+| perte | 0,20 | 388 | -47 [-76 ; -31] | 0,00 % → 0,00 % | 0,00 % → 0,00 % | 0 |
+| perte | 0,25 | 388 | -61 [-96 ; -39] | 0,00 % → 0,00 % | 0,00 % → 0,00 % | 0 |
+| perte | 0,30 | 388 | -72 [-114 ; -39] | 0,00 % → 0,00 % | 0,00 % → 0,00 % | 0 |
+| perte | 0,35 | 388 | -84 [-133 ; -39] | 0,00 % → 0,00 % | 0,00 % → 0,00 % | 0 |
+| perte | 0,40 | 388 | -97 [-153 ; -39] | 0,00 % → 0,00 % | 0,00 % → 0,00 % | 0 |
+| perte | 0,45 | 388 | -108 [-173 ; -39] | 0,00 % → 0,00 % | 0,00 % → 0,00 % | 0 |
+| perte | 0,50 | 388 | -120 [-192 ; -39] | 0,00 % → 0,00 % | 0,00 % → 0,00 % | 0 |
+| perte | 0,55 | 388 | -132 [-212 ; -39] | 0,00 % → 0,00 % | 0,00 % → 0,00 % | 0 |
+| perte | 0,60 | 388 | -144 [-232 ; -39] | 0,00 % → 0,00 % | 0,00 % → 0,00 % | 0 |
+| perte | 0,65 | 388 | -155 [-251 ; -39] | 0,00 % → 0,00 % | 0,00 % → 0,00 % | 0 |
+| perte | 0,70 | 388 | -168 [-272 ; -39] | 0,00 % → 0,77 % | 0,00 % → 0,00 % | 3 |
+| perte | 0,75 | 388 | -180 [-288 ; -39] | 0,00 % → 3,61 % | 0,00 % → 0,00 % | 14 |
+| perte | 0,80 | 388 | -192 [-299 ; -39] | 0,00 % → 8,25 % | 0,00 % → 0,00 % | 32 |
+| perte | 0,85 | 388 | -201 [-312 ; -39] | 0,00 % → 15,72 % | 0,00 % → 0,00 % | 61 |
+| perte | 0,90 | 388 | -205 [-318 ; -39] | 0,00 % → 22,42 % | 0,00 % → 0,00 % | 87 |
+| perte | 0,95 | 388 | -216 [-310 ; -39] | 0,00 % → 29,38 % | 0,00 % → 0,00 % | 114 |
+| perte | 1,00 | 388 | -205 [-301 ; -37] | 1,03 % → 35,05 % | 0,00 % → 0,00 % | 136 |
+| prise | 0,10 | 304 | 26 [15 ; 37] | 0,00 % → 0,00 % | 0,00 % → 0,00 % | 0 |
+| prise | 0,15 | 304 | 39 [23 ; 56] | 0,00 % → 0,00 % | 0,00 % → 0,00 % | 0 |
+| prise | 0,20 | 304 | 52 [30 ; 75] | 0,00 % → 0,00 % | 0,00 % → 0,00 % | 0 |
+| prise | 0,25 | 304 | 65 [38 ; 93] | 0,00 % → 0,00 % | 0,00 % → 0,00 % | 0 |
+| prise | 0,30 | 304 | 78 [45 ; 112] | 0,00 % → 0,00 % | 0,00 % → 0,00 % | 0 |
+| prise | 0,35 | 304 | 91 [54 ; 130] | 0,00 % → 0,00 % | 0,00 % → 0,00 % | 0 |
+| prise | 0,40 | 304 | 104 [61 ; 148] | 0,00 % → 0,00 % | 0,00 % → 0,00 % | 0 |
+| prise | 0,45 | 304 | 118 [69 ; 167] | 0,00 % → 0,00 % | 0,00 % → 0,00 % | 0 |
+| prise | 0,50 | 304 | 131 [77 ; 186] | 0,00 % → 0,00 % | 0,00 % → 0,00 % | 0 |
+| maintien | 0,00 | 308 | 0 [0 ; 0] | 0,00 % → 0,00 % | 0,00 % → 0,00 % | 0 |
+
+## 5.3 Golden et cas R et S (premier plan, S0 → FX)
+
+| Cas | Objectif | Vitesse demandée | Cible S0 | Cible FX | Δ (kcal/j) | Vitesse retenue S0 → FX | Statut S0 → FX | Rejets FX |
+|---|---|---|---|---|---|---|---|---|
+| 01 female 25 sedentary normal BMI loss | perte | 0.005 | 1781 | 1683 | -98 | 0.005 → 0.005 | ok → ok |  |
+| 02 male 30 low active normal BMI maintenance | maintien | 0 | 2871 | 2871 | 0 | 0 → 0 | ok → ok |  |
+| 03 female 35 resistance training loss | perte | 0.005 | 1931 | 1809 | -122 | 0.005 → 0.005 | ok → ok |  |
+| 04 male 28 athlete-like resistance + endurance maintenance | maintien | 0 | 3162 | 3162 | 0 | 0 → 0 | ok → ok |  |
+| 05 female 42 obesity low active loss | perte | 0.005 | 1958 | 1777 | -182 | 0.005 → 0.005 | ok → ok |  |
+| 06 male 45 obesity active loss | perte | 0.0075 | 2423 | 2189 | -234 | 0.0075 → 0.0075 | ok → ok |  |
+| 07 female 55 active maintenance | maintien | 0 | 2368 | 2368 | 0 | 0 → 0 | ok → ok |  |
+| 08 male 60 moderate activity maintenance | maintien | 0 | 2609 | 2609 | 0 | 0 → 0 | ok → ok |  |
+| 09 female 65 resistance training maintenance | maintien | 0 | 1941 | 1941 | 0 | 0 → 0 | ok → ok |  |
+| 10 male 35 resistance training gain | prise | 0.0025 | 3118 | 3157 | 39 | 0.0025 → 0.0025 | ok → ok |  |
+| 11 female 30 endurance heavy gain | prise | 0.001 | 2357 | 2370 | 13 | 0.001 → 0.001 | ok → ok |  |
+| 12 valid indirect calorimetry | perte | 0.0025 | 1881 | 1819 | -62 | 0.0025 → 0.0025 | ok → ok |  |
+| R (historique 1 450 kcal) | perte | 0.01 | 1405 | 1234 | -171 | 0.01 → 0.009 | ok → ok | 0.01:below_hard_floor/0.0095:below_hard_floor |
+| S (historique 1 450 kcal) | perte | 0.01 | 1503 | 1254 | -249 | 0.01 → 0.01 | ok → ok |  |
+| R (sans historique) | perte | 0.01 | 1562 | 1320 | -241 | 0.01 → 0.01 | ok → ok |  |
+| S (sans historique) | perte | 0.01 | 1682 | 1455 | -228 | 0.01 → 0.01 | ok → ok |  |
+
+## 5.4 Invariants du curseur calories ↔ pas (correctif FX)
+
+- premier plan (hypercube) : 200 plans, 5940 points du curseur ; violations de monotonie : **0** ; écart |masse tissulaire j42 − cible| max par plan : médiane 0,002 kg, max 0,003 kg ; points non convergés : 0.
+- utilisateurs simulés, jour 83, état actuel : 49 plans, 1435 points du curseur ; violations de monotonie : **0** ; écart |masse tissulaire j42 − cible| max par plan : médiane 0,002 kg, max 0,003 kg ; points non convergés : 0.
+
+## 5.5 Temps d’un recalcul complet (calibration + état actuel + solveur)
+
+| Bras | Profils | P50 (ms) | P95 (ms) | P95 × 4 [déduit] (ms) | Seuil 1 s |
+|---|---|---|---|---|---|
+| S0 | 50 | 100,3 | 110,5 | 442,0 | sous |
+| FX | 50 | 102,1 | 112,0 | 447,9 | sous |
+
 ## Temps réel des lancements
 
 ```
@@ -190,5 +257,9 @@ Script : `it2a/diag2a.experiment.ts`. Utilisateurs en perte et en prise de ideal
 2026-09-25T18:46:26+02:00 end pilot2a wall_s=16 failed_shards=0
 2026-09-25T18:47:03+02:00 start ideal2a shards=16
 2026-09-25T18:55:18+02:00 end ideal2a wall_s=495 failed_shards=0
+2026-09-25T19:06:55+02:00 start firstplan2a shards=16
+2026-09-25T19:07:05+02:00 end firstplan2a wall_s=10
+2026-09-25T19:07:34+02:00 start timing2a single process
+2026-09-25T19:09:25+02:00 end timing2a wall_s=110
 ```
 
