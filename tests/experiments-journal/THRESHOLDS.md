@@ -138,3 +138,24 @@ Validé par le product owner le 2026-09-25, avant toute exécution de l'itérati
   - le |biais| moyen du maintien affiché, à 28 et 42 jours, est plus bas sous J-glucides dans les mondes −10 et +10 (borne haute de l'IC de la différence appariée < 0) ;
   - et il n'est pas plus haut de plus de 10 kcal/j (borne haute) dans les mondes base et sélectif (ingénierie).
 - Sinon, D5 est conservé.
+
+## Amendement 3 : correctif du solveur de plan
+
+Validé par le product owner le 2026-09-25, avant toute exécution de l'itération 2a. Ces critères portent sur la méthode actuelle (bras A, sans journal) et conditionnent la reprise de l'itération 2.
+
+Définition de la vitesse demandée retenue : (a), une vitesse tenue dans la durée, hors eau et glycogène des premiers jours. Correctif mesuré : départ du solveur à l'état actuel du corps modélisé, et cible sur la masse tissulaire.
+
+### A3.1 Monde idéal (bloquant)
+Hall nominal, pesées sans bruit, u = 0, suiveurs parfaits ; 500 utilisateurs.
+- En perte et en prise, dans chacune des fenêtres (semaines 5 à 12 et 13 à 24) : médiane du ratio vitesse obtenue / vitesse demandée dans [0,95 ; 1,05], IC 95 % inclus (ingénierie : le monde est celui du solveur, l'écart attendu ne vient que de l'estimation).
+- Médiane de chaque bloc de 4 semaines dans [0,90 ; 1,10] : pas de dérive au fil des mois (ingénierie).
+
+### A3.2 Monde réaliste (bloquant)
+Hall perturbé à ±20 %, pesées t + D + E, pas bruités ; 2 000 suiveurs.
+- S1 à S4 et S7 de C1, avec leurs seuils. Population unique : la méthode actuelle ne lit pas le journal, le biais de saisie est donc sans effet.
+
+### A3.3 Témoin
+Le solveur actuel est mesuré sur les mêmes utilisateurs, rapporté sans verdict.
+
+### A3.4 Premier plan (rapporté, sans seuil)
+Écart de la cible du premier plan, part des plans ralentis par le plancher, part sans vitesse faisable, écarts sur les golden et les cas R et S. Le product owner confirme la définition (a) au vu de ces chiffres avant toute mise en production.
