@@ -117,3 +117,24 @@ S'applique à N3, à C9 et à tout critère de couverture, absolu ou en différe
 ### A1.3 Passe doublée
 - Toute passe doublée utilise des graines neuves, disjointes de toutes les passes précédentes.
 - Le verdict porte sur la nouvelle passe seule.
+
+## Amendement 2
+
+Validé par le product owner le 2026-09-25, avant toute exécution de l'itération 2.
+
+### A2.1 Comparaison à la solution « cible choisie » (S5b)
+- Bras C : à la proposition de révision, l'utilisateur indique la cible qu'il vise, et la méthode actuelle continue, inchangée, avec cette cible.
+- S5b compare le mode journal (bras J) au bras C chez les non-suiveurs en perte et en prise, par fréquence de jours d'écart après la bascule (0 %, 15 %, 30 %), avec un IC apparié, dans les deux fenêtres de C1.
+- Règle de décision : le mode journal est retenu comme forme d'intégration si
+  - pour les fréquences 15 % et 30 % : la médiane de |ratio − 1| est plus basse sous J que sous C, borne haute de l'IC de la différence < 0 ;
+  - pour la fréquence 0 % : Δ médiane de |ratio − 1| (J − C) ≤ +0,05, borne haute (ingénierie).
+- Sinon, le mode journal n'est pas poursuivi. L'intégration du journal passe alors par le niveau qualitatif (D4, itération 3), et C2 et C6 ne sont pas lancés.
+- S5b n'arrête pas le chantier : il décide de la forme de l'intégration.
+
+### A2.2 Glucides saisis
+- Bras J-glucides : les glucides du glycogène de Hall sont les glucides saisis du jour, pour chaque jour exploitable.
+- Règle de décision : les glucides saisis remplacent la part de base (D5) si
+  - S1 à S4 passent pour J-glucides dans les quatre mondes (base, base −10, base +10, sélectif) ;
+  - le |biais| moyen du maintien affiché, à 28 et 42 jours, est plus bas sous J-glucides dans les mondes −10 et +10 (borne haute de l'IC de la différence appariée < 0) ;
+  - et il n'est pas plus haut de plus de 10 kcal/j (borne haute) dans les mondes base et sélectif (ingénierie).
+- Sinon, D5 est conservé.
