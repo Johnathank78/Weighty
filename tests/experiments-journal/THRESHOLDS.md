@@ -159,3 +159,24 @@ Le solveur actuel est mesuré sur les mêmes utilisateurs, rapporté sans verdic
 
 ### A3.4 Premier plan (rapporté, sans seuil)
 Écart de la cible du premier plan, part des plans ralentis par le plancher, part sans vitesse faisable, écarts sur les golden et les cas R et S. Le product owner confirme la définition (a) au vu de ces chiffres avant toute mise en production.
+
+## Amendement 4 : vitesse mesurée sur les tissus, recalcul périodique
+
+Validé par le product owner le 2026-09-25, après la lecture du rapport 37 et avant toute exécution de l'itération 2b.
+
+### A4.1 Mesure de la vitesse
+- Décidé après avoir vu les résultats de l'itération 2a, et marqué comme tel. Justification : la définition (a) de la vitesse demandée, retenue avant l'itération 2a, porte sur la masse tissulaire (hors eau et glycogène). Mesurer le poids total ne mesurait pas la quantité que le solveur doit tenir.
+- Tout critère fondé sur le ratio vitesse obtenue / vitesse demandée (A3.1, A3.2, et S1, S2, S3, S5 et S5b de C1) est jugé sur la masse tissulaire vraie (gras + maigre) : pente sur le bloc, divisée par la vitesse du plan actif × le poids vrai de début de bloc.
+- Le ratio sur le poids total est toujours rapporté à côté, sans verdict.
+- S4 (apport sous le plancher) et S7 (zone de maintien, sur le poids) sont inchangés.
+- Relecture de l'itération 2a sous cette règle : permise, marquée « après coup ».
+
+### A4.2 Recalcul périodique et choix de l'horizon
+- Candidats, tous deux avec le correctif FX (départ à l'état actuel + cible tissulaire) et un recalcul du plan tous les 28 jours :
+  - K1 : horizon du solveur de 42 jours ;
+  - K2 : horizon du solveur de 28 jours.
+- Règle de sélection, sur des graines de sélection distinctes des graines de validation :
+  - on retient le candidat qui passe tous les critères de A3.1 (sur les tissus) ;
+  - si les deux passent, K1, qui change moins la production ;
+  - si aucun ne passe, arrêt et diagnostic.
+- Le verdict A3.1 est ensuite rendu sur les graines de validation, pour le candidat retenu seul.
