@@ -21,6 +21,8 @@ import {
   currentWeightKg,
   ensureDailyLogs,
   markRecalibrationSeen,
+  periodicReplan,
+  planAgeDays,
   rebuildContextFromStore,
   setActualSteps,
   setAdherence,
@@ -35,15 +37,17 @@ import { emptyStore } from '@/persistence/schema';
 import { netStepKcal } from '@/science/activity';
 import { assessBaseline, planContextFrom } from '@/science/assessment';
 import { buildSnapshot, evaluateGate, fitCalibration, shouldSurfaceRecalibration } from '@/science/calibration';
-import type { GateStatus, SurfacingReference } from '@/science/calibration';
+import type { CalibrationInput, GateStatus, SurfacingReference } from '@/science/calibration';
 import { GAIN_RATE_HARD_MAX, KCAL_PER_G_CARB, KCAL_PER_G_FAT, KCAL_PER_G_PROTEIN } from '@/science/constants';
 import { addDays } from '@/science/dates';
 import { baselineCarbFractionFor, buildGoalPlan, guardrailMaxWeeklyRate, hardFloorKcal, macrosFor, maintenanceZone } from '@/science/goals';
+import type { SolverOptions } from '@/science/goals';
 import { bodyWeightOf } from '@/science/hall/model';
 import type { HallState } from '@/science/hall/model';
+import { modeledBodyAt } from '@/science/modeledBody';
 import type { UserProfile } from '@/science/types';
 import { intervalWidth } from '@/science/uncertainty';
-import { initWorldHall, NOMINAL_HALL_FACTORS, worldAdvance, worldBodyWeight, worldInitialState } from './closedLoopHall';
+import { initWorldHall, NOMINAL_HALL_FACTORS, worldAdvance, worldBodyWeight, worldInitialState, worldTissueKg } from './closedLoopHall';
 import type { HallFactors, WorldHall } from './closedLoopHall';
 import { BATTERY_START, CASE_R, CASE_S } from './journalBattery';
 import type { Activity, GoalKind } from './journalBattery';
@@ -316,6 +320,8 @@ export type UserSpec = {
   uUniform?: readonly [number, number];
   /** Iteration 2a (prompt 37): solver options of every plan of the user (onboarding and recalibrations). Absent: production solver. */
   solver?: SolverRequest;
+  /** Iteration 2b (prompt 38 s3.1): periodic replan when the plan in force reaches this age, days (with `solver`). Absent: none. */
+  replanEveryDays?: number;
 };
 
 export type SpecOptions = {
@@ -329,6 +335,7 @@ export type SpecOptions = {
   uSchedule?: USchedule;
   uUniform?: readonly [number, number];
   solver?: SolverRequest;
+  replanEveryDays?: number;
 };
 
 /** Offset ~ N(0, sigma of the profile prior), redrawn from the same stream while NASEM + offset is not admissible. */
@@ -363,6 +370,7 @@ export function makeSpec(slot: ProfileSlot, base: number, index: number, o: Spec
     ideal: o.ideal ?? false,
     ...(o.uUniform ? { uUniform: o.uUniform } : {}),
     ...(o.solver ? { solver: o.solver } : {}),
+    ...(o.replanEveryDays !== undefined ? { replanEveryDays: o.replanEveryDays } : {}),
   };
 }
 
@@ -518,7 +526,7 @@ export type Mode = 'pre' | 'A' | 'J' | 'C';
 
 export type PlanRecord = {
   day: number;
-  kind: 'onboarding' | 'recal_current' | 'recal_journal' | 'chosen_target';
+  kind: 'onboarding' | 'recal_current' | 'recal_journal' | 'chosen_target' | 'replan_periodic' | 'replan_periodic_journal';
   calorieTarget: number;
   weeklyRateTarget: number;
   requestedWeeklyRate: number;
@@ -551,6 +559,20 @@ export type EvalRecord = {
   gate?: Record<string, number | boolean>;
 };
 
+/** Iteration 2b (prompt 38 s5.4): one due periodic replan, applied or not. */
+export type ReplanRecord = {
+  day: number;
+  mode: Mode;
+  status: 'replanned' | 'no_snapshot' | 'failed';
+  ageDays: number;
+  targetBefore: number;
+  targetAfter: number | null;
+  reason?: string;
+};
+
+/** Iteration 2b (prompt 38 s3.3): last journal plan applied, the base of a periodic replan in journal mode. */
+export type JournalApplied = { offsetKcal: number; interval80: readonly [number, number]; interval95: readonly [number, number]; settings: JournalArmSettings };
+
 export type SimState = {
   mode: Mode;
   store: WheightyStore;
@@ -582,6 +604,11 @@ export type SimState = {
   plans: PlanRecord[];
   evals: EvalRecord[];
   journalDiag: Record<number, { offsetMedian: number; truthLogged: number; truthReal: number; gateMet: boolean; displayed: number }>;
+  /** Iteration 2b: true tissue mass of the world (fat + lean), day 0 to SIM_DAYS. */
+  trueTissue: number[];
+  /** Iteration 2b: every due periodic replan. */
+  replans: ReplanRecord[];
+  journalApplied: JournalApplied | null;
 };
 
 function cloneState(s: SimState): SimState {
@@ -606,6 +633,8 @@ function cloneState(s: SimState): SimState {
     plans: [...s.plans],
     evals: [...s.evals],
     journalDiag: { ...s.journalDiag },
+    trueTissue: [...s.trueTissue],
+    replans: [...s.replans],
   };
 }
 
@@ -660,6 +689,9 @@ export function initialState(world: World): SimState {
     plans: [planRecord(world, plan, 0, 'onboarding', ea, plan.warnings?.lowEnergyAvailability === true)],
     evals: [],
     journalDiag: {},
+    trueTissue: [worldTissueKg(world.hall, worldInitialState(world.hall))],
+    replans: [],
+    journalApplied: null,
   };
 }
 
@@ -715,7 +747,26 @@ export function withChosenTarget(store: WheightyStore, date: string, targetKcal:
 // Journal plan (s4.1): production goal solver, journal maintenance in logged units, floor of the arm
 // ---------------------------------------------------------------------------
 
-function journalGoalPlan(store: WheightyStore, date: string, offsetKcal: number, floorMultiplier: number | undefined) {
+/**
+ * Solver options of a journal plan (prompt 38 s3.3), as `solverOptionsFor` does for the current method: under
+ * currentState, the modeled body today from the journal calibration input (days rebuilt by `reconstructJournalDays`) at
+ * the journal offset.
+ */
+export function journalSolverOptions(request: SolverRequest, input: CalibrationInput, offsetKcal: number, today: string): SolverOptions {
+  const out: SolverOptions = { ...request };
+  if (request.solverStart === 'currentState') {
+    const body = modeledBodyAt(input, offsetKcal, today);
+    out.modeledBody = body;
+    if (body) out.modeledBodyAtOffsetDelta = (delta) => modeledBodyAt(input, offsetKcal + delta, today);
+  }
+  return out;
+}
+
+/**
+ * Journal plan: production goal solver on the journal maintenance. `solver` (prompt 38 s3.3): the solver options of the
+ * user (FX, horizon) with the journal calibration input of the day; absent: production solver, unchanged.
+ */
+export function journalGoalPlan(store: WheightyStore, date: string, offsetKcal: number, floorMultiplier: number | undefined, solver?: { request: SolverRequest; input: CalibrationInput }) {
   const profile = store.profile;
   const plan = store.plan;
   if (!profile || !plan) throw new Error('no plan');
@@ -723,7 +774,11 @@ function journalGoalPlan(store: WheightyStore, date: string, offsetKcal: number,
   const palCategory = store.meta.initialPalCategory ?? plan.palCategory;
   const assessment = assessBaseline(profile, date, { weightKg: weight, palCategory });
   const maintenance = assessment.populationTdeeKcal + offsetKcal;
-  const ctx = { ...planContextFrom(profile, assessment, maintenance), ...(floorMultiplier !== undefined ? { hardFloorMultiplier: floorMultiplier } : {}) };
+  const ctx = {
+    ...planContextFrom(profile, assessment, maintenance),
+    ...(floorMultiplier !== undefined ? { hardFloorMultiplier: floorMultiplier } : {}),
+    ...(solver ? { solver: journalSolverOptions(solver.request, solver.input, offsetKcal, date) } : {}),
+  };
   const goalPlan = buildGoalPlan(ctx, { goal: plan.goal, weeklyRate: profile.weeklyRateTarget, targetWeightKg: plan.targetWeightKg ?? profile.targetWeightKg, stepTarget: profile.averageSteps7d });
   return { goalPlan, assessment, ctx, weight, maintenance };
 }
@@ -865,49 +920,16 @@ function evaluateJournal(world: World, st: SimState, d: number, j: JournalArmSet
       rec.surfaced = true;
       st.journalLastSurfaced = { tdeeKcal: proposed, interval80Width: width, surfacedOn: date };
       if (acceptDraw(world, st)) {
-        const { goalPlan, assessment, ctx, weight: planWeight, maintenance } = journalGoalPlan(st.store, date, candidate.posteriorMedianOffsetKcal, j.floorMultiplier);
-        if (goalPlan.status === 'ok' && goalPlan.calorieTargetKcal !== null && goalPlan.macros !== null) {
-          const i80 = candidate.interval80;
-          const i95 = candidate.interval95;
-          const next: CurrentPlan = {
-            ...plan,
-            createdAt: `${date}T00:00:00.000Z`,
-            source: 'recalibrated',
-            maintenanceKcal: maintenance,
-            maintenanceInterval80: [assessment.populationTdeeKcal + i80[0], assessment.populationTdeeKcal + i80[1]],
-            maintenanceInterval95: [assessment.populationTdeeKcal + i95[0], assessment.populationTdeeKcal + i95[1]],
-            calorieTarget: goalPlan.calorieTargetKcal,
-            stepTarget: profile.averageSteps7d,
-            macros: { ...goalPlan.macros.exact },
-            macrosDisplay: { ...goalPlan.macros.display },
-            reeKcal: assessment.ree.reeKcalDay,
-            weeklyRateTarget: goalPlan.weeklyRateTarget,
-            planWeightKg: planWeight,
-            requestedWeeklyRate: goalPlan.requestedWeeklyRate,
-            baselineStepTarget: profile.averageSteps7d,
-            baselineCalorieTarget: goalPlan.calorieTargetKcal,
-            populationTdeeKcal: assessment.populationTdeeKcal,
-            personalOffsetKcal: candidate.posteriorMedianOffsetKcal,
-            hardFloorKcal: goalPlan.hardFloorKcal,
-            warnings: goalPlan.warnings,
-            proteinRule: goalPlan.macros.proteinRule,
-          };
-          st.store = syncTodayLog({ ...st.store, plan: next }, date);
+        const applied = applyJournalPlan(world, st, d, j, prepared.input, { offsetKcal: candidate.posteriorMedianOffsetKcal, interval80: candidate.interval80, interval95: candidate.interval95 }, 'recal_journal', truthLogged);
+        if (applied.ok) {
           rec.applied = true;
           st.recalDays.push(d);
-          // Oracle (s7.4): same solver and floor with the true maintenance in logged units.
-          let oracleTarget: number | null = null;
-          if (truthLogged !== null) {
-            const oracle = buildGoalPlan({ ...ctx, maintenanceKcal: assessment.populationTdeeKcal + truthLogged }, { goal: plan.goal, weeklyRate: profile.weeklyRateTarget, targetWeightKg: plan.targetWeightKg ?? profile.targetWeightKg, stepTarget: profile.averageSteps7d });
-            oracleTarget = oracle.status === 'ok' ? oracle.calorieTargetKcal : null;
-          }
-          st.plans.push(planRecord(world, next, d, 'recal_journal', goalPlan.energyAvailabilityKcalPerKgFfm, goalPlan.warnings.lowEnergyAvailability, oracleTarget));
           if (st.firstSwitchPlanDay === null) {
             st.firstSwitchPlanDay = d;
             st.targeting = !world.spec.robustness;
           }
         } else {
-          st.planFailures.push(`${d}:${goalPlan.status}`);
+          st.planFailures.push(`${d}:${applied.reason}`);
         }
       } else {
         st.declinedRecals++;
@@ -916,6 +938,63 @@ function evaluateJournal(world: World, st: SimState, d: number, j: JournalArmSet
   }
   if (diag && rec.offsetMedian !== null && truthLogged !== null) st.journalDiag[d] = { offsetMedian: rec.offsetMedian, truthLogged, truthReal, gateMet: gate.met, displayed: rec.displayedMaintenanceKcal };
   st.evals.push(rec);
+}
+
+/**
+ * Journal plan of day d from a journal offset and its intervals (prompt 36 s4.1), with the user's solver options when
+ * set (prompt 38 s3.3). Applied: the store gets the plan, the plan record is kept and `journalApplied` is updated.
+ */
+function applyJournalPlan(
+  world: World,
+  st: SimState,
+  d: number,
+  j: JournalArmSettings,
+  input: CalibrationInput,
+  base: { offsetKcal: number; interval80: readonly [number, number]; interval95: readonly [number, number] },
+  kind: 'recal_journal' | 'replan_periodic_journal',
+  truthLogged: number | null,
+): { ok: true } | { ok: false; reason: string } {
+  const date = dateOf(d);
+  const plan = st.store.plan as CurrentPlan;
+  const profile = st.store.profile as UserProfile;
+  const { goalPlan, assessment, ctx, weight: planWeight, maintenance } = journalGoalPlan(st.store, date, base.offsetKcal, j.floorMultiplier, world.spec.solver ? { request: world.spec.solver, input } : undefined);
+  if (goalPlan.status !== 'ok' || goalPlan.calorieTargetKcal === null || goalPlan.macros === null) return { ok: false, reason: goalPlan.status };
+  const i80 = base.interval80;
+  const i95 = base.interval95;
+  const next: CurrentPlan = {
+    ...plan,
+    createdAt: `${date}T00:00:00.000Z`,
+    source: 'recalibrated',
+    maintenanceKcal: maintenance,
+    maintenanceInterval80: [assessment.populationTdeeKcal + i80[0], assessment.populationTdeeKcal + i80[1]],
+    maintenanceInterval95: [assessment.populationTdeeKcal + i95[0], assessment.populationTdeeKcal + i95[1]],
+    calorieTarget: goalPlan.calorieTargetKcal,
+    stepTarget: profile.averageSteps7d,
+    macros: { ...goalPlan.macros.exact },
+    macrosDisplay: { ...goalPlan.macros.display },
+    reeKcal: assessment.ree.reeKcalDay,
+    weeklyRateTarget: goalPlan.weeklyRateTarget,
+    planWeightKg: planWeight,
+    requestedWeeklyRate: goalPlan.requestedWeeklyRate,
+    baselineStepTarget: profile.averageSteps7d,
+    baselineCalorieTarget: goalPlan.calorieTargetKcal,
+    populationTdeeKcal: assessment.populationTdeeKcal,
+    personalOffsetKcal: base.offsetKcal,
+    hardFloorKcal: goalPlan.hardFloorKcal,
+    warnings: goalPlan.warnings,
+    proteinRule: goalPlan.macros.proteinRule,
+  };
+  st.store = syncTodayLog({ ...st.store, plan: next }, date);
+  // Oracle (s7.4): production solver and the arm's floor with the true maintenance in logged units.
+  let oracleTarget: number | null = null;
+  if (truthLogged !== null) {
+    const { solver: _solver, ...oracleCtx } = ctx;
+    const oracle = buildGoalPlan({ ...oracleCtx, maintenanceKcal: assessment.populationTdeeKcal + truthLogged }, { goal: plan.goal, weeklyRate: profile.weeklyRateTarget, targetWeightKg: plan.targetWeightKg ?? profile.targetWeightKg, stepTarget: profile.averageSteps7d });
+    oracleTarget = oracle.status === 'ok' ? oracle.calorieTargetKcal : null;
+  }
+  st.plans.push(planRecord(world, next, d, kind, goalPlan.energyAvailabilityKcalPerKgFfm, goalPlan.warnings.lowEnergyAvailability, oracleTarget));
+  st.journalApplied = { offsetKcal: base.offsetKcal, interval80: base.interval80, interval95: base.interval95, settings: j };
+  return { ok: true };
 }
 
 function applySwitch(world: World, st: SimState, d: number, arm: ArmConfig): void {
@@ -967,7 +1046,49 @@ function realFloorAt(world: World, weightKg: number, d: number): number {
   return hardFloorKcal(a.ree.reeKcalDay, profile.sexForEquation);
 }
 
+/**
+ * Iteration 2b (prompt 38 s3.1): periodic replan, morning of day d after the weekly evaluation (a recalibration applied
+ * this morning has reset the plan age). Current method (modes pre and A): the domain's `periodicReplan` from the latest
+ * applied snapshot, with the user's solver options. Journal mode (s3.3, prepared, not measured): the same cadence from the
+ * last journal plan applied (offset and intervals), with the journal calibration input of the day; before any journal
+ * plan, counted as without snapshot. Chosen target (C): no periodic replan. Always accepted by the simulated user; no
+ * acceptance draw is consumed.
+ */
+function periodicStep(world: World, st: SimState, d: number): void {
+  const every = world.spec.replanEveryDays;
+  const request = world.spec.solver;
+  if (every === undefined || !request || st.mode === 'C') return;
+  const date = dateOf(d);
+  const plan = st.store.plan as CurrentPlan;
+  if (st.mode === 'J') {
+    const ageDays = planAgeDays(plan, date);
+    if (!(ageDays > 0 && ageDays % every === 0)) return;
+    const base = st.journalApplied;
+    if (!base) {
+      st.replans.push({ day: d, mode: st.mode, status: 'no_snapshot', ageDays, targetBefore: plan.calorieTarget, targetAfter: null });
+      return;
+    }
+    const prepared = journalCalibrationInputFromStore(st.store, date, journalOptions(base.settings));
+    const applied = prepared ? applyJournalPlan(world, st, d, base.settings, prepared.input, base, 'replan_periodic_journal', null) : { ok: false as const, reason: 'no_journal_input' };
+    st.replans.push({ day: d, mode: st.mode, status: applied.ok ? 'replanned' : 'failed', ageDays, targetBefore: plan.calorieTarget, targetAfter: applied.ok ? (st.store.plan as CurrentPlan).calorieTarget : null, ...(applied.ok ? {} : { reason: applied.reason }) });
+    return;
+  }
+  const r = periodicReplan(st.store, date, { replanEveryDays: every, solver: request });
+  if (r.status === 'not_due') return;
+  if (r.status !== 'replanned') {
+    st.replans.push({ day: d, mode: st.mode, status: r.status, ageDays: r.ageDays, targetBefore: plan.calorieTarget, targetAfter: null, ...(r.status === 'failed' ? { reason: r.reason } : {}) });
+    return;
+  }
+  st.store = r.store;
+  const next = st.store.plan as CurrentPlan;
+  st.replans.push({ day: d, mode: st.mode, status: 'replanned', ageDays: r.ageDays, targetBefore: plan.calorieTarget, targetAfter: next.calorieTarget });
+  const rec = planRecord(world, next, d, 'replan_periodic', null, next.warnings?.lowEnergyAvailability === true);
+  rec.trueWeightKg = st.trueW[d] as number;
+  st.plans.push(rec);
+}
+
 function eatAndLog(world: World, st: SimState, d: number): void {
+  periodicStep(world, st, d);
   const spec = world.spec;
   const draws = world.draws;
   const date = dateOf(d);
@@ -1043,6 +1164,7 @@ function eatAndLog(world: World, st: SimState, d: number): void {
     world.trueStartKg;
   st.hall = worldAdvance(world.hall, st.hall, { intakeKcal: real, carbKcal, paDeltaKcalPerKgDay: paDelta, sodiumDeltaMg: 0 }, 1);
   st.trueW.push(worldBodyWeight(world.hall, st.hall));
+  st.trueTissue.push(worldTissueKg(world.hall, st.hall));
   if (d % 7 === 0) st.floorReal.push(realFloorAt(world, st.trueW[d] as number, d));
   else st.floorReal.push(st.floorReal[st.floorReal.length - 1] as number);
   st.realKcal.push(real);
@@ -1155,6 +1277,21 @@ export function blockRatio(st: SimState, goal: GoalKind, a: number, b: number, r
   const sign = goalSign(goal);
   if (sign === 0) return null;
   const slope = olsSlope(st.trueW.slice(a, b + 1)) * 7;
+  let rate = 0;
+  for (let d = a; d < b; d++) rate += rates[d] as number;
+  rate /= b - a;
+  const requested = sign * rate * (st.trueW[a] as number);
+  return requested === 0 ? null : slope / requested;
+}
+
+/**
+ * Iteration 2b (prompt 38 s4, amendment 4 A4.1): ratio of a [a, b] day block on the true tissue mass (fat + lean): OLS slope
+ * of the tissue mass (kg/week) / rate of the active plan x true body weight at a (kg/week).
+ */
+export function tissueBlockRatio(st: SimState, goal: GoalKind, a: number, b: number, rates: readonly number[]): number | null {
+  const sign = goalSign(goal);
+  if (sign === 0) return null;
+  const slope = olsSlope(st.trueTissue.slice(a, b + 1)) * 7;
   let rate = 0;
   for (let d = a; d < b; d++) rate += rates[d] as number;
   rate /= b - a;

@@ -122,6 +122,12 @@ export type SolverOptions = {
   modeledBody?: ModeledBody | null | undefined;
   /** currentState projection band: the modeled body at the retained offset + delta (kcal/day). */
   modeledBodyAtOffsetDelta?: ((deltaKcal: number) => ModeledBody | null) | undefined;
+  /**
+   * Solver horizon, days (prompt 38 s3.2). Absent: the production horizon GOAL_SOLVER_HORIZON_DAYS (42). Any other value
+   * moves the horizon of the target, of the solve and of the slider to that day: W x (1 -/+ r)^(H/7) (weight) or start
+   * tissue + W x ((1 -/+ r)^(H/7) - 1) (sustainedTissue).
+   */
+  solverHorizonDays?: number | undefined;
 };
 
 export type Scenario = {
@@ -236,6 +242,8 @@ export type CalorieSolve = {
 export type SolverOriginSummary = {
   solverStart: SolverStart;
   rateDefinition: RateDefinition;
+  /** Horizon of the solve, days (prompt 38 s3.2). */
+  horizonDays: number;
   /** Reference weight of the plan: modeled weight today (currentState) or the context weight (equilibrium), kg. */
   referenceWeightKg: number;
   /** Tissue mass (fat + lean) of the start state, kg. */
@@ -259,9 +267,14 @@ function rateDefinitionOf(ctx: PlanContext): RateDefinition {
   return ctx.solver?.rateDefinition ?? 'fortyTwoDayWeight';
 }
 
+/** Horizon of the solver, days: the prototype option `solverHorizonDays` (prompt 38), else the production 42 days. */
+export function solverHorizonDaysOf(ctx: PlanContext): number {
+  return ctx.solver?.solverHorizonDays ?? GOAL_SOLVER_HORIZON_DAYS;
+}
+
 /** True when a prototype option changes the solver. False: every production path runs unchanged, bit for bit. */
 export function solverOptionsActive(ctx: PlanContext): boolean {
-  return currentStateBody(ctx) !== null || rateDefinitionOf(ctx) === 'sustainedTissue';
+  return currentStateBody(ctx) !== null || rateDefinitionOf(ctx) === 'sustainedTissue' || solverHorizonDaysOf(ctx) !== GOAL_SOLVER_HORIZON_DAYS;
 }
 
 function originFromBody(body: ModeledBody): SolverOrigin {
@@ -337,14 +350,15 @@ function metricAtDay(ctx: PlanContext, goal: Goal, o: SolverOrigin, scenario: Sc
 }
 
 /**
- * Horizon target of a weekly rate. fortyTwoDayWeight: W x (1 -/+ r)^6 (production). sustainedTissue (definition (a)):
- * start tissue mass + W x ((1 -/+ r)^6 - 1). W: reference weight of the plan.
+ * Horizon target of a weekly rate, horizon H (42 days in production, `solverHorizonDays` in the prototype).
+ * fortyTwoDayWeight: W x (1 -/+ r)^(H/7) (production with H = 42). sustainedTissue (definition (a)): start tissue mass +
+ * W x ((1 -/+ r)^(H/7) - 1). W: reference weight of the plan.
  */
 function horizonTarget(ctx: PlanContext, goal: Goal, weeklyRate: number): number {
   if (!solverOptionsActive(ctx)) return targetWeightAtHorizon(goal, ctx.currentWeightKg, weeklyRate);
   const o = solverOrigin(ctx, goal);
-  const w42 = targetWeightAtHorizon(goal, o.referenceWeightKg, weeklyRate);
-  return rateDefinitionOf(ctx) === 'sustainedTissue' ? tissueOf(o.p, o.s0) + (w42 - o.referenceWeightKg) : w42;
+  const wH = targetWeightAfterDays(goal, o.referenceWeightKg, weeklyRate, solverHorizonDaysOf(ctx));
+  return rateDefinitionOf(ctx) === 'sustainedTissue' ? tissueOf(o.p, o.s0) + (wH - o.referenceWeightKg) : wH;
 }
 
 /** Constant daily intake giving the horizon target of the active rate definition, from the solver start (prompt 37). */
@@ -354,7 +368,7 @@ export function solveCaloriesAtHorizon(ctx: PlanContext, goal: Goal, stepsPerDay
   const r = bisect({
     lo: GOAL_SOLVER_MIN_INTAKE_KCAL,
     hi: GOAL_SOLVER_MAX_INTAKE_KCAL,
-    f: (kcal) => metricAtDay(ctx, goal, o, { calorieTargetKcal: kcal, stepsPerDay }, GOAL_SOLVER_HORIZON_DAYS),
+    f: (kcal) => metricAtDay(ctx, goal, o, { calorieTargetKcal: kcal, stepsPerDay }, solverHorizonDaysOf(ctx)),
     target,
     increasing: true,
     maxIterations: GOAL_SOLVER_MAX_ITERATIONS,
@@ -367,7 +381,7 @@ export function solveCaloriesAtHorizon(ctx: PlanContext, goal: Goal, stepsPerDay
     targetWeightAtHorizonKg: target,
     iterations: r.iterations,
     converged: r.converged && r.bracketed,
-    origin: { solverStart: o.start, rateDefinition: rateDefinitionOf(ctx), referenceWeightKg: o.referenceWeightKg, startTissueKg: tissueOf(o.p, o.s0) },
+    origin: { solverStart: o.start, rateDefinition: rateDefinitionOf(ctx), horizonDays: solverHorizonDaysOf(ctx), referenceWeightKg: o.referenceWeightKg, startTissueKg: tissueOf(o.p, o.s0) },
   };
 }
 
@@ -442,6 +456,14 @@ export function maintenanceZone(targetWeightKg: number): { lowKg: number; highKg
 
 export function targetWeightAtHorizon(goal: Goal, currentWeightKg: number, weeklyRate: number): number {
   const weeks = GOAL_SOLVER_HORIZON_DAYS / DAYS_PER_WEEK;
+  if (goal === 'loss') return currentWeightKg * Math.pow(1 - weeklyRate, weeks);
+  if (goal === 'gain') return currentWeightKg * Math.pow(1 + weeklyRate, weeks);
+  return currentWeightKg;
+}
+
+/** Solver prototype (prompt 38 s3.2): `targetWeightAtHorizon` at a horizon of `days` (same expression; 42 gives the same value). */
+function targetWeightAfterDays(goal: Goal, currentWeightKg: number, weeklyRate: number, days: number): number {
+  const weeks = days / DAYS_PER_WEEK;
   if (goal === 'loss') return currentWeightKg * Math.pow(1 - weeklyRate, weeks);
   if (goal === 'gain') return currentWeightKg * Math.pow(1 + weeklyRate, weeks);
   return currentWeightKg;
@@ -735,9 +757,12 @@ export type SliderBaseline = {
   scenario: Scenario;
 };
 
-/** Horizon value of the baseline plan: weight, or tissue mass under the `sustainedTissue` prototype option (prompt 37). */
+/**
+ * Horizon value of the baseline plan: weight, or tissue mass under the `sustainedTissue` prototype option (prompt 37), at
+ * the solver horizon (`solverHorizonDays`, prompt 38).
+ */
 export function baselineWeightAtHorizon(ctx: PlanContext, baseline: SliderBaseline): number {
-  if (solverOptionsActive(ctx)) return metricAtDay(ctx, baseline.goal, solverOrigin(ctx, baseline.goal), baseline.scenario, GOAL_SOLVER_HORIZON_DAYS);
+  if (solverOptionsActive(ctx)) return metricAtDay(ctx, baseline.goal, solverOrigin(ctx, baseline.goal), baseline.scenario, solverHorizonDaysOf(ctx));
   return weightAtDay(ctx, baseline.goal, baseline.scenario, GOAL_SOLVER_HORIZON_DAYS);
 }
 
@@ -757,13 +782,14 @@ export function solveSliderPoint(ctx: PlanContext, baseline: SliderBaseline, ste
   let ee0: number;
   let projectedWeeklyChangeKg: number;
   if (solverOptionsActive(ctx)) {
-    // Prototype (prompt 37): expenditure at the solver start; weekly change from the modeled weight at the horizon.
+    // Prototype (prompts 37, 38): expenditure at the solver start; weekly change from the modeled weight at the horizon H.
     const o = solverOrigin(ctx, baseline.goal);
     const u = originInput(ctx, baseline.goal, o, { calorieTargetKcal: solve.calorieTargetKcal, stepsPerDay });
-    const sim = simulateFromOrigin(o, GOAL_SOLVER_HORIZON_DAYS, u, { recordEveryDays: GOAL_SOLVER_HORIZON_DAYS });
+    const horizon = solverHorizonDaysOf(ctx);
+    const sim = simulateFromOrigin(o, horizon, u, { recordEveryDays: horizon });
     ee0 = sim.days[0]?.energyExpenditureKcal ?? Number.NaN;
-    const w42 = sim.days[sim.days.length - 1]?.weightKg ?? Number.NaN;
-    projectedWeeklyChangeKg = ((w42 - o.referenceWeightKg) / GOAL_SOLVER_HORIZON_DAYS) * DAYS_PER_WEEK;
+    const wH = sim.days[sim.days.length - 1]?.weightKg ?? Number.NaN;
+    projectedWeeklyChangeKg = ((wH - o.referenceWeightKg) / horizon) * DAYS_PER_WEEK;
   } else {
     const p = hallParametersFor(ctx, baseline.goal);
     const u = hallInputFor(ctx, baseline.goal, { calorieTargetKcal: solve.calorieTargetKcal, stepsPerDay });

@@ -66,7 +66,7 @@ export type PlanBuildInput = {
  * Solver prototype request (prompt 37, measurement only). Reachable from tests and the simulator through the optional last
  * argument of completeOnboarding and applyRecalibration; the store, the worker and the UI never pass it.
  */
-export type SolverRequest = { solverStart?: SolverStart; rateDefinition?: RateDefinition };
+export type SolverRequest = { solverStart?: SolverStart; rateDefinition?: RateDefinition; solverHorizonDays?: number };
 
 export type PlanBuildResult =
   | { ok: true; plan: CurrentPlan; assessment: BaselineAssessment; goalPlan: GoalPlan; context: PlanContext }
@@ -732,6 +732,45 @@ export function applyRecalibration(store: WheightyStore, state: CalibrationState
   if (!result.ok) return { ok: false, reason: result.reason };
   const seen = markRecalibrationSeen(withSnapshot, state, today);
   return { ok: true, store: syncTodayLogTargets({ ...seen, plan: result.plan }, today) };
+}
+
+// ---------------------------------------------------------------------------
+// Periodic replan (prompt 38 s3.1, solver prototype, measurement only)
+// ---------------------------------------------------------------------------
+
+/** Age of the plan in force, days since it was applied (its `createdAt` date). */
+export function planAgeDays(plan: CurrentPlan, today: string): number {
+  return daysBetween(plan.createdAt.slice(0, 10), today);
+}
+
+export type PeriodicReplanResult =
+  | { status: 'not_due'; ageDays: number }
+  /** Due, but no applied calibration snapshot: the plan stays. */
+  | { status: 'no_snapshot'; ageDays: number }
+  /** Due, but the rebuild failed (e.g. no feasible speed): the plan stays. */
+  | { status: 'failed'; ageDays: number; reason: string }
+  | { status: 'replanned'; ageDays: number; store: WheightyStore };
+
+/**
+ * Periodic replan (prompt 38 s3.1, measurement only; reachable from tests and the simulator, never from the store, the
+ * worker or the UI). When the plan in force is `replanEveryDays` days old (and again every `replanEveryDays` days while a
+ * replan fails or cannot run), the plan is rebuilt from the latest applied calibration snapshot, without a new
+ * calibration, with the solver options of `solver` (the current state is rebuilt today from that snapshot's offset). Same
+ * rules as any rebuild (requested rate of the profile, BMI caps, floors, macro feasibility); the step target of the plan is
+ * kept, as in `applyRecalibration`. The new plan resets the age (`createdAt` = today). The snapshot list, the surfacing
+ * reference and every past log are unchanged. Presented to the user like any plan change (the simulator accepts it).
+ */
+export function periodicReplan(store: WheightyStore, today: string, options: { replanEveryDays: number; solver: SolverRequest }): PeriodicReplanResult {
+  const plan = store.plan;
+  if (!plan || !store.profile) return { status: 'not_due', ageDays: 0 };
+  const ageDays = planAgeDays(plan, today);
+  if (!(ageDays > 0 && ageDays % options.replanEveryDays === 0)) return { status: 'not_due', ageDays };
+  const snapshot = latestAppliedSnapshot(store);
+  if (!snapshot) return { status: 'no_snapshot', ageDays };
+  const withLogs = ensureDailyLogs(store, today);
+  const result = buildPlanFromStore(withLogs, today, { source: 'recalibrated', snapshot, stepTarget: plan.stepTarget, solver: options.solver });
+  if (!result.ok) return { status: 'failed', ageDays, reason: result.reason };
+  return { status: 'replanned', ageDays, store: syncTodayLogTargets({ ...withLogs, plan: result.plan }, today) };
 }
 
 // ---------------------------------------------------------------------------

@@ -42,9 +42,12 @@ export function modeledBodyAt(input: CalibrationInput, offsetKcal: number, today
   if (!isAdmissibleBaselineIntake(input.populationTdeeAtStartKcal + offsetKcal)) return null;
   const totalDays = Math.max(spanDays, daysBetween(startDate, today));
 
-  // Window of the fit (evidence weights), then the same reconstruction extended to today for the state.
+  // Window of the fit (evidence weights and inputs, exactly those of fitCalibration), then the days after the last weigh-in
+  // from the same reconstruction extended to today. `reconstructDays` follows the calibration input: the current method's
+  // days, or the journal regime's days (`reconstructJournalDays`) when the input carries `intakeObservations` (prompt 38
+  // s3.3). The journal reconstruction depends on the day count (median of the window), hence the window days are kept.
   const windowDays = reconstructDays(input, startDate, spanDays);
-  const days = totalDays === spanDays ? windowDays : reconstructDays(input, startDate, totalDays);
+  const days = totalDays === spanDays ? windowDays : [...windowDays, ...reconstructDays(input, startDate, totalDays).slice(spanDays)];
   const obsDays = weights.map((w) => daysBetween(startDate, w.date));
   const obsWeights = weights.map((_, i) => {
     if (i === 0) return 1;

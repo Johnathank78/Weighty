@@ -89,6 +89,11 @@ export function worldFatKg(p: WorldHall, s: HallState): number {
   return fatFromLean(p, s.lean);
 }
 
+/** Tissue mass of the world (fat + lean, without glycogen, its water and the extracellular fluid), prompt 38 s4. */
+export function worldTissueKg(p: WorldHall, s: HallState): number {
+  return s.lean + fatFromLean(p, s.lean);
+}
+
 type Derivatives = { dAt: number; dEcf: number; dGlycogen: number; dLean: number };
 
 function derivatives(p: WorldHall, s: HallState, u: HallDailyInput): Derivatives {
