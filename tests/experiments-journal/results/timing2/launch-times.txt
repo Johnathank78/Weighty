@@ -1,0 +1,5 @@
+2026-09-25T17:14:53+02:00 start ideal X=NaN shards=16
+2026-09-25T17:15:45+02:00 end ideal X=NaN wall_s=52 failed_shards=0
+2026-09-25T17:15:45+02:00 start pairing X=0.85 shards=16
+2026-09-25T17:19:11+02:00 end pairing X=0.85 wall_s=206 failed_shards=0
+ideal-diagnostic: 16 shards launched by a shell loop outside launch.sh, real 44.987 s (bash time), failed_shards=0

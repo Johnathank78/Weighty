@@ -1,0 +1,149 @@
+{
+  "control61": {
+    "pass": false,
+    "byGoal": {
+      "loss": {
+        "n": 395,
+        "users": 79,
+        "median": 0.6534835902779932,
+        "lo": 0.635216684443785,
+        "hi": 0.6719184242896772,
+        "p10": 0.4925908080338338,
+        "p90": 0.7552262358723936,
+        "pass": false
+      },
+      "gain": {
+        "n": 305,
+        "users": 61,
+        "median": 0.7004820208350782,
+        "lo": 0.681610325673316,
+        "hi": 0.7159054663987025,
+        "p10": 0.5624453716979722,
+        "p90": 0.831178063154219,
+        "pass": false
+      }
+    }
+  },
+  "control61Diagnostic": {
+    "loss_28": {
+      "n": 79,
+      "ratioWorld": 0.7043814468633623,
+      "ratioSolverFresh": 0.7660966649554374,
+      "week1Share": 0.3675413237389524,
+      "changeAtPlanMaintenance42d": 0.5625342570772744,
+      "atKcal": -81.23868226495132,
+      "offsetError": -26.458595682492675
+    },
+    "loss_56": {
+      "n": 79,
+      "ratioWorld": 0.675171096165947,
+      "ratioSolverFresh": 0.7721190928069317,
+      "week1Share": 0.36533553516315753,
+      "changeAtPlanMaintenance42d": 0.6965090349063274,
+      "atKcal": -74.56130504897352,
+      "offsetError": 3.470985985104079
+    },
+    "loss_84": {
+      "n": 79,
+      "ratioWorld": 0.6522500344513809,
+      "ratioSolverFresh": 0.7707449858283824,
+      "week1Share": 0.3626146902369941,
+      "changeAtPlanMaintenance42d": 0.7321125474695975,
+      "atKcal": -73.41595365483813,
+      "offsetError": 5.863703344223097
+    },
+    "loss_112": {
+      "n": 79,
+      "ratioWorld": 0.6229313699070412,
+      "ratioSolverFresh": 0.7859800142197961,
+      "week1Share": 0.3618306830113129,
+      "changeAtPlanMaintenance42d": 0.8299403598982451,
+      "atKcal": -74.31631396165783,
+      "offsetError": 5.120129808002787
+    },
+    "loss_140": {
+      "n": 79,
+      "ratioWorld": 0.6049965276781513,
+      "ratioSolverFresh": 0.7982562237371967,
+      "week1Share": 0.3603265941258969,
+      "changeAtPlanMaintenance42d": 0.8944743795928929,
+      "atKcal": -74.43816453490581,
+      "offsetError": 4.244327617514784
+    },
+    "loss_tous": {
+      "n": 395,
+      "ratioWorld": 0.6534835902779934,
+      "ratioSolverFresh": 0.7785080997332269,
+      "week1Share": 0.3638749705114116,
+      "changeAtPlanMaintenance42d": 0.7549371085405028,
+      "atKcal": -74.71818433075664,
+      "offsetError": 1.554461577349933
+    },
+    "gain_28": {
+      "n": 61,
+      "ratioWorld": 0.7942213106805548,
+      "ratioSolverFresh": 0.7799330274101344,
+      "week1Share": 0.36029438279147463,
+      "changeAtPlanMaintenance42d": -0.24627757790270266,
+      "atKcal": 26.101437802812676,
+      "offsetError": 4.149081157359845
+    },
+    "gain_56": {
+      "n": 61,
+      "ratioWorld": 0.7465095956345729,
+      "ratioSolverFresh": 0.7816039463410751,
+      "week1Share": 0.3597067177176334,
+      "changeAtPlanMaintenance42d": -0.2959186416230324,
+      "atKcal": 33.32252210706416,
+      "offsetError": 2.736281910980594
+    },
+    "gain_84": {
+      "n": 61,
+      "ratioWorld": 0.7179569564014382,
+      "ratioSolverFresh": 0.7815440675284948,
+      "week1Share": 0.3598216107190136,
+      "changeAtPlanMaintenance42d": -0.3266046371284119,
+      "atKcal": 35.159156388728206,
+      "offsetError": 0.5272258850887432
+    },
+    "gain_112": {
+      "n": 61,
+      "ratioWorld": 0.6645286638821172,
+      "ratioSolverFresh": 0.7731237882585343,
+      "week1Share": 0.3601413623654891,
+      "changeAtPlanMaintenance42d": -0.3790771897120919,
+      "atKcal": 36.10781465855482,
+      "offsetError": -0.03006312129063815
+    },
+    "gain_140": {
+      "n": 61,
+      "ratioWorld": 0.6458373243285211,
+      "ratioSolverFresh": 0.7720115714037789,
+      "week1Share": 0.3604345022495657,
+      "changeAtPlanMaintenance42d": -0.43259652645129165,
+      "atKcal": 36.641006220145684,
+      "offsetError": -0.2129533637627148
+    },
+    "gain_tous": {
+      "n": 305,
+      "ratioWorld": 0.7004820208350784,
+      "ratioSolverFresh": 0.7787240912169605,
+      "week1Share": 0.3601413623654891,
+      "changeAtPlanMaintenance42d": -0.33557225737595786,
+      "atKcal": 33.46638300347136,
+      "offsetError": 0.9594334072161175
+    }
+  },
+  "control62": {
+    "users": 120,
+    "usersWithProposal": 48,
+    "armComparisons": 600,
+    "mismatches": 0,
+    "pass": true
+  },
+  "timing": {
+    "users": 200,
+    "userMsTotal": 751877.2686000001,
+    "msPerUser": 3759.386343
+  }
+}

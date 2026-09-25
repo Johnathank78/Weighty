@@ -1,0 +1,10 @@
+{
+  "job": "ideal",
+  "shard": 4,
+  "users": 13,
+  "proposals": 0,
+  "wallMs": 47561.242,
+  "userMsTotal": 47551.8805,
+  "userMsP50": 3702.2289,
+  "userMsMax": 3920.111299999997
+}
