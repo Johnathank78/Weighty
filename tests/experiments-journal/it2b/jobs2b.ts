@@ -17,6 +17,8 @@
  * - timing2b     3 200 000 000 (5.6, 50 profiles)
  * - equiv2b      3 300 000 000 (3.3 equivalence test, 50 users)
  * - pilot2b      3 400 000 000 (debugging of the harness only, no result used)
+ * - select2bx2   3 500 000 000 (5.1 doubled pass, 1 000 ideal users, S0 and K2: common rule INCONCLUSIF of THRESHOLDS.md
+ *                and A1.3, declared after the first selection pass, before this pass ran)
  * User master seed = base + index; derived streams = master + k x 1 000 003 (k <= 20); LHS seed = base + 999 983.
  * The training and validation seeds of iteration 2 are not used.
  */
@@ -42,6 +44,7 @@ export const SEED_BASES_2B = {
   timing2b: 3_200_000_000,
   equiv2b: 3_300_000_000,
   pilot2b: 3_400_000_000,
+  select2bx2: 3_500_000_000,
 } as const;
 
 /** Periodic replan cadence and the two horizons measured (prompt 38: the only values measured). */
@@ -83,8 +86,8 @@ function slots(n: number, base: number): ProfileSlot[] {
   return s;
 }
 
-function idealJob(name: string, base: number, arms: Arm2bKey[]): Job2b {
-  return { name, count: 500, arms, user: (i) => ({ slot: slots(500, base)[i] as ProfileSlot, base, index: i, behavior: 'follower', ideal: true, tags: { population: 'ideal', world: 'ideal' } }) };
+function idealJob(name: string, base: number, arms: Arm2bKey[], count = 500): Job2b {
+  return { name, count, arms, user: (i) => ({ slot: slots(count, base)[i] as ProfileSlot, base, index: i, behavior: 'follower', ideal: true, tags: { population: 'ideal', world: 'ideal' } }) };
 }
 
 export function jobFor2b(name: string): Job2b {
@@ -92,6 +95,11 @@ export function jobFor2b(name: string): Job2b {
     // 5.1 selection: ideal world of control 6.1 (nominal Hall, noiseless weigh-ins, u = 0, perfect followers), 4 arms.
     case 'select2b':
       return idealJob(name, SEED_BASES_2B.select2b, ['S0', 'FX', 'K1', 'K2']);
+    // 5.1 doubled pass (THRESHOLDS.md common rules: an inconclusive criterion is never GO, n is doubled once with new
+    // seeds, A1.3, and the verdict rests on the new pass alone): K2, inconclusive on one criterion of the first pass; S0 as
+    // control. K1 failed outright (CI entirely outside the band) and is not rerun.
+    case 'select2bx2':
+      return idealJob(name, SEED_BASES_2B.select2bx2, ['S0', 'K2'], 1000);
     // 5.2 validation: same world, new seeds, control and retained candidate.
     case 'valid2b':
       return idealJob(name, SEED_BASES_2B.valid2b, ['S0', retainedCandidate()]);

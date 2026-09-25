@@ -18,6 +18,11 @@
  *   of real intake under the real floor <= 1 % and Wilson upper bound <= 2 %; S7 (on the weight, unchanged) Wilson lower
  *   bound of the share of maintenance followers inside the maintenance zone of their target at 8 weeks >= 80 %.
  * Bootstrap: 2 000 resamples of users, seed 38 000 001.
+ *
+ * Common rule of THRESHOLDS.md, applied after the first selection pass (declared before the doubled pass ran): a criterion
+ * whose CI straddles a bound of its band is INCONCLUSIF (never GO); a criterion whose CI lies entirely outside the band
+ * fails. An arm fails when a criterion fails, is inconclusive when none fails and one is inconclusive. An inconclusive
+ * candidate gets one doubled pass with new seeds (select2bx2, A1.3) and its selection status rests on that pass alone.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { it } from 'vitest';
@@ -54,7 +59,11 @@ const STRATA: Array<[string, string]> = [
   ['requested_rate', 'vitesse demandée'],
 ];
 
-type Check = { criterion: string; goal: string; unit: string; stat: Stat; band: [number, number]; pass: boolean; pointPass: boolean };
+type Status = 'pass' | 'inconclusive' | 'fail';
+type Check = { criterion: string; goal: string; unit: string; stat: Stat; band: [number, number]; pass: boolean; pointPass: boolean; status: Status };
+const statusOf = (s: Stat, lo: number, hi: number): Status => (inside(s, lo, hi) ? 'pass' : s.lo > hi || s.hi < lo ? 'fail' : 'inconclusive');
+const armStatus = (checks: readonly Check[]): Status => (checks.some((c) => c.status === 'fail') ? 'fail' : checks.some((c) => c.status === 'inconclusive') ? 'inconclusive' : 'pass');
+const statusFr: Record<Status, string> = { pass: 'passe', inconclusive: '**inconclusif**', fail: '**échoue**' };
 
 /** A3.1 criteria of one arm on the tissue ratio (A4.1). */
 function a31Checks(rows: readonly Row[], arm: string): Check[] {
@@ -63,19 +72,19 @@ function a31Checks(rows: readonly Row[], arm: string): Check[] {
     const sel = rows.filter((r) => r.solver_arm === arm && r.goal === goal);
     for (const [wk, , blocks] of WINDOWS.slice(0, 2)) {
       const s = bootstrapQuantile(sel.map((r) => blocksOf(r, blocks)), 0.5);
-      checks.push({ criterion: 'window', goal, unit: wk, stat: s, band: [0.95, 1.05], pass: inside(s, 0.95, 1.05), pointPass: s.value >= 0.95 && s.value <= 1.05 });
+      checks.push({ criterion: 'window', goal, unit: wk, stat: s, band: [0.95, 1.05], pass: inside(s, 0.95, 1.05), pointPass: s.value >= 0.95 && s.value <= 1.05, status: statusOf(s, 0.95, 1.05) });
     }
     for (let b = 1; b <= 5; b++) {
       const s = bootstrapQuantile(sel.map((r) => blocksOf(r, [b])), 0.5);
-      checks.push({ criterion: 'block', goal, unit: `b${b}`, stat: s, band: [0.9, 1.1], pass: inside(s, 0.9, 1.1), pointPass: s.value >= 0.9 && s.value <= 1.1 });
+      checks.push({ criterion: 'block', goal, unit: `b${b}`, stat: s, band: [0.9, 1.1], pass: inside(s, 0.9, 1.1), pointPass: s.value >= 0.9 && s.value <= 1.1, status: statusOf(s, 0.9, 1.1) });
     }
   }
   return checks;
 }
 
 function checksTable(md: string[], title: string, checks: readonly Check[]): void {
-  md.push(title, '', '| Critère | Objectif | Unité | Médiane tissus [IC 95 %] | Bande | IC dans la bande | Médiane seule dans la bande |', '|---|---|---|---|---|---|---|');
-  for (const c of checks) md.push(`| ${c.criterion === 'window' ? 'fenêtre' : 'bloc'} | ${goalFr(c.goal)} | ${c.unit} | ${f3(c.stat.value)} [${f3(c.stat.lo)} ; ${f3(c.stat.hi)}] | [${f3(c.band[0])} ; ${f3(c.band[1])}] | ${c.pass ? 'oui' : '**non**'} | ${c.pointPass ? 'oui' : 'non'} |`);
+  md.push(title, '', '| Critère | Objectif | Unité | Médiane tissus [IC 95 %] | Bande | IC dans la bande | Statut | Médiane seule dans la bande |', '|---|---|---|---|---|---|---|---|');
+  for (const c of checks) md.push(`| ${c.criterion === 'window' ? 'fenêtre' : 'bloc'} | ${goalFr(c.goal)} | ${c.unit} | ${f3(c.stat.value)} [${f3(c.stat.lo)} ; ${f3(c.stat.hi)}] | [${f3(c.band[0])} ; ${f3(c.band[1])}] | ${c.pass ? 'oui' : '**non**'} | ${statusFr[c.status]} | ${c.pointPass ? 'oui' : 'non'} |`);
   md.push('');
 }
 
@@ -235,18 +244,37 @@ it('iteration 2b tables', () => {
     const stop2 = { loss: s0l.value, gain: s0g.value, reproduces: Math.abs(s0l.value - 0.654) <= 0.03 && Math.abs(s0g.value - 0.703) <= 0.03 };
     verdicts.stop2 = stop2;
     md.push(`**Arrêt 2 (témoin S0, poids total, semaines 5 à 24, contre le rapport 37)** : perte ${f3(stop2.loss)} (attendu 0,654 ± 0,03), prise ${f3(stop2.gain)} (attendu 0,703 ± 0,03) : ${stop2.reproduces ? 'reproduit' : '**NON reproduit**'}.`, '');
-    const sel: Record<string, { pass: boolean; checks: Check[] }> = {};
+    const sel: Record<string, { pass: boolean; status: Status; checks: Check[] }> = {};
     for (const arm of arms) {
       const checks = a31Checks(select, arm);
-      sel[arm] = { pass: checks.every((c) => c.pass), checks };
+      sel[arm] = { pass: checks.every((c) => c.pass), status: armStatus(checks), checks };
       checksTable(md, `### Critères de A3.1 sur les tissus, bras ${arm}${arm === 'K1' || arm === 'K2' ? ' (candidat)' : ' (rapporté, hors sélection)'}`, checks);
-      md.push(`**${arm} : ${sel[arm].pass ? 'passe tous les critères' : 'échoue'}.**`, '');
+      md.push(`**${arm}, première passe : ${statusFr[(sel[arm] as { status: Status }).status]}.**`, '');
     }
-    const k1 = (sel.K1 as { pass: boolean }).pass;
-    const k2 = (sel.K2 as { pass: boolean }).pass;
+    // Doubled pass of an inconclusive candidate (common rule, A1.3): its status rests on the new pass alone.
+    const doubled = readAll(DIR, 'select2bx2');
+    const final: Record<string, Status> = { K1: (sel.K1 as { status: Status }).status, K2: (sel.K2 as { status: Status }).status };
+    const doubledOut: Record<string, unknown> = {};
+    if (doubled.length > 0) {
+      const byGoal2 = (g: string) => new Set(doubled.filter((r) => r.goal === g).map(userKey)).size;
+      md.push('## 5.1 bis Passe doublée de la sélection (graines 3,5·10⁹)', '', `Règle commune de THRESHOLDS.md (INCONCLUSIF : n doublé une fois, graines neuves A1.3, verdict sur la nouvelle passe seule). ${new Set(doubled.map(userKey)).size} utilisateurs (perte ${byGoal2('loss')}, prise ${byGoal2('gain')}, maintien ${byGoal2('maintenance')}), bras ${[...new Set(doubled.map((r) => r.solver_arm))].join(' et ')}.`, '');
+      const dArms = [...new Set(doubled.map((r) => r.solver_arm as string))];
+      idealTables(md, doubled, dArms, doubledOut);
+      for (const arm of dArms.filter((a) => a === 'K1' || a === 'K2')) {
+        if (final[arm] !== 'inconclusive') throw new Error(`doubled pass of ${arm}, not inconclusive in the first pass`);
+        const checks = a31Checks(doubled, arm);
+        final[arm] = armStatus(checks);
+        doubledOut[`checks_${arm}`] = { status: final[arm], checks };
+        checksTable(md, `### Critères de A3.1 sur les tissus, passe doublée, bras ${arm}`, checks);
+        md.push(`**${arm}, passe doublée : ${statusFr[final[arm] as Status]}.**`, '');
+      }
+      verdicts.selectDoubled = doubledOut;
+    }
+    const k1 = final.K1 === 'pass';
+    const k2 = final.K2 === 'pass';
     const retained = k1 ? 'K1' : k2 ? 'K2' : null;
-    verdicts.selection = { K1: k1, K2: k2, retained, checks: sel, stop2 };
-    md.push(`**Règle A4.2 : K1 ${k1 ? 'passe' : 'échoue'}, K2 ${k2 ? 'passe' : 'échoue'} ; candidat retenu : ${retained ?? 'aucun (arrêt 3)'}.**`, '');
+    verdicts.selection = { K1: final.K1, K2: final.K2, retained, firstPass: sel, stop2 };
+    md.push(`**Règle A4.2 : K1 ${statusFr[final.K1 as Status]}, K2 ${statusFr[final.K2 as Status]}${doubled.length > 0 ? ' (après la passe doublée)' : ''} ; candidat retenu : ${retained ?? 'aucun'}.**`, '');
     verdicts.select = out;
     for (const arm of ['K1', 'K2']) replanTable(md, select, arm, 'Recalculs périodiques, sélection', verdicts);
   }
@@ -445,32 +473,33 @@ it('iteration 2b tables', () => {
     md.push('');
     verdicts.golden = golden;
   }
-  const inv = readAll(DIR, 'invariants2b');
+  const inv = [...readAll(DIR, 'invariants2bK1'), ...readAll(DIR, 'invariants2bK2')];
   if (inv.length > 0) {
-    md.push('## 5.6 Invariants du curseur calories ↔ pas (candidat retenu)', '');
-    for (const src of [...new Set(inv.map((r) => r.source))]) {
-      const rows = inv.filter((r) => r.source === src);
+    md.push('## 5.6 Invariants du curseur calories ↔ pas (par candidat)', '');
+    for (const key of [...new Set(inv.map((r) => `${r.candidate}|${r.source}`))]) {
+      const [cand, src] = key.split('|') as [string, string];
+      const rows = inv.filter((r) => r.candidate === cand && r.source === src);
       const viol = rows.filter((r) => r.monotone === '0').length;
       const gaps = sortNum(rows.map((r) => Number(r.max_abs_tissue_gap)));
       const plan = sortNum(rows.map((r) => Number(r.plan_tissue_gap)).filter((v) => Number.isFinite(v)));
       const notConv = rows.reduce((s, r) => s + Number(r.not_converged), 0);
       md.push(`- ${src} (${rows[0]?.candidate ?? ''}, horizon ${rows[0]?.horizon ?? ''} j) : ${rows.length} plans, ${rows.reduce((s, r) => s + Number(r.points), 0)} points du curseur ; violations de monotonie : **${viol}** ; écart |masse tissulaire à l’horizon − cible| max par plan (curseur) : médiane ${f3(quantile(gaps, 0.5))} kg, max ${f3(gaps[gaps.length - 1] ?? Number.NaN)} kg ; plan lui-même : max ${f3(plan[plan.length - 1] ?? Number.NaN)} kg ; points non convergés : ${notConv}.`);
-      verdicts[`invariants_${src}`] = { plans: rows.length, violations: viol, maxTissueGap: gaps[gaps.length - 1] ?? null, planMaxGap: plan[plan.length - 1] ?? null, notConverged: notConv };
+      verdicts[`invariants_${cand}_${src}`] = { plans: rows.length, violations: viol, maxTissueGap: gaps[gaps.length - 1] ?? null, planMaxGap: plan[plan.length - 1] ?? null, notConverged: notConv };
     }
     md.push('');
   }
-  const timing = readAll(DIR, 'timing2b');
+  const timing = [...readAll(DIR, 'timing2bK1'), ...readAll(DIR, 'timing2bK2')];
   if (timing.length > 0) {
-    md.push('## 5.6 Temps d’un recalcul complet (calibration + état actuel + solveur)', '', '| Bras | Opération | Profils | P50 (ms) | P95 (ms) | P95 × 4 [déduit] (ms) | Seuil 1 s |', '|---|---|---|---|---|---|---|');
+    md.push('## 5.6 Temps d’un recalcul complet (calibration + état actuel + solveur)', '', '| Lancement | Bras | Opération | Profils | P50 (ms) | P95 (ms) | P95 × 4 [déduit] (ms) | Seuil 1 s |', '|---|---|---|---|---|---|---|---|');
     const out: Record<string, unknown> = {};
-    for (const arm of [...new Set(timing.map((r) => r.solver_arm as string))]) {
+    for (const run of [...new Set(timing.map((r) => r.run as string))]) for (const arm of [...new Set(timing.map((r) => r.solver_arm as string))]) {
       for (const op of [...new Set(timing.map((r) => r.operation as string))]) {
-        const ms = sortNum(timing.filter((r) => r.solver_arm === arm && r.operation === op).map((r) => Number(r.ms)));
+        const ms = sortNum(timing.filter((r) => r.run === run && r.solver_arm === arm && r.operation === op).map((r) => Number(r.ms)));
         if (ms.length === 0) continue;
         const p50 = quantile(ms, 0.5);
         const p95 = quantile(ms, 0.95);
-        out[`${arm}_${op}`] = { n: ms.length, p50, p95, p95x4: 4 * p95, pass: 4 * p95 <= 1000 };
-        md.push(`| ${arm} | ${op} | ${ms.length} | ${f1(p50)} | ${f1(p95)} | ${f1(4 * p95)} | ${4 * p95 <= 1000 ? 'sous' : '**au-dessus**'} |`);
+        out[`${run}_${arm}_${op}`] = { n: ms.length, p50, p95, p95x4: 4 * p95, pass: 4 * p95 <= 1000 };
+        md.push(`| ${run} | ${arm} | ${op} | ${ms.length} | ${f1(p50)} | ${f1(p95)} | ${f1(4 * p95)} | ${4 * p95 <= 1000 ? 'sous' : '**au-dessus**'} |`);
       }
     }
     verdicts.timing = out;
