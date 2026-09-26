@@ -1,0 +1,3 @@
+Relaunch of iteration 2 (prompt 40 s4.5): real2c shard 3 (report 39) replayed with the simulator of this iteration in the 2c configuration (jobs2c.ts, arms S0, K2, S0 + G, K2 + G), 16 sub-shards.
+Users: 125. Per-user rows: 500 produced, 500 committed; 90000 values compared, 0 differences.
+Daily rows: 27716 produced, 27716 committed; 471172 values compared, 0 differences; committed rows without a counterpart: 0.

@@ -1,0 +1,11 @@
+Relaunch of iteration 2 (prompt 40 s4.5), options absent.
+Capture before: 7b10e5a (amendment 6 commit, src identical to e2e44d8). Capture after: prototype of s3 (simulator: guardrails in modes J and C, chosen-target rules, declared major-deviation share, extended timing; no change under src/), options absent.
+sha256 prefixes (before): t03=3447793aaab0a3d4 t04=c65c47cfed27e2f0 golden=e20b17f402509bfc cases-rs=7448ba1318f76389 journey=b6e8e7b3fb627099
+sha256 prefixes (after): t03=3447793aaab0a3d4 t04=c65c47cfed27e2f0 golden=e20b17f402509bfc cases-rs=1aed8d0ba0e9e490 journey=0b1c3c9dc35b51d8
+t03, t04, golden: byte-identical before/after and to the captures of phases 1, 1b, 2, 2a, 2b and 2c. cases-rs, journey: random store ids differ (masked).
+t03: 1003779 numeric values, 0 numeric differences, 0 other differences
+t04: 1497006 numeric values, 0 numeric differences, 0 other differences
+golden: 3483 numeric values, 0 numeric differences, 0 other differences
+cases-rs: 9847 numeric values, 0 numeric differences, 0 other differences
+journey: 8896 numeric values, 0 numeric differences, 0 other differences
+TOTAL 2523011 numeric values compared, 0 differences, 554 random ids masked
