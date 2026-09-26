@@ -1,0 +1,25 @@
+{
+  "job": "c1v1",
+  "shard": 4,
+  "users": 188,
+  "proposals": 100,
+  "wallMs": 1121555.4562,
+  "userMsTotal": 1121241.1415999997,
+  "userMsP50": 3629.0527999999467,
+  "userMsMax": 19388.71160000004,
+  "cost": {
+    "nonfollower:common": 57327.573800000944,
+    "nonfollower:users": 125,
+    "nonfollower:proposals": 100,
+    "nonfollower:A": 93131.52509999994,
+    "nonfollower:J": 233277.8409000002,
+    "nonfollower:C": 297743.11230000085,
+    "nonfollower:JN": 231288.33659999954,
+    "follower:common": 208470.76350000082,
+    "follower:users": 63,
+    "follower:A": 0,
+    "follower:J": 0,
+    "follower:C": 0,
+    "follower:JN": 0
+  }
+}
