@@ -19,6 +19,7 @@ import {
   completeOnboarding,
   computeCalibrationState,
   currentWeightKg,
+  enforcePlanGuardrails,
   ensureDailyLogs,
   markRecalibrationSeen,
   periodicReplan,
@@ -38,14 +39,15 @@ import { netStepKcal } from '@/science/activity';
 import { assessBaseline, planContextFrom } from '@/science/assessment';
 import { buildSnapshot, evaluateGate, fitCalibration, shouldSurfaceRecalibration } from '@/science/calibration';
 import type { CalibrationInput, GateStatus, SurfacingReference } from '@/science/calibration';
-import { GAIN_RATE_HARD_MAX, KCAL_PER_G_CARB, KCAL_PER_G_FAT, KCAL_PER_G_PROTEIN } from '@/science/constants';
+import { GAIN_RATE_HARD_MAX, KCAL_PER_G_CARB, KCAL_PER_G_FAT, KCAL_PER_G_PROTEIN, LOSS_UNAVAILABLE_BMI_BELOW } from '@/science/constants';
 import { addDays } from '@/science/dates';
 import { baselineCarbFractionFor, buildGoalPlan, guardrailMaxWeeklyRate, hardFloorKcal, macrosFor, maintenanceZone } from '@/science/goals';
 import type { SolverOptions } from '@/science/goals';
 import { bodyWeightOf } from '@/science/hall/model';
 import type { HallState } from '@/science/hall/model';
+import { bmi as bmiOfWeight } from '@/science/macros';
 import { modeledBodyAt } from '@/science/modeledBody';
-import type { UserProfile } from '@/science/types';
+import type { Goal, UserProfile } from '@/science/types';
 import { intervalWidth } from '@/science/uncertainty';
 import { initWorldHall, NOMINAL_HALL_FACTORS, worldAdvance, worldBodyWeight, worldInitialState, worldTissueKg } from './closedLoopHall';
 import type { HallFactors, WorldHall } from './closedLoopHall';
@@ -322,6 +324,11 @@ export type UserSpec = {
   solver?: SolverRequest;
   /** Iteration 2b (prompt 38 s3.1): periodic replan when the plan in force reaches this age, days (with `solver`). Absent: none. */
   replanEveryDays?: number;
+  /**
+   * Iteration 2c (prompt 39 s3.2): guardrails of the plan in force (`enforcePlanGuardrails`, G1 and G2) on every weekly
+   * evaluation day, before the calibration evaluation, with the user's solver options. Absent: none.
+   */
+  planGuardrails?: boolean;
 };
 
 export type SpecOptions = {
@@ -336,6 +343,7 @@ export type SpecOptions = {
   uUniform?: readonly [number, number];
   solver?: SolverRequest;
   replanEveryDays?: number;
+  planGuardrails?: boolean;
 };
 
 /** Offset ~ N(0, sigma of the profile prior), redrawn from the same stream while NASEM + offset is not admissible. */
@@ -371,6 +379,7 @@ export function makeSpec(slot: ProfileSlot, base: number, index: number, o: Spec
     ...(o.uUniform ? { uUniform: o.uUniform } : {}),
     ...(o.solver ? { solver: o.solver } : {}),
     ...(o.replanEveryDays !== undefined ? { replanEveryDays: o.replanEveryDays } : {}),
+    ...(o.planGuardrails ? { planGuardrails: true } : {}),
   };
 }
 
@@ -526,7 +535,7 @@ export type Mode = 'pre' | 'A' | 'J' | 'C';
 
 export type PlanRecord = {
   day: number;
-  kind: 'onboarding' | 'recal_current' | 'recal_journal' | 'chosen_target' | 'replan_periodic' | 'replan_periodic_journal';
+  kind: 'onboarding' | 'recal_current' | 'recal_journal' | 'chosen_target' | 'replan_periodic' | 'replan_periodic_journal' | 'guardrail_g1' | 'guardrail_g2';
   calorieTarget: number;
   weeklyRateTarget: number;
   requestedWeeklyRate: number;
@@ -570,6 +579,28 @@ export type ReplanRecord = {
   reason?: string;
 };
 
+/**
+ * Iteration 2c (prompt 39 s3.2): one guardrail event (G1 or G2) of a weekly evaluation day, applied or failed. `bmi`: BMI
+ * of the app weight (trend) the guardrail was checked on; `reason`: the trigger (applied) or the rebuild failure (failed).
+ */
+export type GuardRecord = {
+  day: number;
+  rule: 'G1' | 'G2';
+  status: 'applied' | 'failed';
+  bmi: number;
+  reason: string;
+  targetBefore: number;
+  rateBefore: number;
+  targetAfter: number | null;
+  rateAfter: number | null;
+};
+
+/**
+ * Iteration 2c (prompt 39 s3.2, amendment 5 A5.4): S3-P check of a weekly evaluation day, once every step of the day is
+ * applied (guardrails, calibration evaluation, periodic replan): the plan in force against the BMI of the app weight.
+ */
+export type S3pRecord = { day: number; appWeightKg: number; bmi: number; goal: Goal; rate: number; violation: boolean };
+
 /** Iteration 2b (prompt 38 s3.3): last journal plan applied, the base of a periodic replan in journal mode. */
 export type JournalApplied = { offsetKcal: number; interval80: readonly [number, number]; interval95: readonly [number, number]; settings: JournalArmSettings };
 
@@ -609,6 +640,13 @@ export type SimState = {
   /** Iteration 2b: every due periodic replan. */
   replans: ReplanRecord[];
   journalApplied: JournalApplied | null;
+  /** Iteration 2c: guardrail events, S3-P checks of the weekly evaluation days. */
+  guards: GuardRecord[];
+  s3p: S3pRecord[];
+  /** Iteration 2c, day 0 to SIM_DAYS - 1: goal and app floor (D-32, `hardFloorKcal`) of the plan in force, app weight (trend). */
+  planGoal: Goal[];
+  planFloor: number[];
+  appW: number[];
 };
 
 function cloneState(s: SimState): SimState {
@@ -635,6 +673,11 @@ function cloneState(s: SimState): SimState {
     journalDiag: { ...s.journalDiag },
     trueTissue: [...s.trueTissue],
     replans: [...s.replans],
+    guards: [...s.guards],
+    s3p: [...s.s3p],
+    planGoal: [...s.planGoal],
+    planFloor: [...s.planFloor],
+    appW: [...s.appW],
   };
 }
 
@@ -692,6 +735,11 @@ export function initialState(world: World): SimState {
     trueTissue: [worldTissueKg(world.hall, worldInitialState(world.hall))],
     replans: [],
     journalApplied: null,
+    guards: [],
+    s3p: [],
+    planGoal: [],
+    planFloor: [],
+    appW: [],
   };
 }
 
@@ -1087,8 +1135,54 @@ function periodicStep(world: World, st: SimState, d: number): void {
   st.plans.push(rec);
 }
 
+/**
+ * Iteration 2c (prompt 39 s3.2): guardrails of the plan in force, morning of a weekly evaluation day, before the calibration
+ * evaluation (current method only: modes pre and A). The new plan is applied like any plan of the harness (the simulated
+ * user follows it); no acceptance draw is consumed. A failed rebuild leaves the plan in place and is recorded.
+ */
+function guardStep(world: World, st: SimState, d: number): void {
+  if (!world.spec.planGuardrails || (st.mode !== 'pre' && st.mode !== 'A')) return;
+  const date = dateOf(d);
+  const before = st.store.plan as CurrentPlan;
+  const r = enforcePlanGuardrails(st.store, date, world.spec.solver ? { solver: world.spec.solver } : {});
+  if (r.status === 'none') return;
+  const common = { day: d, rule: r.rule, bmi: r.bmi, targetBefore: before.calorieTarget, rateBefore: before.weeklyRateTarget };
+  if (r.status === 'failed') {
+    st.guards.push({ ...common, status: 'failed', reason: r.reason, targetAfter: null, rateAfter: null });
+    return;
+  }
+  st.store = r.store;
+  const next = st.store.plan as CurrentPlan;
+  st.guards.push({ ...common, status: 'applied', reason: r.rule === 'G1' ? 'bmi_below_20' : 'rate_above_cap', targetAfter: next.calorieTarget, rateAfter: next.weeklyRateTarget });
+  const rec = planRecord(world, next, d, r.rule === 'G1' ? 'guardrail_g1' : 'guardrail_g2', null, next.warnings?.lowEnergyAvailability === true);
+  rec.trueWeightKg = st.trueW[d] as number;
+  st.plans.push(rec);
+}
+
+/** App weight: the weight the domain rebuilds a plan at (`currentWeightKg`: latest trend weight, else the profile weight). */
+function appWeightOf(store: WheightyStore): number {
+  return currentWeightKg(store) ?? (store.profile as UserProfile).currentWeightKg;
+}
+
+/**
+ * S3-P (amendment 5 A5.4): after the weekly evaluation, the plan in force prescribes a loss while the BMI of the app weight
+ * is under LOSS_UNAVAILABLE_BMI_BELOW, or a rate above the cap of that BMI (`guardrailMaxWeeklyRate`; same 1e-9 tolerance
+ * as `buildGoalPlan` and `enforcePlanGuardrails`).
+ */
+export function s3pCheck(store: WheightyStore, d: number): S3pRecord {
+  const plan = store.plan as CurrentPlan;
+  const profile = store.profile as UserProfile;
+  const appWeightKg = appWeightOf(store);
+  const bmi = bmiOfWeight(appWeightKg, profile.heightCm);
+  let violation = false;
+  if (plan.goal === 'loss') violation = bmi < LOSS_UNAVAILABLE_BMI_BELOW || plan.weeklyRateTarget > (guardrailMaxWeeklyRate('loss', bmi) as number) + 1e-9;
+  else if (plan.goal === 'gain') violation = plan.weeklyRateTarget > (guardrailMaxWeeklyRate('gain', bmi) as number) + 1e-9;
+  return { day: d, appWeightKg, bmi, goal: plan.goal, rate: plan.weeklyRateTarget, violation };
+}
+
 function eatAndLog(world: World, st: SimState, d: number): void {
   periodicStep(world, st, d);
+  if (d > 0 && d % EVAL_EVERY_DAYS === 0) st.s3p.push(s3pCheck(st.store, d));
   const spec = world.spec;
   const draws = world.draws;
   const date = dateOf(d);
@@ -1176,6 +1270,9 @@ function eatAndLog(world: World, st: SimState, d: number): void {
   st.planRate.push(plan.weeklyRateTarget);
   st.planRequested.push(plan.requestedWeeklyRate ?? profile.weeklyRateTarget);
   st.planProteinG.push(plan.macros.proteinG);
+  st.planGoal.push(plan.goal);
+  st.planFloor.push(plan.hardFloorKcal ?? Number.NaN);
+  st.appW.push(appWeightOf(st.store));
   // Day counted by S4: the user aims at the displayed target (journal users after the switch plan; followers of the
   // current method before any switch).
   st.targetingDay.push(st.targeting || (spec.behavior === 'follower' && (st.mode === 'pre' || st.mode === 'A')));
@@ -1191,6 +1288,7 @@ function morning(world: World, st: SimState, d: number, arm: ArmConfig | null): 
     evaluateJournal(world, st, d, arm.journal);
     return null;
   }
+  guardStep(world, st, d);
   return evaluateCurrent(world, st, d);
 }
 

@@ -1,0 +1,11 @@
+Iteration 2c non-regression (prompt 39 s3.5), option absent.
+Capture before: 9a856a1 (amendment 5 commit, src identical to 8d60518). Capture after: s3 prototype (enforcePlanGuardrails, changeGoal options, simulator planGuardrails), option absent.
+sha256 prefixes (before): t03=3447793aaab0a3d4 t04=c65c47cfed27e2f0 golden=e20b17f402509bfc cases-rs=4ccdc8bc02a2e766 journey=fd38d8f821e9a5b8 
+sha256 prefixes (after): t03=3447793aaab0a3d4 t04=c65c47cfed27e2f0 golden=e20b17f402509bfc cases-rs=3a065386bb7244fe journey=39edad4ad2c92356 
+t03, t04, golden: byte-identical before/after and to the captures of phases 1, 1b, 2, 2a and 2b. cases-rs, journey: random store ids differ (masked).
+t03: 1003779 numeric values, 0 numeric differences, 0 other differences
+t04: 1497006 numeric values, 0 numeric differences, 0 other differences
+golden: 3483 numeric values, 0 numeric differences, 0 other differences
+cases-rs: 9847 numeric values, 0 numeric differences, 0 other differences
+journey: 8896 numeric values, 0 numeric differences, 0 other differences
+TOTAL 2523011 numeric values compared, 0 differences, 554 random ids masked

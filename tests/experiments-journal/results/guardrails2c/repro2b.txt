@@ -1,0 +1,2 @@
+Iteration 2b raw rows (real2b shard 14: 156 users, 312 user x arm rows, committed 312) replayed with the 2c simulator, guardrails absent: 41496 values compared, 0 differences.
+Daily rows (2028, committed 2028): 20280 values compared, 0 differences.

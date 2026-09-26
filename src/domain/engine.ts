@@ -7,12 +7,13 @@ import { assessBaseline, planContextFrom } from '@/science/assessment';
 import type { BaselineAssessment } from '@/science/assessment';
 import { buildSnapshot, evaluateGate, fitCalibration, shouldSurfaceRecalibration } from '@/science/calibration';
 import type { CalibrationFit, CalibrationInput, GateStatus } from '@/science/calibration';
-import { GOAL_SOLVER_HORIZON_DAYS, HALL_BODY_FAT_MIN_QUALITY, LOSS_RATE_CAUTION_ABOVE, SCIENTIFIC_MODEL_VERSION } from '@/science/constants';
+import { GOAL_SOLVER_HORIZON_DAYS, HALL_BODY_FAT_MIN_QUALITY, LOSS_RATE_CAUTION_ABOVE, LOSS_UNAVAILABLE_BMI_BELOW, SCIENTIFIC_MODEL_VERSION } from '@/science/constants';
 import { addDays, daysBetween } from '@/science/dates';
 import {
   baselineCarbFractionFor,
   buildGoalPlan,
   effectiveMinSliderSteps,
+  guardrailMaxWeeklyRate,
   maintenanceZone,
   maxSelectableWeeklyRate,
   projectPlan,
@@ -24,6 +25,7 @@ import {
   weightAtDay,
 } from '@/science/goals';
 import type { GoalPlan, PlanContext, RateDefinition, SelectableRateLimit, SliderBaseline, SliderBounds, SliderPoint, SolverOptions, SolverStart } from '@/science/goals';
+import { bmi } from '@/science/macros';
 import { modeledBodyAt } from '@/science/modeledBody';
 import { BODY_FAT_QUALITY } from '@/science/ree';
 import { computeTrend, summarizeTrend } from '@/science/trend';
@@ -599,11 +601,27 @@ export function applySliderSteps(store: WheightyStore, today: string, steps: num
 // Goal and profile changes
 // ---------------------------------------------------------------------------
 
-export function changeGoal(store: WheightyStore, today: string, input: { goal: Goal; targetWeightKg: number; weeklyRate: number }): { ok: true; store: WheightyStore } | { ok: false; reason: string } {
+/**
+ * Guardrail prototype options of a goal change (prompt 39 s3.1, measurement only): the step target kept from the plan in
+ * force and the solver options of the user. Passed by `enforcePlanGuardrails` only; the store, the worker and the UI never
+ * pass them.
+ */
+export type GoalChangeOptions = { stepTarget?: number; solver?: SolverRequest };
+
+export function changeGoal(
+  store: WheightyStore,
+  today: string,
+  input: { goal: Goal; targetWeightKg: number; weeklyRate: number },
+  options?: GoalChangeOptions,
+): { ok: true; store: WheightyStore } | { ok: false; reason: string } {
   if (!store.profile) return { ok: false, reason: 'no_profile' };
   const profile: UserProfile = { ...store.profile, goal: input.goal, targetWeightKg: input.targetWeightKg, weeklyRateTarget: input.goal === 'maintenance' ? 0 : input.weeklyRate };
   const withLogs = ensureDailyLogs(store, today);
-  const result = buildPlanFromStore({ ...withLogs, profile }, today, { source: 'initial' });
+  const result = buildPlanFromStore({ ...withLogs, profile }, today, {
+    source: 'initial',
+    ...(options?.stepTarget !== undefined ? { stepTarget: options.stepTarget } : {}),
+    ...(options?.solver ? { solver: options.solver } : {}),
+  });
   if (!result.ok) return { ok: false, reason: result.reason };
   return { ok: true, store: syncTodayLogTargets({ ...withLogs, profile, plan: result.plan }, today) };
 }
@@ -771,6 +789,53 @@ export function periodicReplan(store: WheightyStore, today: string, options: { r
   const result = buildPlanFromStore(withLogs, today, { source: 'recalibrated', snapshot, stepTarget: plan.stepTarget, solver: options.solver });
   if (!result.ok) return { status: 'failed', ageDays, reason: result.reason };
   return { status: 'replanned', ageDays, store: syncTodayLogTargets({ ...withLogs, plan: result.plan }, today) };
+}
+
+// ---------------------------------------------------------------------------
+// Guardrails of the plan in force (prompt 39 s3.1, measurement only)
+// ---------------------------------------------------------------------------
+
+export type PlanGuardrailRule = 'G1' | 'G2';
+
+export type PlanGuardrailResult =
+  /** No rule applies: the store is returned unchanged (same object). */
+  | { status: 'none'; bmi: number | null; store: WheightyStore }
+  /** A rule applies and the plan was rebuilt; the new plan resets the age (`createdAt` = today). */
+  | { status: 'applied'; rule: PlanGuardrailRule; bmi: number; store: WheightyStore }
+  /** A rule applies but the rebuild failed: the plan (and the profile) stay in place. */
+  | { status: 'failed'; rule: PlanGuardrailRule; bmi: number; reason: string };
+
+/**
+ * Guardrails of the plan in force (prompt 39 s3.1, amendment 5 A5.3; measurement only, reachable from tests and the
+ * simulator, never from the store, the worker or the UI). Checked on the weight the domain uses when it rebuilds a plan
+ * (`currentWeightKg`: latest trend weight, else the profile weight), the BMI of `bmi` (science):
+ * - G1: a loss plan with a BMI under `LOSS_UNAVAILABLE_BMI_BELOW` is replaced by a maintenance plan at that weight, built
+ *   by `changeGoal` (the profile goal becomes maintenance, target = that weight), with the step target of the plan in force
+ *   and the user's solver options. The goal then stays maintenance: every later rebuild reads the profile goal.
+ * - G2: otherwise, a loss plan whose `weeklyRateTarget` exceeds `guardrailMaxWeeklyRate('loss', BMI)` is rebuilt with the
+ *   rules of a recalculation (`buildPlanFromStore`: requested rate of the profile capped, floors, macro feasibility), with
+ *   the step target of the plan in force and the user's solver options.
+ * Both start from the latest applied calibration snapshot when there is one, the population estimate otherwise. A
+ * maintenance or gain plan, or a loss plan within both rules, comes back unchanged.
+ */
+export function enforcePlanGuardrails(store: WheightyStore, today: string, options: { solver?: SolverRequest } = {}): PlanGuardrailResult {
+  const plan = store.plan;
+  const profile = store.profile;
+  if (!plan || !profile) return { status: 'none', bmi: null, store };
+  const weight = currentWeightKg(store) ?? profile.currentWeightKg;
+  const currentBmi = bmi(weight, profile.heightCm);
+  if (plan.goal !== 'loss') return { status: 'none', bmi: currentBmi, store };
+  const solver = options.solver ? { solver: options.solver } : {};
+  if (currentBmi < LOSS_UNAVAILABLE_BMI_BELOW) {
+    const r = changeGoal(store, today, { goal: 'maintenance', targetWeightKg: weight, weeklyRate: 0 }, { stepTarget: plan.stepTarget, ...solver });
+    return r.ok ? { status: 'applied', rule: 'G1', bmi: currentBmi, store: r.store } : { status: 'failed', rule: 'G1', bmi: currentBmi, reason: r.reason };
+  }
+  const cap = guardrailMaxWeeklyRate('loss', currentBmi);
+  if (cap === null || !(plan.weeklyRateTarget > cap + 1e-9)) return { status: 'none', bmi: currentBmi, store };
+  const withLogs = ensureDailyLogs(store, today);
+  const result = buildPlanFromStore(withLogs, today, { source: 'recalibrated', stepTarget: plan.stepTarget, ...solver });
+  if (!result.ok) return { status: 'failed', rule: 'G2', bmi: currentBmi, reason: result.reason };
+  return { status: 'applied', rule: 'G2', bmi: currentBmi, store: syncTodayLogTargets({ ...withLogs, plan: result.plan }, today) };
 }
 
 // ---------------------------------------------------------------------------
