@@ -302,15 +302,18 @@ function proposalTable(rows: readonly Row[], pops: readonly string[]) {
   table(['Population', 'Utilisateurs', 'Médiane [IC 95 %]'], noProp);
 }
 
-/** S5 and S5b by declared major-deviation share (reported, 7.4). */
-function factorTable(rows: readonly Row[]) {
+/**
+ * S5 and S5b by declared major-deviation share (reported, 7.4), and by weigh-in density (stratification of s11; this second
+ * table was added after the V1 measurement, reported without verdict).
+ */
+function factorTable(rows: readonly Row[], col = 'major_share', values: readonly string[] = SHARES, title = 'part déclarée « écart important »') {
   const lines: string[][] = [];
-  for (const s of SHARES) {
+  for (const s of values) {
     for (const [name, a, b, pred] of [
-      ['S5 (J − A)', 'A', 'J', (r: Row) => switched(r) && r.major_share === s],
-      ['S5b 0 % (J − C)', 'C', 'J', (r: Row) => switched(r) && r.major_share === s && r.dev_freq === '0'],
-      ['S5b 15 % (J − C)', 'C', 'J', (r: Row) => switched(r) && r.major_share === s && r.dev_freq === '0.15'],
-      ['S5b 30 % (J − C)', 'C', 'J', (r: Row) => switched(r) && r.major_share === s && r.dev_freq === '0.3'],
+      ['S5 (J − A)', 'A', 'J', (r: Row) => switched(r) && r[col] === s],
+      ['S5b 0 % (J − C)', 'C', 'J', (r: Row) => switched(r) && r[col] === s && r.dev_freq === '0'],
+      ['S5b 15 % (J − C)', 'C', 'J', (r: Row) => switched(r) && r[col] === s && r.dev_freq === '0.15'],
+      ['S5b 30 % (J − C)', 'C', 'J', (r: Row) => switched(r) && r[col] === s && r.dev_freq === '0.3'],
     ] as const) {
       const ps = pairs(rows, a, b, pred);
       for (const w of WINDOWS) {
@@ -319,8 +322,8 @@ function factorTable(rows: readonly Row[]) {
       }
     }
   }
-  md.push('**S5 et S5b par part déclarée « écart important » (rapportés, perte et prise ensemble)**', '');
-  table(['Part déclarée', 'Comparaison', 'Fenêtre', 'Utilisateurs', 'Médiane |ratio − 1|', 'Δ [IC 95 %]'], lines);
+  md.push(`**S5 et S5b par ${title} (rapportés, perte et prise ensemble)**`, '');
+  table([title.charAt(0).toUpperCase() + title.slice(1), 'Comparaison', 'Fenêtre', 'Utilisateurs', 'Médiane |ratio − 1|', 'Δ [IC 95 %]'], lines);
 }
 
 /** Strata of arm J (switched non-followers), point values (s11). */
@@ -446,6 +449,7 @@ function validationPopulation(rows: readonly Row[], p: string, withP00: boolean,
   guardTable(popRows, withP00 ? ['A', 'J', 'C', 'JN'] : ['A', 'J', 'C']);
   proposalTable(popRows, [p]);
   factorTable(popRows);
+  factorTable(popRows, 'weigh_p', ['1', '0.9', '0.75'], 'densité de pesée (ajouté après la mesure V1)');
   strataTable(popRows, p);
   const blocking = combine(statuses);
   verdicts[`${step} ${p} blocking`] = blocking;

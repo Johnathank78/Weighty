@@ -227,8 +227,8 @@
   "V1 P00 J": {
     "S1 perte, sem. 5-12": "GO",
     "S1 perte, sem. 13-24": "GO",
-    "S1 prise, sem. 5-12": "INCONCLUSIF",
-    "S1 prise, sem. 13-24": "INCONCLUSIF",
+    "S1 prise, sem. 5-12": "GO",
+    "S1 prise, sem. 13-24": "GO",
     "S3-P [S]": "GO",
     "S3-D [S]": "GO",
     "S4-P [S]": "GO",
@@ -261,8 +261,8 @@
   "V1 P00 JN (rapporté)": {
     "S1 perte, sem. 5-12": "GO",
     "S1 perte, sem. 13-24": "GO",
-    "S1 prise, sem. 5-12": "INCONCLUSIF",
-    "S1 prise, sem. 13-24": "INCONCLUSIF",
+    "S1 prise, sem. 5-12": "GO",
+    "S1 prise, sem. 13-24": "GO",
     "S3-P [S]": "GO",
     "S3-D [S]": "GO",
     "S4-P [S]": "GO",
@@ -313,10 +313,10 @@
     "S4-P [S]": "GO",
     "S4-J [S]": "NO-GO"
   },
-  "V1 P00 blocking": "INCONCLUSIF",
+  "V1 P00 blocking": "GO",
   "V1": {
-    "job": "c1v1",
-    "blocking": "INCONCLUSIF",
+    "job": "c1v1x2",
+    "blocking": "GO",
     "a21": "NO-GO",
     "stop": true,
     "doubledNeeded": false
