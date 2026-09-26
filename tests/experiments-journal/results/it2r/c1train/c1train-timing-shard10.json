@@ -1,0 +1,19 @@
+{
+  "job": "c1train",
+  "shard": 10,
+  "users": 250,
+  "proposals": 198,
+  "wallMs": 2790317.9351999997,
+  "userMsTotal": 2789886.615500002,
+  "userMsP50": 11722.62099999981,
+  "userMsMax": 23959.792600000044,
+  "cost": {
+    "nonfollower:common": 121306.81780000124,
+    "nonfollower:users": 250,
+    "nonfollower:proposals": 198,
+    "nonfollower:A": 198418.76239999957,
+    "nonfollower:J100": 520320.8153999979,
+    "nonfollower:J85": 810816.6651999985,
+    "nonfollower:J70": 1139020.6260999981
+  }
+}

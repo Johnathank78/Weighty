@@ -1,0 +1,227 @@
+{
+  "train J70 P00": {
+    "S1 perte, sem. 5-12": "GO",
+    "S1 perte, sem. 13-24": "GO",
+    "S1 prise, sem. 5-12": "NO-GO",
+    "S1 prise, sem. 13-24": "NO-GO",
+    "S3-P [S]": "GO",
+    "S3-D [S]": "GO",
+    "S4-P [S]": "GO",
+    "S4-J [S]": "GO"
+  },
+  "train J70 P00 S5": {
+    "S5 perte, sem. 5-12": "GO",
+    "S5 perte, sem. 13-24": "GO",
+    "S5 prise, sem. 5-12": "GO",
+    "S5 prise, sem. 13-24": "GO",
+    "S5 perte et prise, sem. 5-12": "rapporté",
+    "S5 perte et prise, sem. 13-24": "rapporté"
+  },
+  "train J70 P05": {
+    "S1 perte, sem. 5-12": "GO",
+    "S1 perte, sem. 13-24": "GO",
+    "S1 prise, sem. 5-12": "NO-GO",
+    "S1 prise, sem. 13-24": "NO-GO",
+    "S3-P [S]": "GO",
+    "S3-D [S]": "GO",
+    "S4-P [S]": "GO",
+    "S4-J [S]": "GO"
+  },
+  "train J70 P05 S5": {
+    "S5 perte, sem. 5-12": "GO",
+    "S5 perte, sem. 13-24": "GO",
+    "S5 prise, sem. 5-12": "GO",
+    "S5 prise, sem. 13-24": "GO",
+    "S5 perte et prise, sem. 5-12": "rapporté",
+    "S5 perte et prise, sem. 13-24": "rapporté"
+  },
+  "train J70 P10": {
+    "S1 perte, sem. 5-12": "INCONCLUSIF",
+    "S1 perte, sem. 13-24": "GO",
+    "S1 prise, sem. 5-12": "NO-GO",
+    "S1 prise, sem. 13-24": "NO-GO",
+    "S3-P [S]": "GO",
+    "S3-D [S]": "GO",
+    "S4-P [S]": "GO",
+    "S4-J [S]": "GO"
+  },
+  "train J70 P10 S5": {
+    "S5 perte, sem. 5-12": "GO",
+    "S5 perte, sem. 13-24": "GO",
+    "S5 prise, sem. 5-12": "GO",
+    "S5 prise, sem. 13-24": "GO",
+    "S5 perte et prise, sem. 5-12": "rapporté",
+    "S5 perte et prise, sem. 13-24": "rapporté"
+  },
+  "train J70 P20": {
+    "S1 perte, sem. 5-12": "NO-GO",
+    "S1 perte, sem. 13-24": "INCONCLUSIF",
+    "S1 prise, sem. 5-12": "NO-GO",
+    "S1 prise, sem. 13-24": "NO-GO",
+    "S3-P [S]": "GO",
+    "S3-D [S]": "GO",
+    "S4-P [S]": "GO",
+    "S4-J [S]": "GO"
+  },
+  "train J70 P20 S5": {
+    "S5 perte, sem. 5-12": "GO",
+    "S5 perte, sem. 13-24": "GO",
+    "S5 prise, sem. 5-12": "GO",
+    "S5 prise, sem. 13-24": "GO",
+    "S5 perte et prise, sem. 5-12": "rapporté",
+    "S5 perte et prise, sem. 13-24": "rapporté"
+  },
+  "train J85 P00": {
+    "S1 perte, sem. 5-12": "GO",
+    "S1 perte, sem. 13-24": "GO",
+    "S1 prise, sem. 5-12": "INCONCLUSIF",
+    "S1 prise, sem. 13-24": "NO-GO",
+    "S3-P [S]": "GO",
+    "S3-D [S]": "GO",
+    "S4-P [S]": "GO",
+    "S4-J [S]": "GO"
+  },
+  "train J85 P00 S5": {
+    "S5 perte, sem. 5-12": "GO",
+    "S5 perte, sem. 13-24": "GO",
+    "S5 prise, sem. 5-12": "GO",
+    "S5 prise, sem. 13-24": "GO",
+    "S5 perte et prise, sem. 5-12": "rapporté",
+    "S5 perte et prise, sem. 13-24": "rapporté"
+  },
+  "train J85 P05": {
+    "S1 perte, sem. 5-12": "GO",
+    "S1 perte, sem. 13-24": "GO",
+    "S1 prise, sem. 5-12": "INCONCLUSIF",
+    "S1 prise, sem. 13-24": "INCONCLUSIF",
+    "S3-P [S]": "GO",
+    "S3-D [S]": "GO",
+    "S4-P [S]": "GO",
+    "S4-J [S]": "GO"
+  },
+  "train J85 P05 S5": {
+    "S5 perte, sem. 5-12": "GO",
+    "S5 perte, sem. 13-24": "GO",
+    "S5 prise, sem. 5-12": "GO",
+    "S5 prise, sem. 13-24": "GO",
+    "S5 perte et prise, sem. 5-12": "rapporté",
+    "S5 perte et prise, sem. 13-24": "rapporté"
+  },
+  "train J85 P10": {
+    "S1 perte, sem. 5-12": "INCONCLUSIF",
+    "S1 perte, sem. 13-24": "GO",
+    "S1 prise, sem. 5-12": "INCONCLUSIF",
+    "S1 prise, sem. 13-24": "INCONCLUSIF",
+    "S3-P [S]": "GO",
+    "S3-D [S]": "GO",
+    "S4-P [S]": "GO",
+    "S4-J [S]": "GO"
+  },
+  "train J85 P10 S5": {
+    "S5 perte, sem. 5-12": "GO",
+    "S5 perte, sem. 13-24": "GO",
+    "S5 prise, sem. 5-12": "GO",
+    "S5 prise, sem. 13-24": "GO",
+    "S5 perte et prise, sem. 5-12": "rapporté",
+    "S5 perte et prise, sem. 13-24": "rapporté"
+  },
+  "train J85 P20": {
+    "S1 perte, sem. 5-12": "NO-GO",
+    "S1 perte, sem. 13-24": "INCONCLUSIF",
+    "S1 prise, sem. 5-12": "INCONCLUSIF",
+    "S1 prise, sem. 13-24": "INCONCLUSIF",
+    "S3-P [S]": "GO",
+    "S3-D [S]": "GO",
+    "S4-P [S]": "GO",
+    "S4-J [S]": "GO"
+  },
+  "train J85 P20 S5": {
+    "S5 perte, sem. 5-12": "INCONCLUSIF",
+    "S5 perte, sem. 13-24": "GO",
+    "S5 prise, sem. 5-12": "GO",
+    "S5 prise, sem. 13-24": "GO",
+    "S5 perte et prise, sem. 5-12": "rapporté",
+    "S5 perte et prise, sem. 13-24": "rapporté"
+  },
+  "train J100 P00": {
+    "S1 perte, sem. 5-12": "GO",
+    "S1 perte, sem. 13-24": "GO",
+    "S1 prise, sem. 5-12": "INCONCLUSIF",
+    "S1 prise, sem. 13-24": "INCONCLUSIF",
+    "S3-P [S]": "GO",
+    "S3-D [S]": "GO",
+    "S4-P [S]": "GO",
+    "S4-J [S]": "GO"
+  },
+  "train J100 P00 S5": {
+    "S5 perte, sem. 5-12": "GO",
+    "S5 perte, sem. 13-24": "GO",
+    "S5 prise, sem. 5-12": "GO",
+    "S5 prise, sem. 13-24": "GO",
+    "S5 perte et prise, sem. 5-12": "rapporté",
+    "S5 perte et prise, sem. 13-24": "rapporté"
+  },
+  "train J100 P05": {
+    "S1 perte, sem. 5-12": "GO",
+    "S1 perte, sem. 13-24": "GO",
+    "S1 prise, sem. 5-12": "INCONCLUSIF",
+    "S1 prise, sem. 13-24": "INCONCLUSIF",
+    "S3-P [S]": "GO",
+    "S3-D [S]": "GO",
+    "S4-P [S]": "GO",
+    "S4-J [S]": "GO"
+  },
+  "train J100 P05 S5": {
+    "S5 perte, sem. 5-12": "GO",
+    "S5 perte, sem. 13-24": "GO",
+    "S5 prise, sem. 5-12": "GO",
+    "S5 prise, sem. 13-24": "GO",
+    "S5 perte et prise, sem. 5-12": "rapporté",
+    "S5 perte et prise, sem. 13-24": "rapporté"
+  },
+  "train J100 P10": {
+    "S1 perte, sem. 5-12": "GO",
+    "S1 perte, sem. 13-24": "GO",
+    "S1 prise, sem. 5-12": "INCONCLUSIF",
+    "S1 prise, sem. 13-24": "INCONCLUSIF",
+    "S3-P [S]": "GO",
+    "S3-D [S]": "GO",
+    "S4-P [S]": "GO",
+    "S4-J [S]": "INCONCLUSIF"
+  },
+  "train J100 P10 S5": {
+    "S5 perte, sem. 5-12": "GO",
+    "S5 perte, sem. 13-24": "GO",
+    "S5 prise, sem. 5-12": "GO",
+    "S5 prise, sem. 13-24": "GO",
+    "S5 perte et prise, sem. 5-12": "rapporté",
+    "S5 perte et prise, sem. 13-24": "rapporté"
+  },
+  "train J100 P20": {
+    "S1 perte, sem. 5-12": "INCONCLUSIF",
+    "S1 perte, sem. 13-24": "INCONCLUSIF",
+    "S1 prise, sem. 5-12": "INCONCLUSIF",
+    "S1 prise, sem. 13-24": "INCONCLUSIF",
+    "S3-P [S]": "GO",
+    "S3-D [S]": "GO",
+    "S4-P [S]": "GO",
+    "S4-J [S]": "GO"
+  },
+  "train J100 P20 S5": {
+    "S5 perte, sem. 5-12": "INCONCLUSIF",
+    "S5 perte, sem. 13-24": "GO",
+    "S5 prise, sem. 5-12": "GO",
+    "S5 prise, sem. 13-24": "GO",
+    "S5 perte et prise, sem. 5-12": "rapporté",
+    "S5 perte et prise, sem. 13-24": "rapporté"
+  },
+  "training": {
+    "status": {
+      "J70": "NO-GO",
+      "J85": "NO-GO",
+      "J100": "INCONCLUSIF"
+    },
+    "retained": "doubled",
+    "judgedJob": "c1train"
+  }
+}
