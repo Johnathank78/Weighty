@@ -231,3 +231,29 @@ Applicable dès l'itération 2, pour le bras journal :
 - S2 est remplacé par S2-NI, le témoin étant la méthode actuelle (bras A) sur les mêmes utilisateurs.
 - S7 est rapporté, sans verdict.
 - Dans C2 (« S3 et S4 tenus ») et dans C7 (« S2 à S4 »), les critères remplacés se lisent de la même façon.
+
+## Amendement 6 : C1 en boucle fermée avec K2 et les garde-fous
+
+Validé par le product owner le 2026-09-26, avant toute exécution de la reprise de l'itération 2. Aucun résultat de C1 n'existe à cette date : ces règles ne sont pas « après coup ».
+
+### A6.1 Objet mesuré
+Tous les bras de C1, C2 et C6 (A, J, C, J-NASEM, J-glucides) utilisent le solveur K2 et les garde-fous G (A5.3). En mode journal, G reconstruit le plan en unités de saisie. Dans le bras C, G2 ne s'applique pas au plan « cible choisie », que l'app n'a pas prescrit.
+
+### A6.2 Population jugée
+- Critères du bras J, S5, S5b et P00 : non-suiveurs dont la proposition de révision a été acceptée (bascule). La date de proposition est commune à tous les bras d'un utilisateur : ce choix ne biaise pas les comparaisons appariées.
+- Les non-suiveurs sans proposition sont identiques dans tous les bras. Ils sont rapportés à part, sans verdict.
+- S6 et S7 : inchangés.
+
+### A6.3 Verdicts par population et validation par étapes
+- Les critères bloquants de C1 et la règle de décision de A2.1 sont jugés dans chaque population principale. Le mode journal n'est retenu (A2.1) que si la règle passe dans chacune des quatre.
+- La validation commence par P00. Si un critère bloquant de C1 est NO-GO en P00, ou si la règle de A2.1 y échoue, les autres populations ne sont pas mesurées : la conclusion est acquise.
+
+### A6.4 S2 en mode journal (remplace S2-NI de A5.5)
+- S2-NI contre le bras A n'est pas défini chez les non-suiveurs : quand leur porte échoue, la méthode actuelle ne recalibre pas, la médiane du ratio sous A peut être proche de 0 ou négative, et le rapport P90 / médiane perd son sens.
+- S2 est rapporté, sans verdict, dans les bras J, C et A : P90, P90 / médiane (quand la médiane est positive) et P90 − médiane. Le volet sécurité reste porté par S3-D [S] et S4-J [S].
+
+### A6.5 Lectures
+- « S1 à S4 » (A1.1, A2.2, C7) et « S1 à S5 » (sélection de X) se lisent : S1, S3-P, S3-D, S4-P et S4-J, plus S5 là où il est cité. S2 est rapporté.
+- Pour le bras J, S3-P, S3-D, S4-P et S4-J portent sur la période qui suit le premier plan issu de la bascule. Pour S3-D, ce sont les blocs qui commencent ce jour-là ou après.
+- La règle des blocs de A5.4 s'applique aux ratios de C1 (S1, S5, S5b, P00) et de A2.2 : un bloc où l'objectif du plan change est exclu des ratios, et compté.
+- Facteur nouveau : part des jours déclarés « écart important » par les non-suiveurs avant la bascule, tirée dans {80 ; 95 ; 100 %}. Les critères sont jugés toutes valeurs confondues. La part de propositions, S5 et S5b sont rapportés par valeur.
