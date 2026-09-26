@@ -1,0 +1,28 @@
+{
+  "job": "pilot2r",
+  "shard": 0,
+  "users": 25,
+  "proposals": 10,
+  "wallMs": 254174.953,
+  "userMsTotal": 254098.92429999993,
+  "userMsP50": 3866.6603999999934,
+  "userMsMax": 38002.776300000005,
+  "cost": {
+    "nonfollower:common": 6233.909200000053,
+    "nonfollower:users": 13,
+    "nonfollower:proposals": 10,
+    "nonfollower:A": 12133.367700000039,
+    "nonfollower:J100": 21442.65169999996,
+    "nonfollower:J85": 36877.39009999997,
+    "nonfollower:J70": 56320.72449999998,
+    "nonfollower:C": 30381.89690000001,
+    "nonfollower:JN": 13564.958199999997,
+    "nonfollower:JG": 36379.40839999997,
+    "follower:common": 40763.96680000004,
+    "follower:users": 12,
+    "follower:A": 0,
+    "follower:J": 0,
+    "follower:C": 0,
+    "follower:JN": 0
+  }
+}

@@ -1,0 +1,7 @@
+Relaunch of iteration 2 (prompt 40 s6.1), part 1: equiv2b (report 38) rerun with the code of this iteration: 150 fixtures (50 ideal users x D = 28, 56, 84 days), seed base 3300000000.
+Rows against the committed results/solver2b/equiv2b.csv.gz (150 rows): 4350 values compared, 0 differences.
+Tolerance of report 38: posterior median and plan target |delta| <= 1 kcal/day, same applied rate, modeled weight and tissue |delta| <= 0.001 kg.
+max |delta| posterior median (kcal/day): 0.004489387591590344; modeled weight (kg): 0.000013988375300755251; tissue (kg): 0.00001221433450382392
+FX plans: max |delta target| 0 kcal/day; same rate 148 / 150; bit-identical targets 150 / 150; same status 150 / 150
+K2 plans: max |delta target| 0 kcal/day; same rate 148 / 150; bit-identical targets 150 / 150; same status 150 / 150
+VERDICT: PASS

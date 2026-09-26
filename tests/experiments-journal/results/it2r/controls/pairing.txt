@@ -1,0 +1,4 @@
+Relaunch of iteration 2 (prompt 40 s6.2): pairing, job pairing2r (50 non-followers of P10, K2 + G, arms A, J100, J85, J70, C, JN, JG), 16 parts.
+Users: 50, with a proposal (bifurcated): 37; users with a guardrail event in some arm: 11; J arms with a journal plan: 137.
+Arms compared with their full replay from day 0: 350; differences: 0.
+VERDICT: PASS

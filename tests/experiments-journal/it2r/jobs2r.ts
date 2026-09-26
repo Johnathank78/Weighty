@@ -33,6 +33,7 @@
  * Raw rows: tests/experiments-journal/results/it2r/<dir>/<job>-shard<k>.csv.gz (+ -daily- and -timing- files).
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { rebuildContextFromStore } from '@/domain/engine';
 import type { SolverRequest } from '@/domain/engine';
 import { GAIN_RATE_HARD_MAX } from '@/science/constants';
 import {
@@ -40,6 +41,7 @@ import {
   POPULATIONS,
   PRINCIPAL,
   SIM_DAYS,
+  SIM_START,
   armMetrics,
   athleteSlots,
   closedLoopSlots,
@@ -472,6 +474,31 @@ export function columns2r(world: World, arm: ArmConfig, st: SimState): Record<st
   out.n_recal_current_after_switch = st.plans.filter((p) => p.kind === 'recal_current' && st.switchDay !== null && p.day >= st.switchDay).length;
   out.chosen_target_end = arm.kind === 'C' && st.switchDay !== null ? (st.plans.find((p) => p.day > (st.switchDay as number) && p.kind !== 'chosen_target')?.day ?? null) : null;
   out.true_bmi_ref = ref !== null ? (st.trueW[ref] as number) / h2 : null;
+  // C6 (s8): false EA alerts, plan periods from the reference day (targeting days) warned for a low energy availability
+  // while the real EA is >= 30 kcal/kg FFM/day (same definition of the real EA as `armMetrics`, ea_cases).
+  let eaFalse = 0;
+  let eaWarned = 0;
+  const profile = spec.slot.profile;
+  const ffm = profile.bodyFatPercent !== undefined ? (profile.currentWeightKg * (100 - profile.bodyFatPercent)) / 100 : null;
+  const exercise = rebuildContextFromStore(world.initialStore, SIM_START)?.exerciseNetKcalDay ?? 0;
+  if (ffm !== null && ref !== null) {
+    st.plans.forEach((p, i) => {
+      if (p.day < ref) return;
+      const end = st.plans[i + 1]?.day ?? SIM_DAYS;
+      let n = 0;
+      let sum = 0;
+      for (let d = p.day; d < end; d++) {
+        if (!st.targetingDay[d]) continue;
+        n++;
+        sum += st.realKcal[d] as number;
+      }
+      if (n === 0 || !p.lowEnergyAvailability) return;
+      eaWarned++;
+      if ((sum / n - exercise) / ffm >= 30) eaFalse++;
+    });
+  }
+  out.ea_warned = eaWarned;
+  out.ea_false_alerts = eaFalse;
   return out;
 }
 

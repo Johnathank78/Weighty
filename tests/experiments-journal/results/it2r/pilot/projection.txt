@@ -1,0 +1,18 @@
+Relaunch of iteration 2 (prompt 40 s6.3): cost pilot, 16 shards, 200 non-followers and 200 followers (proposals 160 and 0), seeds pilot2r (discarded).
+Pilot wall time 309 s; parallel efficiency (sum of user times / (wall x 16)) 0.820.
+Mean ms per non-follower: common 449, A 886, J100 1942, J85 3119, J70 4327, C 2346, JN (P00 users) 3294, JG 3079.
+Mean ms per follower: common 3315, A 0, J85 0, C 0, JN (P00 users) 0.
+Projected wall time per step (16 processes):
+- C1 entraînement (4 000 non-suiveurs, A + 3 J): 54.5 min
+- C1 V1, P00 (2 000 + 1 000, A, J, C, JN): 32.9 min
+- C1 V2, P05, P10, P20 (3 x (2 000 + 1 000), A, J, C): 73.7 min
+- Sensibilités [S] (3 x 1 000, J): 18.2 min
+- Acceptation à 70 % (500, A, J, C): 5.1 min
+- Robustesse (500, J, C): 4.5 min
+- Glucides (4 x 1 000, J, JG): 39.9 min
+- C6 (3 x 1 200, deux bras J): 41.6 min
+- C2 (4 x 3 000, J): 72.8 min
+Elapsed before the pilot projection: 43 min; tables, checks and report allowance: 30 min.
+Projected total, every step: 6.94 h; after the reductions of s9 (none): 6.94 h; cap 8 h.
+Possible doubled passes (INCONCLUSIF, not in the projection): training 109 min, V1 66 min, V2 147 min.
+STOP (s10.2): no

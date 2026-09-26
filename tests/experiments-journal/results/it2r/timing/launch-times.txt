@@ -1,0 +1,6 @@
+2026-09-26T21:40:32+02:00 start equiv (2b rerun + G 15 shards)
+2026-09-26T21:42:42+02:00 end equiv wall_s=130
+2026-09-26T21:42:42+02:00 start pairing2r shards=16
+2026-09-26T21:45:34+02:00 end pairing2r wall_s=172
+2026-09-26T21:45:51+02:00 start pilot2r shards=16 x=
+2026-09-26T21:51:03+02:00 end pilot2r wall_s=312 failed_shards=0

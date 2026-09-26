@@ -1,0 +1,7 @@
+Relaunch of iteration 2 (prompt 40 s6.1), part 2: guardrail fixtures of the ideal world (400 users, sub-base 4050210000, arm A with K2 + G).
+Guardrails applied: 73 (G1 24, G2 49); without an applied snapshot (counted apart, current method's path in both arms): 0.
+Fixtures compared: 73 (G1 24, G2 49; users 73). Required: at least 50.
+Tolerance of report 38: posterior median and plan target |delta| <= 1 kcal/day, same applied rate (and status, goal), modeled weight and tissue |delta| <= 0.001 kg.
+max |delta| posterior median of day E (kcal/day): 0.003926351387377736; modeled weight (kg): 0.00003358783764895179; tissue (kg): 0.00005248253200562658
+plans: same status 73 / 73; applied in both 73; max |delta target| 0 kcal/day; same rate 73; same goal 73; bit-identical targets 73 / 73
+VERDICT: PASS
