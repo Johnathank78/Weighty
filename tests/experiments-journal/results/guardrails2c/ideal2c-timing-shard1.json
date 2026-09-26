@@ -1,0 +1,10 @@
+{
+  "job": "ideal2c",
+  "shard": 1,
+  "users": 32,
+  "runs": 64,
+  "wallMs": 253214.0345,
+  "runMsTotal": 253173.80739999996,
+  "runMsP50": 3926.19279999999,
+  "runMsMax": 4529.2647
+}
