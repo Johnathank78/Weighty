@@ -2,3 +2,5 @@
 2026-09-26T11:24:57+02:00 end pilot2c wall_s=19 failed_shards=0
 2026-09-26T11:30:24+02:00 start ideal2c shards=16
 2026-09-26T11:34:49+02:00 end ideal2c wall_s=265 failed_shards=0
+2026-09-26T11:35:18+02:00 start real2c shards=16
+2026-09-26T12:07:15+02:00 end real2c wall_s=1917 failed_shards=0
