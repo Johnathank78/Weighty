@@ -180,3 +180,54 @@ Validé par le product owner le 2026-09-25, après la lecture du rapport 37 et a
   - si les deux passent, K1, qui change moins la production ;
   - si aucun ne passe, arrêt et diagnostic.
 - Le verdict A3.1 est ensuite rendu sur les graines de validation, pour le candidat retenu seul.
+
+## Amendement 5 : critères de A3.2 redéfinis, garde-fous du plan en cours
+
+Validé par le product owner le 2026-09-26, après la lecture du rapport 38 et avant toute exécution de l'itération 2c.
+
+Décidé après avoir vu les résultats de A3.2 (rapport 38), et marqué comme tel. Le verdict ÉCHOUÉ de A3.2 pour K2 au rapport 38 reste acquis. Les critères d'origine S2, S3, S4 et S7 restent calculés et rapportés à chaque mesure, sans verdict.
+
+### A5.1 Clarifications
+- La règle commune INCONCLUSIF (une passe doublée, graines neuves, A1.3) s'applique aussi aux règles de sélection, dont A4.2.
+- Une proportion dont l'unité n'est pas l'utilisateur (utilisateurs-semaines, utilisateurs-blocs) a son IC 95 % par bootstrap sur les utilisateurs (2 000 tirages), et non par Wilson.
+
+### A5.2 Justification
+- S3 contredit S1 : pour un utilisateur qui demande exactement son plafond de vitesse, un solveur qui tient la vitesse demandée dépasse le plafond environ une semaine sur deux (rapport 38 : environ 9 des 16,85 points).
+- S4 ne mesure pas la règle produit : le plancher (D-32) porte sur la prescription. Au rapport 38, aucune cible prescrite n'est sous le plancher, et les jours d'apport sous le plancher s'expliquent entièrement par la variation quotidienne autour de la cible (15 138 jours prédits, 15 013 observés).
+- S2 mesure la précision de la calibration rapportée à la vitesse demandée : à vitesse égale, la dispersion est du même ordre sous S0 et sous K2. Son volet sécurité est porté par S3-D.
+- S7 mesure la conception du maintien (zone centrée sur la première pesée, poids courant tenu), pas le solveur. Il relève d'un chantier séparé.
+
+### A5.3 Objet mesuré : garde-fous du plan en cours (G)
+Vérifiés à chaque évaluation hebdomadaire, avant l'évaluation de la calibration, sur le poids de tendance que l'app utilise :
+- G1 : un plan de perte avec un IMC sous 20 est remplacé par un plan de maintien au poids actuel ; l'objectif reste ensuite le maintien.
+- G2 : un plan de perte dont la vitesse dépasse le plafond IMC actuel est reconstruit, avec une vitesse au plus égale au plafond.
+
+### A5.4 A3.2 amendé (méthode actuelle ; candidat : K2 + G)
+Préalable : A3.1, inchangé, est vérifié pour K2 + G dans le monde idéal, sur graines neuves.
+
+Monde réaliste de A3.2, 2 000 suiveurs, graines neuves. Tous les critères suivants doivent passer.
+- S1 : inchangé (A4.1).
+- S3-P [S] (prescription) : aucune évaluation hebdomadaire après laquelle le plan en cours prescrit une perte alors que l'IMC du poids de l'app est sous 20, ou une vitesse au-dessus du plafond IMC de ce poids. Invariant : 0 violation.
+- S3-D [S] (vitesse délivrée) : part des utilisateurs-blocs (blocs de 4 semaines, semaines 5 à 24, tous objectifs) où la vitesse tissulaire délivrée dépasse 1,25 fois le plafond ≤ 5 %, borne haute de l'IC (produit).
+  - En perte et en maintien, le plafond est celui de l'IMC vrai au début du bloc. Sous IMC 20, on prend celui de la tranche 20 à 22 (0,25 %/semaine) : au-delà de 1,25 fois cette valeur sur 4 semaines, la perte continue, et ce n'est plus une dérive de maintien.
+  - En prise, le plafond est 0,5 %/semaine.
+- S4-P [S] (plancher prescrit) : aucun jour où la cible prescrite est sous le plancher calculé par l'app (D-32). Invariant : 0.
+- S2-NI (ingénierie) : dans chaque cellule objectif × fenêtre × vitesse demandée d'au moins 100 utilisateurs, Δ(P90 / médiane) du ratio tissulaire, candidat moins témoin S0 + G, ≤ +0,05, borne haute de l'IC apparié.
+  - Justification du rapport P90 / médiane : le solveur actuel réduit la vitesse de façon multiplicative (environ 0,7), et une comparaison de dispersion doit être indépendante de l'échelle.
+  - L'écart P90 − médiane est rapporté à côté.
+- Blocs : un bloc n'entre dans les ratios de vitesse (S1, S2-NI, A3.1) que si le plan en cours garde le même objectif sur tout le bloc. Les blocs exclus sont comptés et rapportés. S3-D porte sur tous les blocs.
+- Rapportés, sans verdict :
+  - S2, S3, S4 et S7 d'origine ;
+  - S7 centré sur le poids vrai de départ ;
+  - part des utilisateurs dont la cible passe au moins 7 jours à moins de 10 % au-dessus du plancher ;
+  - écart minimal entre la cible et le plancher réel.
+
+### A5.5 Report sur C1, C2, C6 et C7 (mode journal)
+Applicable dès l'itération 2, pour le bras journal :
+- S3 est remplacé par S3-P et S3-D, avec les définitions de A5.4.
+- S4 est remplacé par :
+  - S4-P, sur le plancher du bras (plancher saisi × 1,10) ;
+  - S4-J [S] : part des utilisateurs dont l'apport réel moyen, sur au moins une période de plan d'au moins 7 jours, est sous le plancher réel ≤ 1 %, avec une borne haute ≤ 2 % (produit).
+- S2 est remplacé par S2-NI, le témoin étant la méthode actuelle (bras A) sur les mêmes utilisateurs.
+- S7 est rapporté, sans verdict.
+- Dans C2 (« S3 et S4 tenus ») et dans C7 (« S2 à S4 »), les critères remplacés se lisent de la même façon.
