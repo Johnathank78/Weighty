@@ -62,13 +62,27 @@ export type PlanBuildInput = {
   weeklyRate?: number;
   /** Solver prototype only (prompt 37, measurement): never passed by the store, the worker or the UI. */
   solver?: SolverOptions;
+  /**
+   * Floor prototype only (prompt 41 s3.2, arm C of iteration 2d, measurement): `hardFloorMultiplier` of the plan context
+   * (the solved target is checked against the hard floor x this factor). Absent: the production floor, unchanged.
+   */
+  hardFloorMultiplier?: number;
 };
 
 /**
  * Solver prototype request (prompt 37, measurement only). Reachable from tests and the simulator through the optional last
  * argument of completeOnboarding and applyRecalibration; the store, the worker and the UI never pass it.
  */
-export type SolverRequest = { solverStart?: SolverStart; rateDefinition?: RateDefinition; solverHorizonDays?: number };
+export type SolverRequest = {
+  solverStart?: SolverStart;
+  rateDefinition?: RateDefinition;
+  solverHorizonDays?: number;
+  /**
+   * Prompt 41 s3.2 (measurement only): floor multiplier of every plan rebuilt with this request (recalibration, periodic
+   * replan, guardrails, goal change), passed to the plan context as `hardFloorMultiplier`. Absent: the production floor.
+   */
+  hardFloorMultiplier?: number;
+};
 
 export type PlanBuildResult =
   | { ok: true; plan: CurrentPlan; assessment: BaselineAssessment; goalPlan: GoalPlan; context: PlanContext }
@@ -82,7 +96,8 @@ export function buildPlan(input: PlanBuildInput): PlanBuildResult {
   const offset = input.personalOffsetKcal ?? 0;
   const maintenanceKcal = assessment.populationTdeeKcal + offset;
   const baseContext = planContextFrom(profile, assessment, maintenanceKcal);
-  const context: PlanContext = input.solver ? { ...baseContext, solver: input.solver } : baseContext;
+  const withSolver: PlanContext = input.solver ? { ...baseContext, solver: input.solver } : baseContext;
+  const context: PlanContext = input.hardFloorMultiplier !== undefined ? { ...withSolver, hardFloorMultiplier: input.hardFloorMultiplier } : withSolver;
   const goal = input.goal ?? profile.goal;
   const targetWeightKg = goal === 'maintenance' ? (input.targetWeightKg ?? profile.targetWeightKg) : (input.targetWeightKg ?? profile.targetWeightKg);
   const weeklyRate = goal === 'maintenance' ? 0 : (input.weeklyRate ?? profile.weeklyRateTarget);
@@ -199,7 +214,9 @@ type RebuildOptions = {
  * is null and the solver keeps the equilibrium start.
  */
 export function solverOptionsFor(store: WheightyStore, today: string, snapshot: CalibrationSnapshot | null, request: SolverRequest): SolverOptions {
-  const out: SolverOptions = { ...request };
+  // The floor multiplier (prompt 41 s3.2) is not a solver option: it reaches the plan context through `buildPlanFromStore`.
+  const { hardFloorMultiplier: _floor, ...options } = request;
+  const out: SolverOptions = { ...options };
   if (request.solverStart === 'currentState' && snapshot) {
     const input = calibrationInputFromStore(store, today);
     const median = snapshot.posteriorMedianOffsetKcal;
@@ -233,6 +250,7 @@ export function buildPlanFromStore(store: WheightyStore, today: string, options:
     ...(options.targetWeightKg !== undefined ? { targetWeightKg: options.targetWeightKg } : {}),
     ...(options.weeklyRate !== undefined ? { weeklyRate: options.weeklyRate } : {}),
     ...(options.solver ? { solver: solverOptionsFor(store, today, snapshot, options.solver) } : {}),
+    ...(options.solver?.hardFloorMultiplier !== undefined ? { hardFloorMultiplier: options.solver.hardFloorMultiplier } : {}),
   });
 }
 

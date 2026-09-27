@@ -1,0 +1,3 @@
+Iteration 2d (prompt 41 s4.4): c1v1x2 shard 5 (report 40, doubled V1 pass) replayed with the simulator of this iteration in the configuration of report 40 (it2r/jobs2r.ts, X = 100 %, arms A, J, C, JN, options of 2d absent), 16 sub-shards.
+Users: 375. Per-user rows: 1500 produced, 1500 committed; 312000 values compared, 0 differences.
+Daily rows: 73008 produced, 73008 committed; 1606176 values compared, 0 differences; committed rows without a counterpart: 0.

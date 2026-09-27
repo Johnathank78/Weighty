@@ -32,15 +32,15 @@ import {
 import type { SolverRequest } from '@/domain/engine';
 import { addFoodEntry, journalDay } from '@/domain/journal';
 import { evaluateJournalGate, journalCalibrationInputFromStore } from '@/domain/journalCalibration';
-import type { JournalRegimeOptions } from '@/domain/journalCalibration';
+import type { JournalCalibrationInput, JournalGateStatus, JournalRegimeOptions } from '@/domain/journalCalibration';
 import type { CurrentPlan, WheightyStore } from '@/domain/types';
 import { emptyStore } from '@/persistence/schema';
 import { netStepKcal } from '@/science/activity';
 import { assessBaseline, planContextFrom } from '@/science/assessment';
-import { buildSnapshot, evaluateGate, fitCalibration, shouldSurfaceRecalibration } from '@/science/calibration';
+import { buildSnapshot, evaluateGate, fitCalibration, reconstructDays, shouldSurfaceRecalibration } from '@/science/calibration';
 import type { CalibrationInput, GateStatus, SurfacingReference } from '@/science/calibration';
 import { GAIN_RATE_HARD_MAX, KCAL_PER_G_CARB, KCAL_PER_G_FAT, KCAL_PER_G_PROTEIN, LOSS_UNAVAILABLE_BMI_BELOW } from '@/science/constants';
-import { addDays } from '@/science/dates';
+import { addDays, daysBetween } from '@/science/dates';
 import { baselineCarbFractionFor, buildGoalPlan, guardrailMaxWeeklyRate, hardFloorKcal, macrosFor, maintenanceZone } from '@/science/goals';
 import type { SolverOptions } from '@/science/goals';
 import { bodyWeightOf } from '@/science/hall/model';
@@ -88,6 +88,20 @@ export const LOSS_RATES = [0.005, 0.01] as const;
  */
 export const MAJOR_SHARES = [0.8, 0.95, 1] as const;
 export const DEFAULT_MAJOR_SHARE = 0.8;
+/**
+ * Iteration 2d (prompt 41 s5.3): behaviour after the switch, arms C and J*. R0, R15, R30: deviation days (0, 15 or 30 %),
+ * intake x 1.25, logged, declared 'major_deviation'. H1: 30 % of days, intake = (target + 0.25 x T_c) / (1 + u) x noise.
+ * H2a / H2b: the deviation days of R30 from day 84 only / up to day 83 only. H3: the deviation days of R30; on each, with
+ * probability 0.5, the excess is not logged (a normal day is logged) and the day is declared 'on_plan'. H4: no deviation
+ * day, T_c kept to the end (robustness). Absent from the slot: the rules of the previous iterations, unchanged.
+ */
+export type PostSwitchBehavior = 'R0' | 'R15' | 'R30' | 'H1' | 'H2a' | 'H2b' | 'H3' | 'H4';
+export const POST_SWITCH_DEVIATION: Record<PostSwitchBehavior, number> = { R0: 0, R15: 0.15, R30: 0.3, H1: 0.3, H2a: 0.3, H2b: 0.3, H3: 0.3, H4: 0 };
+export const H2_SPLIT_DAY = 84;
+export const H1_EXCESS_TC_SHARE = 0.25;
+export const H3_UNLOGGED_PROBABILITY = 0.5;
+/** Derived stream of the H3 unlogged-excess draws (streams 1 to 13 are used by the world and the daily draws). */
+export const H3_STREAM = 14;
 const MEALS = [
   { time: '08:00', share: 0.25 },
   { time: '12:30', share: 0.4 },
@@ -186,7 +200,17 @@ export type ProfileSlot = {
   deviationFrequency: number;
   /** Prompt 40 s5.1: share of the days declared 'major_deviation' by a non-follower. Absent: DEFAULT_MAJOR_SHARE. */
   majorShare?: number;
+  /** Prompt 41 s5.3: behaviour after the switch (its deviation frequency replaces `deviationFrequency`). Absent: previous rules. */
+  postSwitch?: PostSwitchBehavior;
 };
+
+/**
+ * Prompt 41 s5.1: design of the Latin hypercube. `goals`: levels of the goal dimension (equal cells; loss, loss,
+ * maintenance, gain, gain gives 2/5, 1/5, 2/5); `weighProbabilities`: levels of the weigh-in probability; `behaviorSeed` and
+ * `behaviors`: one more Latin dimension, the behaviour after the switch, drawn from its own generator after every other one.
+ * Absent: the design of the previous iterations, unchanged.
+ */
+export type SlotDesign = { goals?: readonly GoalKind[]; weighProbabilities?: readonly number[]; behaviorSeed?: number; behaviors?: readonly PostSwitchBehavior[] };
 
 const BMIS = [21, 26, 31, 38] as const;
 const GOALS: GoalKind[] = ['loss', 'maintenance', 'gain'];
@@ -229,8 +253,10 @@ function permutation(n: number, rng: ReturnType<typeof createRng>): number[] {
  * `majorShareSeed` (prompt 40 s5.1): one more Latin dimension, the declared major-deviation share (MAJOR_SHARES), drawn
  * from its own generator after the others, so that every other dimension is unchanged; absent: no `majorShare`.
  */
-export function closedLoopSlots(n: number, seed: number, majorShareSeed?: number): ProfileSlot[] {
+export function closedLoopSlots(n: number, seed: number, majorShareSeed?: number, design?: SlotDesign): ProfileSlot[] {
   const rng = createRng(seed);
+  const goalLevels = design?.goals ?? GOALS;
+  const weighLevels = design?.weighProbabilities ?? WEIGH_PROBABILITIES;
   const dims = Array.from({ length: 10 }, () => permutation(n, rng));
   const cell = (d: number, i: number, levels: number) => Math.floor(((dims[d] as number[])[i] as number) * levels / n);
   const unit = (d: number, i: number) => (((dims[d] as number[])[i] as number) + rng.next()) / n;
@@ -239,11 +265,11 @@ export function closedLoopSlots(n: number, seed: number, majorShareSeed?: number
     const sex = cell(0, i, 2) === 0 ? 'female' : 'male';
     const bmi = BMIS[cell(1, i, 4)] as number;
     const activity: Activity = cell(2, i, 2) === 0 ? 'sedentary' : 'strength';
-    const goal = GOALS[cell(3, i, 3)] as GoalKind;
+    const goal = goalLevels[cell(3, i, goalLevels.length)] as GoalKind;
     const age = 19 + 46 * unit(4, i);
     const height = sex === 'female' ? 150 + 25 * unit(5, i) : 165 + 30 * unit(5, i);
     const shiftKcal = SHIFTS_KCAL[cell(6, i, 5)] as number;
-    const weighProbability = WEIGH_PROBABILITIES[cell(7, i, 3)] as number;
+    const weighProbability = weighLevels[cell(7, i, weighLevels.length)] as number;
     const deviationFrequency = DEVIATION_FREQUENCIES[cell(8, i, 3)] as number;
     const lossRate = LOSS_RATES[cell(9, i, 2)] as number;
     const common = { shiftKcal, weighProbability, deviationFrequency };
@@ -257,7 +283,14 @@ export function closedLoopSlots(n: number, seed: number, majorShareSeed?: number
   }
   if (majorShareSeed === undefined) return out;
   const shares = permutation(n, createRng(majorShareSeed));
-  return out.map((slot, i) => ({ ...slot, majorShare: MAJOR_SHARES[Math.floor(((shares[i] as number) * MAJOR_SHARES.length) / n)] as number }));
+  const withShares = out.map((slot, i) => ({ ...slot, majorShare: MAJOR_SHARES[Math.floor(((shares[i] as number) * MAJOR_SHARES.length) / n)] as number }));
+  const behaviors = design?.behaviors;
+  if (design?.behaviorSeed === undefined || !behaviors || behaviors.length === 0) return withShares;
+  const b = permutation(n, createRng(design.behaviorSeed));
+  return withShares.map((slot, i) => {
+    const postSwitch = behaviors[Math.floor(((b[i] as number) * behaviors.length) / n)] as PostSwitchBehavior;
+    return { ...slot, postSwitch, deviationFrequency: POST_SWITCH_DEVIATION[postSwitch] };
+  });
 }
 
 /**
@@ -409,6 +442,8 @@ export type DailyDraws = {
   deviation: boolean[];
   proposalAcceptU: number;
   recalAcceptU: number[];
+  /** Prompt 41 s5.3, H3 only: uniform draw of each day (excess not logged below H3_UNLOGGED_PROBABILITY). */
+  unloggedU?: number[];
 };
 
 export function dailyDraws(spec: UserSpec): DailyDraws {
@@ -459,6 +494,11 @@ export function dailyDraws(spec: UserSpec): DailyDraws {
   const deviation = Array.from({ length: n }, () => dv.next() < spec.slot.deviationFrequency && !spec.ideal);
   const proposalAcceptU = acc.next();
   const recalAcceptU = Array.from({ length: 40 }, () => acc.next());
+  if (spec.slot.postSwitch === 'H3') {
+    const un = s(H3_STREAM);
+    const unloggedU = Array.from({ length: n }, () => un.next());
+    return { weighNoiseKg, weighed, zEat, zLog, zSteps, adherenceU, deviation, proposalAcceptU, recalAcceptU, unloggedU };
+  }
   return { weighNoiseKg, weighed, zEat, zLog, zSteps, adherenceU, deviation, proposalAcceptU, recalAcceptU };
 }
 
@@ -475,7 +515,25 @@ export type JournalArmSettings = {
   /** X of s3.3. */
   densityX: number;
 };
-export type ArmConfig = { key: string; kind: 'A' } | { key: string; kind: 'C' } | { key: string; kind: 'J'; journal: JournalArmSettings };
+/**
+ * Prompt 41 s3.2: arm C after the switch. `floorFactor`: the hard floor D-32 x factor on every target of the arm (T_c
+ * check, plans of the current method through `hardFloorMultiplier`: recalibrations, periodic replans, guardrails);
+ * `fixFloorField`: when T_c is set, the plan floor field is the floor of the day x factor (artefact M3 of report 40).
+ * Absent: arm C of report 40, unchanged.
+ */
+export type ChosenTargetSettings = { floorFactor: number; fixFloorField: boolean };
+/**
+ * Prompt 41 s3.1: arm J* (code JS). Fallback: arm C with `chosen` until the day before the first J* plan. Level-2 gate:
+ * the journal gate of `journal` (X = densityX) plus `minDaysSinceSwitch` days since the switch. Maintenance M: the journal
+ * estimate of arm J. Habit h(D) over [max(switch day, D - habitWindowDays), D - 1], bounded to `habitBounds`. Every plan:
+ * solved intake I* on M with the floor factor `floorFactor` x h, displayed target T = I* / h.
+ */
+export type JStarSettings = { journal: JournalArmSettings; minDaysSinceSwitch: number; habitWindowDays: number; habitBounds: readonly [number, number]; floorFactor: number };
+export type ArmConfig =
+  | { key: string; kind: 'A' }
+  | { key: string; kind: 'C'; chosen?: ChosenTargetSettings }
+  | { key: string; kind: 'J'; journal: JournalArmSettings }
+  | { key: string; kind: 'JS'; chosen: ChosenTargetSettings; jstar: JStarSettings };
 
 export const journalArm = (key: string, densityX: number, over: Partial<JournalArmSettings> = {}): ArmConfig => ({
   key,
@@ -543,11 +601,11 @@ export function buildWorld(spec: UserSpec): World {
 // State
 // ---------------------------------------------------------------------------
 
-export type Mode = 'pre' | 'A' | 'J' | 'C';
+export type Mode = 'pre' | 'A' | 'J' | 'C' | 'JS';
 
 export type PlanRecord = {
   day: number;
-  kind: 'onboarding' | 'recal_current' | 'recal_journal' | 'chosen_target' | 'replan_periodic' | 'replan_periodic_journal' | 'guardrail_g1' | 'guardrail_g2';
+  kind: 'onboarding' | 'recal_current' | 'recal_journal' | 'recal_jstar' | 'chosen_target' | 'replan_periodic' | 'replan_periodic_journal' | 'replan_periodic_jstar' | 'guardrail_g1' | 'guardrail_g2';
   calorieTarget: number;
   weeklyRateTarget: number;
   requestedWeeklyRate: number;
@@ -600,7 +658,7 @@ export type GuardRecord = {
   rule: 'G1' | 'G2';
   /** Prompt 40 s3.13: mode of the day, and rebuild path ('current': `enforcePlanGuardrails`; 'journal': journal plan). */
   mode?: Mode;
-  path?: 'current' | 'journal';
+  path?: 'current' | 'journal' | 'jstar';
   status: 'applied' | 'failed';
   bmi: number;
   reason: string;
@@ -623,6 +681,46 @@ export type S3pRecord = {
   violation: boolean;
   /** Prompt 40 s4.3: the plan in force is the chosen target of arm C (not prescribed by the app): not checked. */
   exempt?: boolean;
+};
+
+/** Prompt 41 s3.1.5: habit h(D), raw ratio, bound applied, sums and days of its window. */
+export type Habit = { h: number; raw: number; bound: 'low' | 'high' | null; sumI: number; sumT: number; days: number };
+
+/** Prompt 41 s5.5: one weekly J* evaluation (fallback: gate only; J* mode: estimate, h and surfacing). */
+export type JStarEvalRecord = {
+  day: number;
+  fallback: boolean;
+  gateMet: boolean;
+  sinceSwitchOk: boolean;
+  /** Missing criteria of the level-2 gate, '|'-joined; '' when open. */
+  missing: string;
+  offsetMedian: number | null;
+  m: number | null;
+  m80: readonly [number, number] | null;
+  width80: number | null;
+  h: number | null;
+  hRaw: number | null;
+  mOverH: number | null;
+  surfaced: boolean;
+  applied: boolean;
+  truthLogged: number | null;
+  failure?: string;
+};
+
+/** Prompt 41 s5.5: one J* plan construction (first plan, recalibration, periodic replan, G1, G2), applied or failed. */
+export type JStarBuildRecord = {
+  day: number;
+  kind: 'recal_jstar' | 'replan_periodic_jstar' | 'guardrail_g1' | 'guardrail_g2';
+  ok: boolean;
+  reason?: string;
+  h: number;
+  hRaw: number;
+  bound: 'low' | 'high' | null;
+  m: number;
+  iStar: number | null;
+  target: number | null;
+  rate: number | null;
+  floorActive: boolean | null;
 };
 
 /** Iteration 2b (prompt 38 s3.3): last journal plan applied, the base of a periodic replan in journal mode. */
@@ -678,6 +776,18 @@ export type SimState = {
   chosenTargetActive: boolean;
   /** Prompt 40 s5.5, day 0 to SIM_DAYS - 1: mode of the day (after the morning steps). */
   modeDay: Mode[];
+  /** Prompt 41 s3.2: floor factor of arm C (and of the J* fallback) after the switch, passed to the plans of the current method. */
+  chosenFloorFactor: number | null;
+  /** Prompt 41 s3.1: J* settings of the arm (set at the switch), surfacing reference (M / h, width / h, date), trace. */
+  jstar: JStarSettings | null;
+  jsRef: SurfacingReference | null;
+  jsEvals: JStarEvalRecord[];
+  jsBuilds: JStarBuildRecord[];
+  jsHInForce: number | null;
+  jsIStarInForce: number | null;
+  /** Prompt 41 s5.5, day 0 to SIM_DAYS - 1: h and I* of the J* plan in force (NaN otherwise). */
+  hDay: number[];
+  iStarDay: number[];
 };
 
 function cloneState(s: SimState): SimState {
@@ -710,6 +820,11 @@ function cloneState(s: SimState): SimState {
     planFloor: [...s.planFloor],
     appW: [...s.appW],
     modeDay: [...s.modeDay],
+    jsRef: s.jsRef ? { ...s.jsRef } : null,
+    jsEvals: [...s.jsEvals],
+    jsBuilds: [...s.jsBuilds],
+    hDay: [...s.hDay],
+    iStarDay: [...s.iStarDay],
   };
 }
 
@@ -774,6 +889,15 @@ export function initialState(world: World): SimState {
     appW: [],
     chosenTargetActive: false,
     modeDay: [],
+    chosenFloorFactor: null,
+    jstar: null,
+    jsRef: null,
+    jsEvals: [],
+    jsBuilds: [],
+    jsHInForce: null,
+    jsIStarInForce: null,
+    hDay: [],
+    iStarDay: [],
   };
 }
 
@@ -813,15 +937,17 @@ function median(values: readonly number[]): number {
  * s4.5: sets the plan target to `targetKcal` from `date`, with the production macro solver, and the same floor check as a
  * computed target (below the hard floor D-32: replaced by the floor, and counted). The current method is not modified.
  */
-export function withChosenTarget(store: WheightyStore, date: string, targetKcal: number): { store: WheightyStore; final: number; floor: number; replaced: boolean } {
+export function withChosenTarget(store: WheightyStore, date: string, targetKcal: number, chosen?: ChosenTargetSettings): { store: WheightyStore; final: number; floor: number; replaced: boolean } {
   const plan = store.plan;
   const ctx = rebuildContextFromStore(store, date);
   if (!plan || !ctx) throw new Error('no plan');
-  const floor = hardFloorKcal(ctx.reeKcal, ctx.sex);
+  // Prompt 41 s3.2: the floor x factor, and the plan floor field set to it (artefact M3); absent: report 40, unchanged.
+  const floor = chosen ? hardFloorKcal(ctx.reeKcal, ctx.sex) * chosen.floorFactor : hardFloorKcal(ctx.reeKcal, ctx.sex);
   const replaced = targetKcal < floor;
   const final = replaced ? floor : targetKcal;
   const macros = macrosFor(ctx, plan.goal, final);
   const next: CurrentPlan = { ...plan, calorieTarget: final, macros: { ...macros.exact }, macrosDisplay: { ...macros.display }, proteinRule: macros.proteinRule };
+  if (chosen?.fixFloorField) next.hardFloorKcal = floor;
   return { store: syncTodayLog({ ...store, plan: next }, date), final, floor, replaced };
 }
 
@@ -970,6 +1096,131 @@ export function enforceJournalPlanGuardrails(
 }
 
 // ---------------------------------------------------------------------------
+// J*, full level 2 (prompt 41 s3.1): harness only
+// ---------------------------------------------------------------------------
+
+/**
+ * Habit h(D) (prompt 41 s3.1.5): sum of I_d / sum of T_d over the days d of [max(switch day, D - windowDays), D - 1]. I_d is
+ * the intake of the day as it enters the journal estimate (`reconstructDays` on the journal calibration input: logged total
+ * of a usable day, else the imputed value), extended past the last weigh-in as `modeledBodyAt` does; T_d is the target stored
+ * in the day's log (`calorieTargetForDay`, immutable). h is bounded to `bounds`; the bound applied is returned.
+ */
+export function habitOf(store: WheightyStore, prepared: JournalCalibrationInput, switchDate: string, date: string, windowDays: number, bounds: readonly [number, number]): Habit {
+  const start = prepared.windowStart;
+  const span = daysBetween(start, prepared.windowEnd);
+  const total = daysBetween(start, date);
+  const inWindow = reconstructDays(prepared.input, start, span);
+  const days = total <= span ? inWindow.slice(0, Math.max(0, total)) : [...inWindow, ...reconstructDays(prepared.input, start, total).slice(span)];
+  const windowFrom = addDays(date, -windowDays);
+  const from = windowFrom > switchDate ? windowFrom : switchDate;
+  const targets = new Map(store.dailyLogs.map((l) => [l.date, l.calorieTargetForDay]));
+  let sumI = 0;
+  let sumT = 0;
+  let n = 0;
+  for (const day of days) {
+    if (day.date < from || day.date >= date) continue;
+    const t = targets.get(day.date);
+    if (t === undefined) throw new Error(`no daily log on ${day.date}`);
+    sumI += day.intakeKcal;
+    sumT += t;
+    n++;
+  }
+  if (n === 0 || !(sumT > 0)) throw new Error(`empty habit window on ${date}`);
+  const raw = sumI / sumT;
+  const bound = raw < bounds[0] ? 'low' : raw > bounds[1] ? 'high' : null;
+  return { h: bound === 'low' ? bounds[0] : bound === 'high' ? bounds[1] : raw, raw, bound, sumI, sumT, days: n };
+}
+
+export type JStarPlanResult =
+  | { ok: true; plan: CurrentPlan; built: ReturnType<typeof journalGoalPlan>; iStar: number; target: number; floorActive: boolean }
+  | { ok: false; reason: string; built: ReturnType<typeof journalGoalPlan> };
+
+/**
+ * J* plan (prompt 41 s3.1.6): `journalGoalPlan` on M (population TDEE of the day + journal offset) with the floor factor
+ * `floorFactor` x h, so that the solved intake I* >= h x floor D-32 x floorFactor; displayed target T = I* / h; macros of
+ * production (`macrosFor`, the solver's own function) for T in the plan context; plan floor field = floor D-32 of the day x
+ * floorFactor; rate = the rate the solver retained for I*. The other fields are those of the journal plan (`journalPlanOf`:
+ * maintenance M, intervals of the estimate, warnings of the solve at I*). `floorActive`: a faster rate was rejected below the
+ * floor. Failure (no feasible rate, or macros infeasible for T): the reason; the store is not touched.
+ */
+export function jstarPlanOf(
+  store: WheightyStore,
+  date: string,
+  base: JournalEstimate,
+  h: number,
+  floorFactor: number,
+  solver?: { request: SolverRequest; input: CalibrationInput },
+  overrides?: JournalPlanOverrides,
+): JStarPlanResult {
+  const built = journalGoalPlan(store, date, base.offsetKcal, floorFactor * h, solver, overrides);
+  const g = built.goalPlan;
+  const next = journalPlanOf(store.plan as CurrentPlan, store.profile as UserProfile, date, built, base, overrides);
+  if (!next || g.calorieTargetKcal === null) return { ok: false, reason: g.status === 'ok' ? 'no_feasible_speed' : g.status, built };
+  const iStar = g.calorieTargetKcal;
+  const target = iStar / h;
+  const macros = macrosFor(built.ctx, g.goal, target);
+  if (!macros.feasible) return { ok: false, reason: 'macro_infeasible_target', built };
+  next.calorieTarget = target;
+  next.baselineCalorieTarget = target;
+  next.macros = { ...macros.exact };
+  next.macrosDisplay = { ...macros.display };
+  next.proteinRule = macros.proteinRule;
+  next.hardFloorKcal = hardFloorKcal(built.ctx.reeKcal, built.ctx.sex) * floorFactor;
+  return { ok: true, plan: next, built, iStar, target, floorActive: g.rejections.some((r) => r.reason === 'below_hard_floor') };
+}
+
+export type JStarGuardrailResult =
+  | { status: 'none'; bmi: number | null; store: WheightyStore }
+  | { status: 'applied'; rule: 'G1' | 'G2'; bmi: number; store: WheightyStore; result: Extract<JStarPlanResult, { ok: true }> }
+  | { status: 'failed'; rule: 'G1' | 'G2'; bmi: number; reason: string; result: Extract<JStarPlanResult, { ok: false }> };
+
+/**
+ * Guardrails of the plan in force in J* mode (prompt 41 s3.1.11): the rules of `enforceJournalPlanGuardrails` (and of
+ * `enforcePlanGuardrails`: same weight, BMI, thresholds and 1e-9 tolerance), the plan rebuilt by `jstarPlanOf` with h:
+ * - G1: a loss plan with a BMI under LOSS_UNAVAILABLE_BMI_BELOW: profile goal maintenance, target = the app weight, and the
+ *   J* maintenance plan at that weight, step target of the plan in force;
+ * - G2: otherwise a loss plan above the BMI cap: the J* plan rebuilt with the requested rate of the profile, capped.
+ * A failed rebuild leaves the store (plan and profile) unchanged.
+ */
+export function enforceJStarPlanGuardrails(
+  store: WheightyStore,
+  date: string,
+  base: JournalEstimate,
+  h: number,
+  floorFactor: number,
+  solver?: { request: SolverRequest; input: CalibrationInput },
+): JStarGuardrailResult {
+  const plan = store.plan;
+  const profile = store.profile;
+  if (!plan || !profile) return { status: 'none', bmi: null, store };
+  const weight = currentWeightKg(store) ?? profile.currentWeightKg;
+  const currentBmi = bmiOfWeight(weight, profile.heightCm);
+  if (plan.goal !== 'loss') return { status: 'none', bmi: currentBmi, store };
+  if (currentBmi < LOSS_UNAVAILABLE_BMI_BELOW) {
+    const nextProfile: UserProfile = { ...profile, goal: 'maintenance', targetWeightKg: weight, weeklyRateTarget: 0 };
+    const withLogs = ensureDailyLogs({ ...store, profile: nextProfile }, date);
+    const overrides: JournalPlanOverrides = { goal: 'maintenance', targetWeightKg: weight, stepTarget: plan.stepTarget };
+    const r = jstarPlanOf(withLogs, date, base, h, floorFactor, solver, overrides);
+    if (!r.ok) return { status: 'failed', rule: 'G1', bmi: currentBmi, reason: r.reason, result: r };
+    return { status: 'applied', rule: 'G1', bmi: currentBmi, store: syncTodayLog({ ...withLogs, plan: r.plan }, date), result: r };
+  }
+  const cap = guardrailMaxWeeklyRate('loss', currentBmi);
+  if (cap === null || !(plan.weeklyRateTarget > cap + 1e-9)) return { status: 'none', bmi: currentBmi, store };
+  const withLogs = ensureDailyLogs(store, date);
+  const r = jstarPlanOf(withLogs, date, base, h, floorFactor, solver, { stepTarget: plan.stepTarget });
+  if (!r.ok) return { status: 'failed', rule: 'G2', bmi: currentBmi, reason: r.reason, result: r };
+  return { status: 'applied', rule: 'G2', bmi: currentBmi, store: syncTodayLog({ ...withLogs, plan: r.plan }, date), result: r };
+}
+
+/**
+ * Surfacing of a J* recalibration (prompt 41 s3.1.9): D-34 (`shouldSurfaceRecalibration`) on the estimate divided by h
+ * (maintenance M / h and 80 % width / h), against `reference` (the last J* recalibration applied, divided by its own h).
+ */
+export function jstarSurfaced(gate: GateStatus, m: number, width80: number, h: number, reference: SurfacingReference, today: string): boolean {
+  return shouldSurfaceRecalibration(gate, { tdeeKcal: m / h, interval80Width: width80 / h }, reference, today);
+}
+
+// ---------------------------------------------------------------------------
 // Day steps
 // ---------------------------------------------------------------------------
 
@@ -1023,7 +1274,7 @@ function evaluateCurrent(world: World, st: SimState, d: number): 'proposal' | nu
         rec.surfaced = true;
         if (acceptDraw(world, st)) {
           const before = st.store;
-          const r = applyRecalibration(st.store, state, date, nowIsoOf(date), world.spec.solver);
+          const r = applyRecalibration(st.store, state, date, nowIsoOf(date), solverFor(world, st));
           if (r.ok) {
             st.store = r.store;
             rec.applied = true;
@@ -1179,13 +1430,17 @@ function applySwitch(world: World, st: SimState, d: number, arm: ArmConfig): voi
     return;
   }
   // Chosen target (s5.3): T_c = median of the logged totals of the last 14 days, rounded to 50 kcal, then checked (s4.5).
+  // Prompt 41 s3.1.1-2 and s3.2: arm J* starts as arm C (same T_c, same check) and follows its rules until its first plan.
   st.mode = 'C';
+  const chosen: ChosenTargetSettings | undefined = arm.kind === 'JS' ? arm.chosen : arm.kind === 'C' ? arm.chosen : undefined;
+  if (chosen) st.chosenFloorFactor = chosen.floorFactor;
+  if (arm.kind === 'JS') st.jstar = arm.jstar;
   const date = dateOf(d);
   const totals: number[] = [];
   for (let k = 1; k <= 14; k++) totals.push(journalDay(st.store, dateOf(d - k)).intakeLoggedKcal);
   const med = median(totals);
   const rounded = Math.round(med / 50) * 50;
-  const r = withChosenTarget(st.store, date, rounded);
+  const r = withChosenTarget(st.store, date, rounded, chosen);
   st.store = r.store;
   st.tc = { median14: med, rounded, final: r.final, floor: r.floor, replaced: r.replaced };
   st.targeting = true;
@@ -1222,11 +1477,15 @@ function realFloorAt(world: World, weightKg: number, d: number): number {
  */
 function periodicStep(world: World, st: SimState, d: number): void {
   const every = world.spec.replanEveryDays;
-  const request = world.spec.solver;
+  const request = solverFor(world, st);
   // Prompt 40 s3.10 and s4.2: arm C, no periodic replan on the chosen target; after it is replaced, as in mode A.
   if (every === undefined || !request || (st.mode === 'C' && st.chosenTargetActive)) return;
   const date = dateOf(d);
   const plan = st.store.plan as CurrentPlan;
+  if (st.mode === 'JS') {
+    jstarPeriodicStep(world, st, d, every);
+    return;
+  }
   if (st.mode === 'J') {
     const ageDays = planAgeDays(plan, date);
     if (!(ageDays > 0 && ageDays % every === 0)) return;
@@ -1263,6 +1522,11 @@ function periodicStep(world: World, st: SimState, d: number): void {
  */
 function guardStep(world: World, st: SimState, d: number, arm: ArmConfig | null = null): void {
   if (!world.spec.planGuardrails) return;
+  // Prompt 41 s3.1.11: J* mode, the J* path (the fallback, mode C, follows the rules of arm C below).
+  if (st.mode === 'JS') {
+    jstarGuardStep(world, st, d);
+    return;
+  }
   if (st.mode === 'J') {
     if (!arm || arm.kind !== 'J') throw new Error('journal mode without a journal arm');
     // Prompt 40 s3.13: before the first journal plan, the current method's path (as G1 in mode A); then the journal path.
@@ -1278,7 +1542,8 @@ function guardStep(world: World, st: SimState, d: number, arm: ArmConfig | null 
     const profile = st.store.profile as UserProfile;
     if (!(before.goal === 'loss' && bmiOfWeight(appWeightOf(st.store), profile.heightCm) < LOSS_UNAVAILABLE_BMI_BELOW)) return;
   }
-  const r = enforcePlanGuardrails(st.store, date, world.spec.solver ? { solver: world.spec.solver } : {});
+  const request = solverFor(world, st);
+  const r = enforcePlanGuardrails(st.store, date, request ? { solver: request } : {});
   if (r.status === 'none') return;
   const common = { day: d, rule: r.rule, ...(st.mode === 'J' || st.mode === 'C' ? { mode: st.mode, path: 'current' as const } : {}), bmi: r.bmi, targetBefore: before.calorieTarget, rateBefore: before.weeklyRateTarget };
   if (r.status === 'failed') {
@@ -1324,6 +1589,206 @@ function journalGuardStep(world: World, st: SimState, d: number, j: JournalArmSe
   st.plans.push(rec);
 }
 
+/**
+ * Prompt 41 s3.2: solver request of the plans of the current method: the user's, with the floor factor of arm C (and of the
+ * J* fallback) after the switch (`hardFloorMultiplier`); unchanged in every other case.
+ */
+function solverFor(world: World, st: SimState): SolverRequest | undefined {
+  const request = world.spec.solver;
+  if (st.chosenFloorFactor === null || st.mode !== 'C') return request;
+  return { ...(request ?? {}), hardFloorMultiplier: st.chosenFloorFactor };
+}
+
+/** Prompt 41 s3.1.5: h of day d for the arm (window from the switch day). */
+function jstarHabit(st: SimState, prepared: JournalCalibrationInput, d: number): Habit {
+  const js = st.jstar as JStarSettings;
+  return habitOf(st.store, prepared, dateOf(st.switchDay as number), dateOf(d), js.habitWindowDays, js.habitBounds);
+}
+
+function jstarBuildRecord(d: number, kind: JStarBuildRecord['kind'], habit: Habit, r: JStarPlanResult): JStarBuildRecord {
+  return {
+    day: d,
+    kind,
+    ok: r.ok,
+    ...(r.ok ? {} : { reason: r.reason }),
+    h: habit.h,
+    hRaw: habit.raw,
+    bound: habit.bound,
+    m: r.built.maintenance,
+    iStar: r.ok ? r.iStar : null,
+    target: r.ok ? r.target : null,
+    rate: r.ok ? r.plan.weeklyRateTarget : null,
+    floorActive: r.ok ? r.floorActive : null,
+  };
+}
+
+/**
+ * Prompt 41 s3.1.6-7: J* plan of day d from a journal estimate (the estimate of the day for the first plan and the
+ * recalibrations; the last applied one for a periodic replan) and h of the day, with the user's solver options. Applied:
+ * the store gets the plan, the plan record and the construction record are kept, `journalApplied` is updated.
+ */
+function applyJStarPlan(world: World, st: SimState, d: number, input: CalibrationInput, base: JournalEstimate, habit: Habit, kind: 'recal_jstar' | 'replan_periodic_jstar'): { ok: true } | { ok: false; reason: string } {
+  const js = st.jstar as JStarSettings;
+  const date = dateOf(d);
+  const r = jstarPlanOf(st.store, date, base, habit.h, js.floorFactor, world.spec.solver ? { request: world.spec.solver, input } : undefined);
+  st.jsBuilds.push(jstarBuildRecord(d, kind, habit, r));
+  if (!r.ok) return { ok: false, reason: r.reason };
+  st.store = syncTodayLog({ ...st.store, plan: r.plan }, date);
+  st.plans.push(planRecord(world, r.plan, d, kind, r.built.goalPlan.energyAvailabilityKcalPerKgFfm, r.built.goalPlan.warnings.lowEnergyAvailability));
+  st.journalApplied = { offsetKcal: base.offsetKcal, interval80: base.interval80, interval95: base.interval95, settings: js.journal };
+  st.jsHInForce = habit.h;
+  st.jsIStarInForce = r.iStar;
+  return { ok: true };
+}
+
+/** Missing criteria of the level-2 gate (s5.5), '|'-joined. */
+function missingCriteria(gate: JournalGateStatus, sinceSwitchOk: boolean): string {
+  const out: string[] = [];
+  if (!gate.criteria.enoughWeighIns) out.push('weighins');
+  if (!gate.criteria.enoughSpan) out.push('span');
+  if (!gate.criteria.enoughCleanWeighIns) out.push('clean');
+  if (!gate.criteria.enoughAdherenceInfo) out.push('coverage');
+  if (gate.density && !gate.density.enoughJournalSpan) out.push('span28');
+  if (gate.density && !gate.density.enoughWeighInDensity) out.push('density');
+  if (!sinceSwitchOk) out.push('since_switch');
+  return out.join('|');
+}
+
+/**
+ * Weekly J* evaluation (prompt 41 s3.1.3-9), at the time of the calibration evaluation. Level-2 gate: the journal gate of
+ * arm J (X of the arm) and at least `minDaysSinceSwitch` days since the switch. Fallback (mode C): when the gate opens, the
+ * first J* plan is applied without surfacing, the arm enters J* mode and the current method no longer recalibrates; returns
+ * true (the day's calibration is done). J* mode: the estimate of the day, h, D-34 surfacing on M / h (`jstarSurfaced`), an
+ * accepted recalibration (100 %) built by `applyJStarPlan`; always returns true. No acceptance draw is consumed.
+ */
+function evaluateJStar(world: World, st: SimState, d: number): boolean {
+  const js = st.jstar as JStarSettings;
+  const fallback = st.mode === 'C';
+  if (fallback && d - (st.switchDay as number) < js.minDaysSinceSwitch) return false;
+  const date = dateOf(d);
+  const options = journalOptions(js.journal);
+  const prepared = journalCalibrationInputFromStore(st.store, date, options);
+  const rec: JStarEvalRecord = { day: d, fallback, gateMet: false, sinceSwitchOk: false, missing: '', offsetMedian: null, m: null, m80: null, width80: null, h: null, hRaw: null, mOverH: null, surfaced: false, applied: false, truthLogged: null };
+  if (!prepared) {
+    rec.missing = 'no_input';
+    st.jsEvals.push(rec);
+    return !fallback;
+  }
+  const m = loggedMinusRealMean(st, lastWeighInDay(st));
+  rec.truthLogged = m === null ? null : world.spec.trueOffsetKcal + world.nasemDeclaredKcal - prepared.input.populationTdeeAtStartKcal + m;
+  const gate = evaluateJournalGate(prepared.input.weights, prepared.observations, options.weighInDensity);
+  rec.sinceSwitchOk = d - (st.switchDay as number) >= js.minDaysSinceSwitch;
+  rec.gateMet = gate.met && rec.sinceSwitchOk;
+  rec.missing = missingCriteria(gate, rec.sinceSwitchOk);
+  const fit = rec.gateMet ? fitCalibration(prepared.input) : null;
+  if (!fit) {
+    if (rec.gateMet) rec.missing = 'no_fit';
+    st.jsEvals.push(rec);
+    return !fallback;
+  }
+  const levelGate: GateStatus = { ...gate, met: true };
+  const candidate = buildSnapshot(fit, levelGate, prepared.input.populationTdeeAtStartKcal, nowIsoOf(date));
+  const plan = st.store.plan as CurrentPlan;
+  const profile = st.store.profile as UserProfile;
+  const weight = currentWeightKg(st.store) ?? profile.currentWeightKg;
+  const populationNow = assessBaseline(profile, date, { weightKg: weight, palCategory: st.store.meta.initialPalCategory ?? plan.palCategory }).populationTdeeKcal;
+  const maintenance = populationNow + candidate.posteriorMedianOffsetKcal;
+  const width = intervalWidth(candidate.interval80);
+  const habit = jstarHabit(st, prepared, d);
+  rec.offsetMedian = candidate.posteriorMedianOffsetKcal;
+  rec.m = maintenance;
+  rec.m80 = [populationNow + candidate.interval80[0], populationNow + candidate.interval80[1]];
+  rec.width80 = width;
+  rec.h = habit.h;
+  rec.hRaw = habit.raw;
+  rec.mOverH = maintenance / habit.h;
+  const surfaced = fallback || st.jsRef === null ? true : jstarSurfaced(levelGate, maintenance, width, habit.h, st.jsRef, date);
+  if (!surfaced) {
+    st.jsEvals.push(rec);
+    return !fallback;
+  }
+  rec.surfaced = true;
+  const applied = applyJStarPlan(world, st, d, prepared.input, { offsetKcal: candidate.posteriorMedianOffsetKcal, interval80: candidate.interval80, interval95: candidate.interval95 }, habit, 'recal_jstar');
+  if (!applied.ok) {
+    rec.failure = applied.reason;
+    st.planFailures.push(`${d}:jstar:${applied.reason}`);
+    st.jsEvals.push(rec);
+    return !fallback;
+  }
+  rec.applied = true;
+  st.recalDays.push(d);
+  st.jsRef = { tdeeKcal: maintenance / habit.h, interval80Width: width / habit.h, surfacedOn: date };
+  if (fallback) {
+    st.mode = 'JS';
+    st.firstSwitchPlanDay = d;
+    st.chosenTargetActive = false;
+    if (world.spec.robustness) st.targeting = false;
+  }
+  st.jsEvals.push(rec);
+  return true;
+}
+
+/** Prompt 41 s3.1.10: periodic replan K2 in J* mode, every `every` days since the last plan, last estimate applied, h of the day. */
+function jstarPeriodicStep(world: World, st: SimState, d: number, every: number): void {
+  const date = dateOf(d);
+  const plan = st.store.plan as CurrentPlan;
+  const ageDays = planAgeDays(plan, date);
+  if (!(ageDays > 0 && ageDays % every === 0)) return;
+  const base = st.journalApplied;
+  const js = st.jstar as JStarSettings;
+  if (!base) {
+    st.replans.push({ day: d, mode: st.mode, status: 'no_snapshot', ageDays, targetBefore: plan.calorieTarget, targetAfter: null });
+    return;
+  }
+  const prepared = journalCalibrationInputFromStore(st.store, date, journalOptions(js.journal));
+  const applied = prepared ? applyJStarPlan(world, st, d, prepared.input, base, jstarHabit(st, prepared, d), 'replan_periodic_jstar') : { ok: false as const, reason: 'no_journal_input' };
+  st.replans.push({ day: d, mode: st.mode, status: applied.ok ? 'replanned' : 'failed', ageDays, targetBefore: plan.calorieTarget, targetAfter: applied.ok ? (st.store.plan as CurrentPlan).calorieTarget : null, ...(applied.ok ? {} : { reason: applied.reason }) });
+}
+
+/** Prompt 41 s3.1.11: guardrails in J* mode, last J* estimate applied, h of the day, J* rebuild (`enforceJStarPlanGuardrails`). */
+function jstarGuardStep(world: World, st: SimState, d: number): void {
+  const date = dateOf(d);
+  const before = st.store.plan as CurrentPlan;
+  const profile = st.store.profile as UserProfile;
+  if (before.goal !== 'loss') return;
+  const bmiNow = bmiOfWeight(appWeightOf(st.store), profile.heightCm);
+  const cap = guardrailMaxWeeklyRate('loss', bmiNow);
+  if (!(bmiNow < LOSS_UNAVAILABLE_BMI_BELOW) && (cap === null || !(before.weeklyRateTarget > cap + 1e-9))) return;
+  const js = st.jstar as JStarSettings;
+  const base = st.journalApplied;
+  if (!base) throw new Error('J* mode without an applied estimate');
+  const prepared = journalCalibrationInputFromStore(st.store, date, journalOptions(js.journal));
+  if (!prepared) throw new Error('no journal input');
+  const habit = jstarHabit(st, prepared, d);
+  const request = world.spec.solver;
+  const r = enforceJStarPlanGuardrails(st.store, date, base, habit.h, js.floorFactor, request ? { request, input: prepared.input } : undefined);
+  if (r.status === 'none') return;
+  const kind = r.rule === 'G1' ? 'guardrail_g1' : 'guardrail_g2';
+  st.jsBuilds.push(jstarBuildRecord(d, kind, habit, r.result));
+  const common = { day: d, rule: r.rule, mode: st.mode, path: 'jstar' as const, bmi: r.bmi, targetBefore: before.calorieTarget, rateBefore: before.weeklyRateTarget };
+  if (r.status === 'failed') {
+    st.guards.push({ ...common, status: 'failed', reason: r.reason, targetAfter: null, rateAfter: null });
+    return;
+  }
+  st.store = r.store;
+  const next = st.store.plan as CurrentPlan;
+  st.guards.push({ ...common, status: 'applied', reason: r.rule === 'G1' ? 'bmi_below_20' : 'rate_above_cap', targetAfter: next.calorieTarget, rateAfter: next.weeklyRateTarget });
+  const rec = planRecord(world, next, d, kind, r.result.built.goalPlan.energyAvailabilityKcalPerKgFfm, r.result.built.goalPlan.warnings.lowEnergyAvailability);
+  rec.trueWeightKg = st.trueW[d] as number;
+  st.plans.push(rec);
+  st.jsHInForce = habit.h;
+  st.jsIStarInForce = r.result.iStar;
+}
+
+/** Prompt 41 s5.3: deviation day of the user (H2a from day 84 only, H2b up to day 83 only; otherwise the day's draw). */
+function deviationOn(world: World, d: number): boolean {
+  const dev = world.draws.deviation[d] as boolean;
+  const b = world.spec.slot.postSwitch;
+  if (b === 'H2a') return dev && d >= H2_SPLIT_DAY;
+  if (b === 'H2b') return dev && d < H2_SPLIT_DAY;
+  return dev;
+}
+
 /** App weight: the weight the domain rebuilds a plan at (`currentWeightKg`: latest trend weight, else the profile weight). */
 function appWeightOf(store: WheightyStore): number {
   return currentWeightKg(store) ?? (store.profile as UserProfile).currentWeightKg;
@@ -1358,16 +1823,30 @@ function eatAndLog(world: World, st: SimState, d: number): void {
   const plan = st.store.plan as CurrentPlan;
   const u = uOn(spec.uSchedule, spec.u, d);
   const eatNoise = 1 + EATING_NOISE_SD * (draws.zEat[d] as number);
-  const deviation = st.targeting && (draws.deviation[d] as boolean);
+  const devDraw = deviationOn(world, d);
+  const deviation = st.targeting && devDraw;
+  // Prompt 41 s5.3: arms C and J* after the switch (J* mode included); H3, excess of a deviation day not logged.
+  const chosenMode = (st.mode === 'C' || st.mode === 'JS') && st.tc !== null;
+  const unlogged = spec.slot.postSwitch === 'H3' && devDraw && (draws.unloggedU?.[d] as number) < H3_UNLOGGED_PROBABILITY;
+  /** Intake aiming at `aim` in the journal (logged units); `basis`: what the logging of the day starts from. */
+  const aimed = (aim: number, dev: boolean): { real: number; basis: number } => {
+    if (dev && spec.slot.postSwitch === 'H1') {
+      const r = ((aim + H1_EXCESS_TC_SHARE * (st.tc as NonNullable<SimState['tc']>).final) / (1 + u)) * eatNoise;
+      return { real: r, basis: r };
+    }
+    const r = (aim / (1 + u)) * eatNoise * (dev ? DEVIATION_FACTOR : 1);
+    return { real: r, basis: dev && unlogged ? (aim / (1 + u)) * eatNoise : r };
+  };
   // `targeting`: the user aims at the displayed target in his journal (logged units, after the switch plan).
   let real: number;
+  let basis: number | null = null;
   let proteinG: number;
   if (st.targeting) {
-    real = (plan.calorieTarget / (1 + u)) * eatNoise * (deviation ? DEVIATION_FACTOR : 1);
+    ({ real, basis } = aimed(plan.calorieTarget, deviation));
     proteinG = plan.macros.proteinG / (1 + u);
-  } else if (st.mode === 'C' && st.tc) {
-    // Robustness of C: keeps T_c to the end, aiming at it in the journal.
-    real = (st.tc.final / (1 + u)) * eatNoise * ((draws.deviation[d] as boolean) ? DEVIATION_FACTOR : 1);
+  } else if (chosenMode && st.tc) {
+    // Robustness of C (and H4 of J*): keeps T_c to the end, aiming at it in the journal.
+    ({ real, basis } = aimed(st.tc.final, devDraw));
     proteinG = plan.macros.proteinG / (1 + u);
   } else if (spec.behavior === 'follower') {
     real = plan.calorieTarget * eatNoise;
@@ -1380,27 +1859,34 @@ function eatAndLog(world: World, st: SimState, d: number): void {
     real = (world.onboardingPlan.calorieTarget + spec.slot.shiftKcal) * eatNoise;
     proteinG = plan.macros.proteinG;
   }
-  let carbKcal = world.eatenCarbFraction * real;
-  let proteinKcal = KCAL_PER_G_PROTEIN * proteinG;
-  let fatKcal = real - proteinKcal - carbKcal;
-  if (fatKcal < 0) {
-    fatKcal = 0;
-    carbKcal = Math.max(0, real - proteinKcal);
-    if (real - proteinKcal < 0) proteinKcal = real;
-  }
-  const realP = proteinKcal / KCAL_PER_G_PROTEIN;
-  const realC = carbKcal / KCAL_PER_G_CARB;
-  const realF = fatKcal / KCAL_PER_G_FAT;
+  const logBasis = basis ?? real;
+  const splitOf = (kcal: number) => {
+    let carbKcal = world.eatenCarbFraction * kcal;
+    let proteinKcal = KCAL_PER_G_PROTEIN * proteinG;
+    let fatKcal = kcal - proteinKcal - carbKcal;
+    if (fatKcal < 0) {
+      fatKcal = 0;
+      carbKcal = Math.max(0, kcal - proteinKcal);
+      if (kcal - proteinKcal < 0) proteinKcal = kcal;
+    }
+    return { p: proteinKcal / KCAL_PER_G_PROTEIN, c: carbKcal / KCAL_PER_G_CARB, f: fatKcal / KCAL_PER_G_FAT, carbKcal };
+  };
+  const eaten = splitOf(real);
+  const carbKcal = eaten.carbKcal;
+  const realP = eaten.p;
+  const realC = eaten.c;
+  // H3 (prompt 41 s5.3): a normal day is logged on an unlogged deviation day; otherwise the logging starts from the intake.
+  const shown = logBasis === real ? eaten : splitOf(logBasis);
   const logNoise = 1 + LOGGING_NOISE_SD * (draws.zLog[d] as number);
-  const loggedP = Math.max(0, realP * (1 + u) * logNoise);
-  const loggedC = Math.max(0, realC * (1 + u) * logNoise);
-  const loggedF = Math.max(0, realF * (spec.carbWorld === 'selective' ? 1 + u - 0.1 : 1 + u) * logNoise);
+  const loggedP = Math.max(0, shown.p * (1 + u) * logNoise);
+  const loggedC = Math.max(0, shown.c * (1 + u) * logNoise);
+  const loggedF = Math.max(0, shown.f * (spec.carbWorld === 'selective' ? 1 + u - 0.1 : 1 + u) * logNoise);
   const logged = KCAL_PER_G_PROTEIN * loggedP + KCAL_PER_G_CARB * loggedC + KCAL_PER_G_FAT * loggedF;
 
   // Declared adherence (read by the current method only).
   const a = draws.adherenceU[d] as number;
   let adherence: 'on_plan' | 'minor_deviation' | 'major_deviation';
-  if (st.mode === 'C' && st.tc) adherence = (draws.deviation[d] as boolean) ? 'major_deviation' : 'on_plan';
+  if (chosenMode) adherence = devDraw && !unlogged ? 'major_deviation' : 'on_plan';
   else if (spec.behavior === 'follower') adherence = a < 0.85 ? 'on_plan' : a < 0.95 ? 'minor_deviation' : 'major_deviation';
   else if (spec.behavior === 'steady') adherence = 'on_plan';
   else adherence = a < (spec.slot.majorShare ?? DEFAULT_MAJOR_SHARE) ? 'major_deviation' : 'on_plan';
@@ -1443,6 +1929,8 @@ function eatAndLog(world: World, st: SimState, d: number): void {
   st.planFloor.push(plan.hardFloorKcal ?? Number.NaN);
   st.appW.push(appWeightOf(st.store));
   st.modeDay.push(st.mode);
+  st.hDay.push(st.mode === 'JS' ? (st.jsHInForce ?? Number.NaN) : Number.NaN);
+  st.iStarDay.push(st.mode === 'JS' ? (st.jsIStarInForce ?? Number.NaN) : Number.NaN);
   // Day counted by S4: the user aims at the displayed target (journal users after the switch plan; followers of the
   // current method before any switch).
   st.targetingDay.push(st.targeting || (spec.behavior === 'follower' && (st.mode === 'pre' || st.mode === 'A')));
@@ -1459,6 +1947,10 @@ function morning(world: World, st: SimState, d: number, arm: ArmConfig | null): 
     if (!arm || arm.kind !== 'J') throw new Error('journal mode without a journal arm');
     evaluateJournal(world, st, d, arm.journal);
     return null;
+  }
+  // Prompt 41 s3.1.12: arm J*, the J* evaluation (the gate during the fallback, then J* mode); else the current method.
+  if (arm?.kind === 'JS' && (st.mode === 'JS' || (st.mode === 'C' && st.switchDay !== null))) {
+    if (evaluateJStar(world, st, d)) return null;
   }
   return evaluateCurrent(world, st, d);
 }
@@ -1587,7 +2079,7 @@ export function tissueBlockRatio(st: SimState, goal: GoalKind, a: number, b: num
 /** Reference day of S3/S4 (s7.2): first plan issued from the switch (J: first journal plan; C: T_c), or 0 (A). */
 export function referenceDay(arm: ArmConfig, st: SimState): number | null {
   if (arm.kind === 'A' || st.mode === 'A' || st.mode === 'pre') return 0;
-  if (st.mode === 'J') return st.firstSwitchPlanDay;
+  if (st.mode === 'J' || st.mode === 'JS') return st.firstSwitchPlanDay;
   return st.switchDay;
 }
 

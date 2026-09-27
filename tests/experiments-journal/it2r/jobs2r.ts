@@ -361,7 +361,8 @@ export function dailySample2r(job: Job2r): Set<number> {
 /** Reference day of A6.5: J, first plan issued from the switch (first journal plan); C, the chosen target (switch day); A, 0. */
 export function refDay2r(arm: ArmConfig, st: SimState): number | null {
   if (st.accepted === true && st.switchDay !== null) {
-    if (arm.kind === 'J') return st.firstSwitchPlanDay;
+    // Prompt 41 (iteration 2d, A7.4): arm J*, the first J* plan (null without one), as arm J.
+    if (arm.kind === 'J' || arm.kind === 'JS') return st.firstSwitchPlanDay;
     if (arm.kind === 'C') return st.switchDay;
   }
   return 0;

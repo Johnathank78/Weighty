@@ -1,0 +1,11 @@
+Iteration 2d (prompt 41 s4.4), options absent.
+Capture before: 4d4346a (amendment 7 commit, src identical to ffee4d2), in a worktree. Capture after: prototype of s3 (src/domain/engine.ts: floor multiplier carried by the solver prototype request; simulator: arm J*, arm C options, behaviours H1 to H4, hypercube design), options absent.
+sha256 prefixes (before): t03=3447793aaab0a3d4 t04=c65c47cfed27e2f0 golden=e20b17f402509bfc cases-rs=90a3247c88fb4d74 journey=9ae0d6f8a7864d24 
+sha256 prefixes (after): t03=3447793aaab0a3d4 t04=c65c47cfed27e2f0 golden=e20b17f402509bfc cases-rs=ae14bc88d0ed4b43 journey=d15ab410b54babe7 
+t03, t04, golden: byte-identical before/after and to the captures of the previous iterations. cases-rs, journey: random store ids differ (masked).
+t03: 1003779 numeric values, 0 numeric differences, 0 other differences
+t04: 1497006 numeric values, 0 numeric differences, 0 other differences
+golden: 3483 numeric values, 0 numeric differences, 0 other differences
+cases-rs: 9847 numeric values, 0 numeric differences, 0 other differences
+journey: 8896 numeric values, 0 numeric differences, 0 other differences
+TOTAL 2523011 numeric values compared, 0 differences, 554 random ids masked
