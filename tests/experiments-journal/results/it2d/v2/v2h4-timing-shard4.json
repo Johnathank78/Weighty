@@ -1,0 +1,19 @@
+{
+  "job": "v2h4",
+  "shard": 4,
+  "users": 31,
+  "proposals": 26,
+  "wallMs": 269737.6047,
+  "userMsTotal": 269672.2800000001,
+  "userMsP50": 9853.261299999998,
+  "userMsMax": 11193.3724,
+  "cost": {
+    "v2h4:common": 13511.458000000033,
+    "v2h4:users": 31,
+    "v2h4:C": 93683.46259999997,
+    "v2h4:JS": 162476.6513,
+    "v2h4:proposals": 26
+  },
+  "contChecked": 26,
+  "contMismatches": []
+}
