@@ -1,0 +1,19 @@
+{
+  "job": "fallback2d",
+  "shard": 10,
+  "users": 19,
+  "proposals": 15,
+  "wallMs": 97809.8071,
+  "userMsTotal": 97756.57179999999,
+  "userMsP50": 5735.4058,
+  "userMsMax": 6685.1015,
+  "cost": {
+    "fallback2d:common": 10214.769200000024,
+    "fallback2d:users": 19,
+    "fallback2d:proposals": 15,
+    "fallback2d:C": 43889.739100000035,
+    "fallback2d:JS": 43651.542899999986
+  },
+  "contChecked": 15,
+  "contMismatches": []
+}

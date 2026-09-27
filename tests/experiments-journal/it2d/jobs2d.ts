@@ -72,7 +72,7 @@ export const DENSITY_FALLBACK = [0.9, 0.75] as const;
  * 2 500 per behaviour; H4: 500; V4: 1 500 per sensitivity. A doubled pass doubles n (A7.4). The scaling of s7 (a loss or
  * gain cell under 700 switched users in the pilot) is applied here, before any measurement, and declared in the report.
  */
-export const SIZES_2D = { v1: 7500, v2: 10000, h4: 500, v3: 7500, v4: 1500, fallback: 250, pairing: 50, pilotPerType: 64 } as const;
+export const SIZES_2D = { v1: 7500, v2: 10000, h4: 500, v3: 7500, v4: 1500, fallback: 300, pairing: 50, pilotPerType: 64 } as const;
 
 // Arms (s3).
 export const CHOSEN_2D: ChosenTargetSettings = { floorFactor: 1.1, fixFloorField: true };

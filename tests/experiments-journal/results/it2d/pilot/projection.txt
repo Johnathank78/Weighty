@@ -1,0 +1,18 @@
+Iteration 2d (prompt 41 s6.4): cost pilot, 16 shards, V1 64 users (52 switched), V2 64 users (51 switched), V3 64 users (55 switched), V4 64 users (54 switched); seeds pilot2d (discarded).
+Pilot wall time 139 s; parallel efficiency (sum of user times / (wall x 16)) 0.914.
+Mean ms per user, V1: common 483, C 2637, JS 5022; total 8142; switched share 0.813.
+Mean ms per user, V2: common 445, C 2512, JS 4855; total 7812; switched share 0.797.
+Mean ms per user, V3: common 335, C 2673, JS 5321; total 8329; switched share 0.859.
+Mean ms per user, V4: common 333, C 2492, JS 4734; total 7559; switched share 0.844.
+Projected wall time per step (16 processes), without doubled pass:
+- V1, P00, R0 à R30 (7500): 69.6 min
+- V2, P00, H1 à H3 (10000): 89.0 min
+- H4 (500): 4.5 min
+- V3, P05, P10, P20 (3 x 7500): 213.6 min
+- V4, sensibilités (3 x 1500): 38.8 min
+Elapsed since the amendment commit: 31 min; tables and report allowance: 30 min.
+Projected total, every step: 7.94 h; after the reductions of s9 (none): 7.94 h; cap 8 h.
+With a doubled pass of V1 and of V2: 13.22 h (doubled V1 139 min, doubled V2 178 min).
+Pooled share of switched users in the pilot: 0.828. Smallest loss or gain cell (goal x behaviour), users of the design and expected switched users (s7, threshold 700): v1 gain|R30 912 -> 755; v2 gain|H3 894 -> 740; v3 gain|R0 896 -> 742.
+V4 REMOVED (J* cannot be retained in this iteration, s9): no
+STOP before V1 (s10.2): no

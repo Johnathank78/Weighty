@@ -1,0 +1,4 @@
+Iteration 2d (prompt 41 s6.2): pairing, job pairing2d (50 non-followers of P00, density 1.00, every behaviour, K2 + G, arms C and JS), 16 parts.
+Users: 50, with a proposal (bifurcated): 42; J* arms with a J* plan: 41; users with a guardrail event in some arm: 10.
+Arms compared with their full replay from day 0: 100; differences: 0.
+VERDICT: PASS

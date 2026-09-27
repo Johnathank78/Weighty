@@ -1,0 +1,16 @@
+{
+  "control61": {
+    "switched": 235,
+    "noPlan": 229,
+    "withPlan": 6,
+    "mismatches": 0,
+    "pass": true
+  },
+  "decision": {
+    "V1": "non exécutée",
+    "V2": "non exécutée",
+    "V3": "non exécutée",
+    "V4": "non exécutée",
+    "retained": false
+  }
+}

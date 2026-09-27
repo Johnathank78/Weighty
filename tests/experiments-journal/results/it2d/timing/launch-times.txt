@@ -1,2 +1,8 @@
 2026-09-27T17:30:43+02:00 start repro2r subs=16
 2026-09-27T17:33:41+02:00 end repro2r wall_s=178
+2026-09-27T17:35:53+02:00 start fallback2d shards=16
+2026-09-27T17:37:38+02:00 end fallback2d wall_s=105 failed_shards=0
+2026-09-27T17:37:38+02:00 start pairing2d parts=16
+2026-09-27T17:38:40+02:00 end pairing2d wall_s=61
+2026-09-27T17:38:42+02:00 start pilot2d shards=16
+2026-09-27T17:41:04+02:00 end pilot2d wall_s=142 failed_shards=0
