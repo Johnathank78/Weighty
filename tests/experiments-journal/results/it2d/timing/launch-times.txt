@@ -6,3 +6,5 @@
 2026-09-27T17:38:40+02:00 end pairing2d wall_s=61
 2026-09-27T17:38:42+02:00 start pilot2d shards=16
 2026-09-27T17:41:04+02:00 end pilot2d wall_s=142 failed_shards=0
+2026-09-27T17:41:50+02:00 start v1 shards=16
+2026-09-27T18:45:24+02:00 end v1 wall_s=3814 failed_shards=0
