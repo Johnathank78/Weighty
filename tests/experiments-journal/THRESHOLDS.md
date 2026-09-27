@@ -257,3 +257,66 @@ Tous les bras de C1, C2 et C6 (A, J, C, J-NASEM, J-glucides) utilisent le solveu
 - Pour le bras J, S3-P, S3-D, S4-P et S4-J portent sur la période qui suit le premier plan issu de la bascule. Pour S3-D, ce sont les blocs qui commencent ce jour-là ou après.
 - La règle des blocs de A5.4 s'applique aux ratios de C1 (S1, S5, S5b, P00) et de A2.2 : un bloc où l'objectif du plan change est exclu des ratios, et compté.
 - Facteur nouveau : part des jours déclarés « écart important » par les non-suiveurs avant la bascule, tirée dans {80 ; 95 ; 100 %}. Les critères sont jugés toutes valeurs confondues. La part de propositions, S5 et S5b sont rapportés par valeur.
+
+## Amendement 7 : niveau 2 complet (J*) contre « cible choisie »
+
+Validé par le product owner le 2026-09-27, après la lecture du rapport 40 et avant toute exécution de l'itération 2d.
+
+Décidé après avoir vu le rapport 40, et marqué comme tel. Le verdict de A2.1 reste acquis : le niveau 2 testé (bras J) n'est pas retenu. Cet amendement juge une méthode nouvelle, jamais mesurée : le niveau 2 complet (J*). Sa règle est la non-infériorité à « cible choisie » (C), et non la supériorité exigée de J par A2.1. Justification : une cible ne se tient qu'avec un journal, et C le suppose aussi. J* n'a donc pas à justifier l'usage du journal, seulement sa propre complexité.
+
+### A7.1 Objet mesuré
+J*, après l'acceptation de la proposition de révision :
+1. Départ : cible T_c, comme en C.
+2. Repli : tant que la porte du niveau 2 n'est pas franchie, J* est identique à C.
+3. Porte du niveau 2 : celle du bras J au rapport 40 (X = 100 %, au moins 28 jours, critères existants), plus au moins 14 jours depuis la bascule.
+4. Maintien M : l'estimation du bras J, inchangée (saisies et pesées, prior plat, grille ±2 000).
+5. Habitude h(D) = Σ I_d / Σ T_d sur les jours d de [max(jour de bascule ; D − 28) ; D − 1], où D est la date de construction du plan, I_d l'apport du jour tel qu'il entre dans l'estimation (saisi, ou imputé) et T_d la cible enregistrée ce jour-là. h est borné à [0,80 ; 1,25] (ingénierie).
+6. Toute construction de plan (premier plan J*, recalibration, recalcul périodique, G1, G2) résout l'apport à viser I* sur M, avec I* ≥ h × plancher D-32 × 1,10, et affiche T = I* / h. Les macros sont celles de production pour T.
+7. Le premier plan J* est appliqué à l'ouverture de la porte. Ensuite, le surfaçage D-34 porte sur l'estimation divisée par h (maintien et largeur de l'intervalle à 80 %), avec pour référence la dernière recalibration J* appliquée, divisée par son propre h.
+
+C : comme au rapport 40, avec deux changements après la bascule :
+- plancher D-32 × 1,10 sur toutes ses cibles, T_c comprise ;
+- quand T_c est fixée, le champ de plancher du plan est mis à jour (artefact M3 du rapport 40).
+
+K2 + G dans les deux bras (A6.1).
+
+### A7.2 Population jugée
+- Non-suiveurs basculés et pesés chaque jour : la densité de pesée 1,00 est fixée avant la simulation.
+- Un basculé pesé moins souvent ne franchit pas la porte du niveau 2 et reste en C : J* y est identique à C par construction. Cette identité est contrôlée, sans verdict.
+- S6 n'est pas rejugé : J* n'agit qu'après une proposition acceptée, et aucun suiveur n'en a reçu au rapport 40 (0 sur 3 000).
+
+### A7.3 Comportements après la bascule
+Mêmes tirages dans les deux bras. Hors jours d'écart, l'utilisateur vise la cible affichée dans son journal : apport réel = cible / (1 + u) × (1 + 0,08 z).
+- R0, R15, R30 : 0, 15 ou 30 % de jours d'écart ; ces jours-là, apport réel × 1,25, saisi normalement, déclaré « écart important ».
+- H1, excès fixe : 30 % de jours d'écart ; ces jours-là, apport réel = (cible + 0,25 × T_c) / (1 + u) × (1 + 0,08 z), quelle que soit la cible ; saisi normalement ; déclaré « écart important ».
+- H2a : jours d'écart de R30 à partir du jour 84 seulement.
+- H2b : jours d'écart de R30 jusqu'au jour 83 seulement.
+- H3 : jours d'écart de R30 ; sur chacun, avec une probabilité 0,5, l'excès n'est pas saisi et le jour est déclaré « plan respecté ».
+- H4, robustesse : l'utilisateur garde T_c jusqu'à la fin. Rapporté, sans verdict.
+
+R0 à R30 suivent exactement le modèle de J* : ils valident sa mise en œuvre. H1 à H3 sortent de ses hypothèses : ce sont eux qui jugent la méthode.
+
+### A7.4 Critères
+- NI (J* − C) : Δ de la médiane de |ratio − 1|, apparié, borne haute ≤ +0,05 (ingénierie), dans chaque cellule objectif (perte, prise) × fenêtre × comportement. Fenêtres : semaines 5 à 12 et 13 à 24 ; pour H2a et H2b, semaines 13 à 24 seulement.
+- Sécurité de J* : S3-P, S3-D [S], S4-P (plancher × 1,10) et S4-J [S], sur la période qui suit le premier plan J* (lecture de A6.5), dans chaque comportement jugé et chaque population.
+- S1 de J* : comportements R0, R15 et R30 regroupés, par objectif et par fenêtre.
+- Ratios sur la masse tissulaire, blocs de A6.5 (règle des blocs de A5.4).
+- Statuts : GO si l'IC entier satisfait le seuil ; NO-GO s'il est entier du mauvais côté ; INCONCLUSIF sinon. Un critère sans utilisateur à juger compte comme NO-GO. S4-J : GO si la part est ≤ 1 % et sa borne haute ≤ 2 % ; NO-GO si la borne basse dépasse 1 %.
+- INCONCLUSIF : une passe doublée de l'étape (graines neuves, 2 × n), qui rejuge tous ses critères sur elle seule (A1.3). Encore INCONCLUSIF : non GO.
+
+### A7.5 Étapes et décision
+- V1 : P00, R0 à R30 : NI, sécurité, S1.
+- V2 : P00, H1, H2a, H2b, H3 : NI et sécurité. H4 rapporté.
+- V3 : P05, P10, P20, R0 à R30 : NI, sécurité et S1, dans chaque population.
+- V4 : sensibilités [S], R0 à R30 : sécurité de J*.
+- Une étape non GO arrête les suivantes.
+- J* est retenu si les quatre étapes sont GO. Il devient alors la méthode suivie après l'acceptation par les utilisateurs pesés chaque jour ; C reste celle des autres. Sinon, J* n'est pas retenu, et C reste la candidate, jugée en itération 4.
+- C2 et C6 restent non lancés. S'ils deviennent nécessaires pour J*, un amendement les définira.
+
+### A7.6 Rapporté, sans verdict
+- Cellules où J* fait mieux que C (borne haute de Δ < 0).
+- Critères de C (S1, S3-P, S3-D, S4-P, S4-J), dans chaque étape.
+- h : distribution, bornes atteintes, écart au rapport saisi / cible réalisé dans les 28 jours suivants.
+- M : écart à la vérité en unités de saisie ; variation hebdomadaire de M / h.
+- Part des basculés qui franchissent la porte du niveau 2, et date du premier plan J*.
+- S2, S7, garde-fous, IMC vrai minimal et fins sous IMC 20.
