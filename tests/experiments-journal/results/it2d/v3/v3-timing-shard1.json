@@ -1,0 +1,19 @@
+{
+  "job": "v3",
+  "shard": 1,
+  "users": 1407,
+  "proposals": 1147,
+  "wallMs": 14105404.631,
+  "userMsTotal": 14103706.290999983,
+  "userMsP50": 9371.506699999794,
+  "userMsMax": 30034.537399999797,
+  "cost": {
+    "v3:common": 738060.9053999882,
+    "v3:users": 1407,
+    "v3:proposals": 1147,
+    "v3:C": 4488334.166300036,
+    "v3:JS": 8877295.21330002
+  },
+  "contChecked": 1147,
+  "contMismatches": []
+}

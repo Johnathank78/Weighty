@@ -12,3 +12,6 @@
 2026-09-27T20:11:42+02:00 end v2 wall_s=4967 failed_shards=0
 2026-09-27T20:11:43+02:00 start v2h4 shards=16
 2026-09-27T20:16:39+02:00 end v2h4 wall_s=297 failed_shards=0
+2026-09-27T20:27:47+02:00 start v3 shards=16
+2026-09-28T00:29:39+02:00 end v3 wall_s=14512 failed_shards=0
+2026-09-28T00:40:13+02:00 V3 NO-GO (P05, S4-J R0 lower bound > 1 %): V4 not launched (s10.3)
