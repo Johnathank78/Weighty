@@ -15,4 +15,8 @@ Thumbs.db
 tools/hall-reference/__pycache__/
 .claude/
 .instruct/
-/reports
+# Private working prompts: never published
+/prompt/
+# Measurement raws and archives: kept on the measurement branch, never on main
+*.zip
+tests/experiments-journal/results/
