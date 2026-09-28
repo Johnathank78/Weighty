@@ -21,8 +21,8 @@ describe('constants registry (07 s7)', () => {
     for (const name of Object.keys(constants.CONSTANT_METADATA)) expect(name in constants, name).toBe(true);
   });
 
-  it('scientific model version is 1.3.0 (apparent maintenance, structural floor, spaced recalibrations, sex-specific floor, D-31 to D-34)', () => {
-    expect(constants.SCIENTIFIC_MODEL_VERSION).toBe('1.3.0');
+  it('scientific model version is 1.4.0 (1.3.0: D-31 to D-34; 1.4.0: K2 solver, periodic replan, guardrails G1 and G2, target BMI 20)', () => {
+    expect(constants.SCIENTIFIC_MODEL_VERSION).toBe('1.4.0');
   });
 
   it('keeps cadence and uncertainty multipliers classified as engineering priors, never physiological constants', () => {
@@ -99,6 +99,16 @@ describe('non-regression of important constants', () => {
       surfacing: [constants.RECAL_SURFACE_MIN_CHANGE_KCAL, constants.RECAL_SURFACE_MIN_WIDTH_SHRINK, constants.RECAL_SURFACE_MIN_DAYS, constants.RECAL_SURFACE_MIN_CHANGE_AFTER_DAYS_KCAL],
       slider: [constants.SLIDER_MIN_STEPS_FLOOR, constants.SLIDER_MIN_STEPS_BELOW_BASELINE, constants.SLIDER_MAX_STEPS_CEILING, constants.SLIDER_MAX_STEPS_ABOVE_BASELINE, constants.SLIDER_HARD_MAX_STEPS, constants.SLIDER_RECOMMENDED_HALF_WIDTH_STEPS],
       solver: [constants.GOAL_SOLVER_HORIZON_DAYS, constants.GOAL_SOLVER_MAX_ITERATIONS, constants.GOAL_SOLVER_CALORIE_TOLERANCE_KCAL, constants.GOAL_SOLVER_WEIGHT_TOLERANCE_KG, constants.PROJECTION_MAX_DAYS],
+      legacySolver: constants.LEGACY_SOLVER_HORIZON_DAYS,
+      bmiRules: [constants.TARGET_BMI_MIN, constants.LOSS_UNAVAILABLE_BMI_BELOW],
+      pass5a: [
+        constants.PERIODIC_REPLAN_EVERY_DAYS,
+        constants.PERIODIC_REPLAN_NOTICE_MIN_KCAL,
+        constants.BMI20_WARNING_HORIZON_DAYS,
+        constants.UNDERWEIGHT_ALERT_BMI_BELOW,
+        constants.UNDERWEIGHT_ALERT_DECLINE_WEEKS,
+        constants.UNDERWEIGHT_ALERT_MIN_INTERVAL_DAYS,
+      ],
       trend: constants.TREND_HALF_LIFE_DAYS,
       rounding: [constants.DISPLAY_KCAL_ROUNDING, constants.DISPLAY_STEPS_ROUNDING, constants.DISPLAY_WEIGHT_DECIMALS],
     }).toEqual({
@@ -120,7 +130,12 @@ describe('non-regression of important constants', () => {
       confidence: [500, 300, 28, 8, 0.25],
       surfacing: [75, 0.1, 7, 40],
       slider: [2000, 6000, 20000, 10000, 30000, 3000],
-      solver: [42, 60, 1, 0.01, 730],
+      // Model 1.4.0 (pass 5a): horizon 28 days (K2 of report 38); the superseded 42 days stay for the legacy options only.
+      solver: [28, 60, 1, 0.01, 730],
+      legacySolver: 42,
+      // Model 1.4.0 (pass 5a): minimal target at BMI 20 (18.5 before), a product safety rule.
+      bmiRules: [20, 20],
+      pass5a: [28, 10, 28, 18.5, 4, 7],
       trend: 7,
       rounding: [10, 100, 1],
     });

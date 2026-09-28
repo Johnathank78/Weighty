@@ -66,13 +66,23 @@ describe('digest: goal block and removed "pourquoi pas" section', () => {
   });
 
   it('rate applied as requested: a single applied rate, no requested / applied split and no callout', () => {
-    const x = explain(CASE_R, history(1450));
+    // Model 1.4.0: case R at 1 percent per week is limited by the floor (next test); at 0.5 percent it is applied as requested.
+    const x = explain({ ...CASE_R, weeklyRateTarget: 0.005 }, history(1450));
     expect(x.goal.rateAdjusted).toBe(false);
     const t = text(render(x, false));
     expect(t).toContain('Ton objectif : perte de poids');
-    expect(t).toContain('1,0 % par semaine');
+    expect(t).toContain('0,5 % par semaine');
     expect(t).not.toContain('Tu avais demandé');
     expect(t).not.toMatch(/Demandé|Appliqué/);
+  });
+
+  it('rate limited by the floor (model 1.4.0, case R at 1 percent): the callout names the floor', () => {
+    const x = explain(CASE_R, history(1450));
+    expect(x.goal.rateAdjusted).toBe(true);
+    expect(x.goal.limitingRule).toBe('below_hard_floor');
+    const t = text(render(x, false));
+    expect(t).toContain('0,9 % par semaine');
+    expect(t).toContain('Tu avais demandé 1,0 % par semaine. Limité pour respecter ton plancher calorique.');
   });
 
   it('rate adjusted by a guardrail: an info callout gives the requested rate and the limiting rule', () => {
@@ -186,7 +196,8 @@ describe('details: distances to rules', () => {
   it('conflict z with its margin to the threshold, active signals and plan warnings kept separate', () => {
     const r = text(render(explain(CASE_R, history(1450)), true));
     expect(r).toMatch(/Conflit \(z prédictif\) non, z −1,45, seuil ±2 \(marge 0,55\)/);
-    expect(r).toContain('Avertissements du plan aucun');
+    // Model 1.4.0: the floor-limited plan of case R (1 240 kcal/day) is under its REE and low in carbohydrates for resistance.
+    expect(r).toContain('Avertissements du plan belowRee, lowCarbForResistance');
     expect(r).toContain('Signaux actifs PAL proche d’une frontière de catégorie, confiance faible');
     const aberrant = explain(ABERRANT_GAIN, history(800, 14, 72, 75));
     expect(aberrant.signals).toEqual(expect.arrayContaining(['incoherent', 'conflict', 'rate_adjusted', 'low_confidence']));
@@ -230,6 +241,6 @@ describe('stored plan integrity (matchesStoredPlan, D-30)', () => {
     expect(older?.integrity?.caloriesMatch).toBe(true);
     expect(text(render(older as ResultExplanation, true))).toContain('Écart avec le plan enregistré');
     expect(text(render(fresh as ResultExplanation, true))).toContain('Recalcul conforme au plan enregistré');
-    expect(SCIENTIFIC_MODEL_VERSION).toBe('1.3.0');
+    expect(SCIENTIFIC_MODEL_VERSION).toBe('1.4.0');
   });
 });

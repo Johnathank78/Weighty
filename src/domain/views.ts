@@ -200,12 +200,16 @@ export function trackingChart(store: WheightyStore, today: string, rangeDays: nu
   let projection: ChartSeries['projection'] = [];
   let band: ChartSeries['band'] = [];
   if (live) {
-    // Day 0 of the simulation is the weight of the last trend point, on its own day.
-    const anchor = trend[trend.length - 1]?.day ?? todayDay;
+    // Day 0 of the simulation is drawn on the last trend point, on its own day. Since model 1.4.0 the simulation starts
+    // from the modeled weight of the day, a few hundred grams off the smoothed trend: the curve and its band are moved by
+    // that gap so the drawing has no step at the junction (display only; the model's changes are drawn unchanged).
+    const last = trend[trend.length - 1];
+    const anchor = last?.day ?? todayDay;
+    const shift = last && live.trajectory[0] ? last.kg - live.trajectory[0].weightKg : 0;
     const within = (day: number) => day <= todayDay + horizonAhead;
-    projection = live.trajectory.map((pt) => ({ day: anchor + pt.day, kg: pt.weightKg })).filter((p) => within(p.day));
+    projection = live.trajectory.map((pt) => ({ day: anchor + pt.day, kg: pt.weightKg + shift })).filter((p) => within(p.day));
     band = live.trajectory
-      .map((pt, i) => ({ day: anchor + pt.day, lo: live.lower80[i]?.weightKg ?? pt.weightKg, hi: live.upper80[i]?.weightKg ?? pt.weightKg }))
+      .map((pt, i) => ({ day: anchor + pt.day, lo: (live.lower80[i]?.weightKg ?? pt.weightKg) + shift, hi: (live.upper80[i]?.weightKg ?? pt.weightKg) + shift }))
       .filter((p) => within(p.day));
   }
   return { raw, trend, projection, band, todayDay, startDate, projectionPending: learning };

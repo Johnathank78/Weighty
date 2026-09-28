@@ -170,7 +170,7 @@ describe('Suivi chart data (A3)', () => {
     }
   });
 
-  it('the projection starts on the current trend weight, not on the weight the plan was built with', () => {
+  it('the projection is drawn from the current trend weight, not from the weight the plan was built with', () => {
     const { store, state } = calibratedStore();
     const chart = trackingChart(store, TODAY, 90, state);
     const live = projectionFromToday(store, TODAY, state);
@@ -178,17 +178,21 @@ describe('Suivi chart data (A3)', () => {
     if (!chart || !live || !plan) throw new Error('chart');
     const lastTrend = chart.trend[chart.trend.length - 1];
     if (!lastTrend) throw new Error('trend');
-    // Day 0 of the fresh simulation is the trend point itself: no step at the junction.
-    expect(live.trajectory[0]?.weightKg).toBeCloseTo(lastTrend.kg, 6);
+    // Model 1.4.0: the fresh simulation starts from the modeled weight of the day (production solver), close to the trend
+    // point; the chart draws it from the trend point itself: no step at the junction.
+    expect(Math.abs((live.trajectory[0]?.weightKg ?? Number.NaN) - lastTrend.kg)).toBeLessThan(0.5);
+    const shift = lastTrend.kg - (live.trajectory[0]?.weightKg ?? Number.NaN);
+    expect(chart.projection[1]?.kg).toBeCloseTo((live.trajectory[1]?.weightKg ?? Number.NaN) + shift, 6);
     expect(chart.projection[0]?.day).toBe(lastTrend.day);
     expect(chart.projection[0]?.kg).toBeCloseTo(lastTrend.kg, 6);
     // The stored snapshot still says something else: it was computed for the starting weight, months ago.
     expect(plan.projection.trajectory[0]?.weightKg).not.toBeCloseTo(lastTrend.kg, 1);
-    // The 80 % band opens from the junction instead of arriving already several kilos wide.
+    // The 80 % band opens near the junction instead of arriving already several kilos wide. Model 1.4.0: its bounds start
+    // from the modeled bodies at the bounds of the offset interval, so today's state is uncertain too (under 1 kg here).
     const firstBand = chart.band[0];
     const lastBand = chart.band[chart.band.length - 1];
     if (!firstBand || !lastBand) throw new Error('band');
-    expect(firstBand.hi - firstBand.lo).toBeLessThan(0.2);
+    expect(firstBand.hi - firstBand.lo).toBeLessThan(1);
     expect(lastBand.hi - lastBand.lo).toBeGreaterThan(firstBand.hi - firstBand.lo);
     expect(lastBand.hi - lastBand.lo).toBeLessThan(4);
   });

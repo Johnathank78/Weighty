@@ -3,6 +3,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { assessBaseline, planContextFrom } from '@/science/assessment';
 import {
+  baselineWeightAtHorizon,
   buildGoalPlan,
   effectiveMinSliderSteps,
   guardrailMaxWeeklyRate,
@@ -18,6 +19,7 @@ import {
   speedZoneFor,
   weeklyRateRange,
   weightAtDay,
+  LEGACY_SOLVER_OPTIONS,
 } from '@/science/goals';
 import type { PlanContext } from '@/science/goals';
 import { GAIN_RATE_HARD_MAX, LOSS_RATE_HARD_MAX } from '@/science/constants';
@@ -60,21 +62,38 @@ describe('continuous weekly rate (04 s2, 06 s10)', () => {
     }
   });
 
-  it('the solved plan reaches the 42-day target on the dynamic model', () => {
+  it('the solved plan holds the rate on the tissue mass at the 28-day horizon (K2, model 1.4.0)', () => {
     const profile = makeProfile({ sexForEquation: 'male', ageYears: 40, heightCm: 180, currentWeightKg: 92, goal: 'loss', targetWeightKg: 82 });
     const ctx = ctxFor(profile);
     const plan = buildGoalPlan(ctx, { goal: 'loss', weeklyRate: 0.005, targetWeightKg: 82, stepTarget: 7000 });
     expect(plan.status).toBe('ok');
+    const origin = plan.solve?.origin;
+    expect(origin).toMatchObject({ solverStart: 'equilibrium', rateDefinition: 'sustainedTissue', horizonDays: 28, referenceWeightKg: 92 });
+    // Target: start tissue mass + W x ((1 - r)^(28/7) - 1) (definition (a)); the model's tissue mass on day 28 reaches it.
+    const target = (origin?.startTissueKg as number) + 92 * (Math.pow(1 - 0.005, 4) - 1);
+    expect(plan.solve?.targetWeightAtHorizonKg).toBeCloseTo(target, 10);
+    const tissue28 = baselineWeightAtHorizon(ctx, { goal: 'loss', scenario: { calorieTargetKcal: plan.calorieTargetKcal as number, stepsPerDay: 7000 } });
+    expect(Math.abs(tissue28 - target)).toBeLessThanOrEqual(0.01);
+    expect(plan.solve?.iterations).toBeLessThanOrEqual(60);
+  });
+
+  it('the legacy options still give the superseded solver: body weight on day 42 (comparison only)', () => {
+    const profile = makeProfile({ sexForEquation: 'male', ageYears: 40, heightCm: 180, currentWeightKg: 92, goal: 'loss', targetWeightKg: 82 });
+    const ctx = { ...ctxFor(profile), solver: LEGACY_SOLVER_OPTIONS };
+    const plan = buildGoalPlan(ctx, { goal: 'loss', weeklyRate: 0.005, targetWeightKg: 82, stepTarget: 7000 });
+    expect(plan.solve?.origin).toBeUndefined();
     const w42 = weightAtDay(ctx, 'loss', { calorieTargetKcal: plan.calorieTargetKcal as number, stepsPerDay: 7000 }, 42);
     expect(Math.abs(w42 - 92 * Math.pow(1 - 0.005, 6))).toBeLessThanOrEqual(0.01);
-    expect(plan.solve?.iterations).toBeLessThanOrEqual(60);
   });
 });
 
 describe('BMI safety (06 s10)', () => {
-  it('target BMI < 18.5 is rejected', () => {
-    const profile = makeProfile({ heightCm: 170, currentWeightKg: 60, goal: 'loss', targetWeightKg: 53 });
+  it('target BMI < 20 is rejected (model 1.4.0; 18.5 before)', () => {
+    const profile = makeProfile({ heightCm: 170, currentWeightKg: 62, goal: 'loss', targetWeightKg: 53 });
     expect(buildGoalPlan(ctxFor(profile), { goal: 'loss', weeklyRate: 0.0025, targetWeightKg: 53, stepTarget: 7000 }).status).toBe('target_bmi_too_low');
+    // 57.5 kg at 170 cm: BMI 19.9, accepted up to model 1.3.0, refused since.
+    expect(buildGoalPlan(ctxFor(profile), { goal: 'loss', weeklyRate: 0.0025, targetWeightKg: 57.5, stepTarget: 7000 }).status).toBe('target_bmi_too_low');
+    expect(buildGoalPlan(ctxFor(profile), { goal: 'loss', weeklyRate: 0.0025, targetWeightKg: 57.8, stepTarget: 7000 }).status).toBe('ok');
   });
 
   it('current BMI < 20 cannot create a weight-loss plan', () => {
@@ -260,13 +279,14 @@ describe('slider invariants (06 s12)', () => {
     for (const c of cases) {
       const baseline = { goal: c.goal, scenario: { calorieTargetKcal: c.calories, stepsPerDay: c.steps } };
       const bounds = sliderBounds(c.steps);
-      const w42 = weightAtDay(c.ctx, c.goal, baseline.scenario, 42);
+      // Horizon value held by the slider: tissue mass on day 28 (K2).
+      const held = baselineWeightAtHorizon(c.ctx, baseline);
       let prev = -Infinity;
       for (let s = bounds.minSteps; s <= bounds.maxSteps; s += 1000) {
-        const pt = solveSliderPoint(c.ctx, baseline, s, w42);
+        const pt = solveSliderPoint(c.ctx, baseline, s, held);
         expect(pt.calorieTargetKcal).toBeGreaterThanOrEqual(prev - 1);
         prev = pt.calorieTargetKcal;
-        expect(Math.abs(pt.weightAtHorizonKg - w42)).toBeLessThanOrEqual(0.05);
+        expect(Math.abs(pt.weightAtHorizonKg - held)).toBeLessThanOrEqual(0.05);
       }
     }
   });
@@ -287,7 +307,7 @@ describe('slider invariants (06 s12)', () => {
   it('no discontinuity at NASEM PAL boundaries while dragging (PAL is not reclassified)', () => {
     for (const c of cases.slice(0, 10)) {
       const baseline = { goal: c.goal, scenario: { calorieTargetKcal: c.calories, stepsPerDay: c.steps } };
-      const w42 = weightAtDay(c.ctx, c.goal, baseline.scenario, 42);
+      const w42 = baselineWeightAtHorizon(c.ctx, baseline);
       const bounds = sliderBounds(c.steps);
       let prev: number | null = null;
       for (let s = bounds.minSteps; s <= bounds.maxSteps; s += 100) {

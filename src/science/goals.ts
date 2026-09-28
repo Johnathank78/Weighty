@@ -254,7 +254,7 @@ type SolverOrigin = {
  * Options of the superseded solver (models up to 1.3.0: equilibrium start, body weight at 42 days). Comparison only
  * (tests, reports): the app never passes them.
  */
-export const LEGACY_SOLVER_OPTIONS: SolverOptions = { solverStart: 'equilibrium', rateDefinition: 'fortyTwoDayWeight', solverHorizonDays: LEGACY_SOLVER_HORIZON_DAYS };
+export const LEGACY_SOLVER_OPTIONS = { solverStart: 'equilibrium', rateDefinition: 'fortyTwoDayWeight', solverHorizonDays: LEGACY_SOLVER_HORIZON_DAYS } as const satisfies SolverOptions;
 
 function currentStateBody(ctx: PlanContext): ModeledBody | null {
   return (ctx.solver?.solverStart ?? 'currentState') === 'currentState' ? (ctx.solver?.modeledBody ?? null) : null;
