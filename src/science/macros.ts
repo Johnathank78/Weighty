@@ -25,6 +25,7 @@ import {
   PROTEIN_MAX_G_PER_KG_ACTUAL,
   RESISTANCE_MIN_MINUTES_WEEK,
   RESISTANCE_MIN_SESSIONS_WEEK,
+  TARGET_BMI_MIN,
 } from './constants';
 import { fatFreeMassKg, isHighQualityBodyComposition, isPlausibleFfm } from './ree';
 import type { BodyFatMethod, Goal, MacroActivityClass, MacroGrams, StructuredActivity } from './types';
@@ -39,6 +40,16 @@ export function bmi(weightKg: number, heightCm: number): number {
 export function weightAtBmi(targetBmi: number, heightCm: number): number {
   const h = heightCm / 100;
   return targetBmi * h * h;
+}
+
+/**
+ * Minimal target weight (pass 5a): the smallest multiple of 0.1 kg whose BMI is at least TARGET_BMI_MIN (20). Used by the
+ * target sliders, the plan engine's check and the migration of stored targets.
+ */
+export function minimumTargetWeightKg(heightCm: number): number {
+  let t = Math.ceil(weightAtBmi(TARGET_BMI_MIN, heightCm) * 10) / 10;
+  while (bmi(t, heightCm) < TARGET_BMI_MIN) t = Math.round((t + 0.1) * 10) / 10;
+  return t;
 }
 
 /**

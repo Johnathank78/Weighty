@@ -16,7 +16,7 @@ import {
   ENERGY_AVAILABILITY_CAUTION_KCAL_PER_KG_FFM,
   EXPLANATION_RANGE_ROUNDING_KCAL,
   EXPLANATION_SCALE_VARIATION_EXAMPLE_KG,
-  GOAL_SOLVER_HORIZON_DAYS,
+  LEGACY_SOLVER_HORIZON_DAYS,
   PAL_ACTIVE_MIN,
   PAL_LOW_ACTIVE_MIN,
   PAL_OUTLIER_MIN,
@@ -48,7 +48,7 @@ import type {
   WalkingPace,
 } from '@/science/types';
 import type { ExactRoot, HistoricalHallDomain, WarmStartResult, WarmStartStatus } from '@/science/warmStart';
-import { buildPlan, latestAppliedSnapshot, previewInitialPlan, storedWarmStart } from './engine';
+import { buildPlan, latestAppliedSnapshot, planSolverOptions, previewInitialPlan, storedWarmStart } from './engine';
 import type { PlanBuildResult } from './engine';
 import type { CurrentPlan, WheightyStore } from './types';
 import { gateProgressFromGate } from './views';
@@ -200,14 +200,20 @@ export type ResultExplanation = {
     requestedKgPerWeek: number;
     appliedKgPerWeek: number;
     rateAdjusted: boolean;
-    /** Rule that refused the requested rate, when the engine had to slow it down. */
+    /**
+     * Rule that refused the requested rate, when the engine had to slow it down. The hard floor is named whenever it
+     * refused a rate, even when the BMI cap limited first (pass 5a s6).
+     */
     limitingRule: RateRejectionReason | null;
     rejections: GoalPlan['rejections'];
     guardrailMaxRate: number | null;
     selectableLimit: SelectableRateLimit | null;
   };
   solve: null | {
+    /** Horizon of the solve (28 days, production solver K2). */
     horizonDays: number;
+    /** What the solve holds at the horizon: the tissue mass (fat + lean, production) or the body weight (legacy options). */
+    horizonMetric: 'tissue' | 'weight';
     targetWeightAtHorizonKg: number;
     weightAtHorizonKg: number;
     iterations: number;
@@ -337,7 +343,7 @@ function build(
         }
       : null;
   const ea = g.energyAvailabilityKcalPerKgFfm;
-  const limiting = g.rateAdjusted ? (g.rejections[0]?.reason ?? null) : null;
+  const limiting = g.rateAdjusted ? (g.rejections.some((r) => r.reason === 'below_hard_floor') ? 'below_hard_floor' : (g.rejections[0]?.reason ?? null)) : null;
   const weight = a.weightKg;
 
   // Weight of each source in the fused warm-start posterior: 1 - fused variance / prior variance, both on the grid (P2 measure 6.1).
@@ -449,7 +455,8 @@ function build(
     },
     solve: g.solve
       ? {
-          horizonDays: GOAL_SOLVER_HORIZON_DAYS,
+          horizonDays: g.solve.origin?.horizonDays ?? LEGACY_SOLVER_HORIZON_DAYS,
+          horizonMetric: g.solve.origin?.rateDefinition === 'sustainedTissue' ? 'tissue' : 'weight',
           targetWeightAtHorizonKg: g.solve.targetWeightAtHorizonKg,
           weightAtHorizonKg: g.solve.weightAtHorizonKg,
           iterations: g.solve.iterations,
@@ -509,6 +516,8 @@ export function explainCurrentPlan(store: WheightyStore, today: string): ResultE
     goal: plan.goal,
     ...(plan.targetWeightKg !== undefined ? { targetWeightKg: plan.targetWeightKg } : {}),
     weeklyRate: plan.requestedWeeklyRate ?? plan.weeklyRateTarget,
+    // The plan's own solve: its modeled body of the day it was built (production solver, pass 5a).
+    solver: planSolverOptions(store, plan),
   });
   if (!result.ok) return null;
   const warm = storedWarmStart(store);
