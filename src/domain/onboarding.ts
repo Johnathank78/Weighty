@@ -17,7 +17,7 @@ import {
   WEIGHT_MIN_KG,
 } from '@/science/constants';
 import { weeklyRateRange } from '@/science/goals';
-import { bmi } from '@/science/macros';
+import { bmi, minimumTargetWeightKg } from '@/science/macros';
 import { structuredTrainingLoad } from '@/science/ree';
 import type { HistoricalIntakeEvidence, TrackingQuality, UserProfile } from '@/science/types';
 import { validateProfile } from '@/science/validation';
@@ -359,11 +359,18 @@ export function validateHistoryDetails(draft: OnboardingDraft, units: UnitPrefer
   return e;
 }
 
-export function validateGoal(draft: OnboardingDraft): StepErrors {
+export function validateGoal(draft: OnboardingDraft, units: UnitPreference = 'metric'): StepErrors {
   if (!draft.goal) return { goal: 'Choisis un objectif.' };
   if (draft.goal !== 'maintenance' && draft.targetWeight === null) return { target: 'Choisis un poids cible.' };
+  // Pass 5a: the lowest loss target is the BMI-20 weight.
+  const heightCm = draftHeightCm(draft, units);
+  if (draft.goal === 'loss' && draft.targetWeight !== null && heightCm !== null && draft.targetWeight < minimumTargetWeightKg(heightCm) - 1e-9) {
+    return { target: `Le poids cible minimal correspond à un IMC de 20 : ${fmtTargetKg(minimumTargetWeightKg(heightCm), units)}.` };
+  }
   return {};
 }
+
+const fmtTargetKg = (kg: number, units: UnitPreference) => (units === 'imperial' ? `${formatNumber(kgToLb(kg), 1)} lb` : `${formatNumber(kg, 1)} kg`);
 
 export function validateStep(draft: OnboardingDraft, units: UnitPreference): StepErrors {
   switch (draft.step) {
@@ -390,7 +397,7 @@ export function validateStep(draft: OnboardingDraft, units: UnitPreference): Ste
     case 'historyDetails':
       return validateHistoryDetails(draft, units);
     case 'goal':
-      return validateGoal(draft);
+      return validateGoal(draft, units);
   }
 }
 

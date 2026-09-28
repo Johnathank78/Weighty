@@ -22,8 +22,11 @@ import type {
  * Version 4 (UI journal pass): `FoodEntry.consumedTime`, time of consumption distinct from the save time (J-06).
  * Version 5: `FoodJournal.library`, the user's food library "Mes aliments" (J-09).
  * Version 6: `StoredWeight.menstruating`, journaling only, never read by the engine (C-01).
+ * Version 7 (model 1.4.0, pass 5a): plan sources 'guardrail' and 'periodic_replan'; `AppMeta.planEvents` (persistent trace
+ * of guardrails, periodic replans, target migration and underweight alerts), `periodicReplanCheckedOn` and
+ * `guardrailMaintenanceSince`; loss targets below the BMI-20 weight raised to it.
  */
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 /**
  * A weigh-in as this app stores it: the engine contract (`WeightEntry`, science) plus fields that are
@@ -140,9 +143,16 @@ export type FoodJournal = {
   library: LibraryFood[];
 };
 
+/**
+ * Source of a plan. 'guardrail': rebuilt by a guardrail of the plan in force (BMI 20 or rate cap, pass 5a);
+ * 'periodic_replan': rebuilt every 28 days from the day's state, without a new calibration (pass 5a).
+ */
+export type PlanSource = 'initial' | 'recalibrated' | 'user_adjusted_slider' | 'guardrail' | 'periodic_replan';
+export const PLAN_SOURCES: readonly PlanSource[] = ['initial', 'recalibrated', 'user_adjusted_slider', 'guardrail', 'periodic_replan'];
+
 export type CurrentPlan = {
   createdAt: string;
-  source: 'initial' | 'recalibrated' | 'user_adjusted_slider';
+  source: PlanSource;
 
   maintenanceKcal: number;
   maintenanceInterval80: Interval;
@@ -201,6 +211,45 @@ export type CurrentPlan = {
   proteinRule?: string;
 };
 
+/** What the trace keeps of a plan (pass 5a): enough to say what changed, without the projection. */
+export type PlanSummary = {
+  createdAt: string;
+  source: PlanSource;
+  goal: Goal;
+  calorieTarget: number;
+  stepTarget: number;
+  weeklyRateTarget: number;
+  requestedWeeklyRate: number | null;
+  maintenanceKcal: number;
+  targetWeightKg: number | null;
+};
+
+/**
+ * Rule behind a trace entry (pass 5a):
+ * - 'G1': a loss plan under BMI 20 switched to maintenance; 'G2': a loss rate above the cap of the current BMI brought to it;
+ * - 'periodic_replan': the plan rebuilt 28 days after the last solve;
+ * - 'target_bmi_20': a stored loss target under the BMI-20 weight raised to it (migration to schema 7);
+ * - 'underweight_bmi': trend under BMI 18.5; 'underweight_decline': trend down 4 weeks running in a maintenance imposed by G1.
+ */
+export type PlanEventRule = 'G1' | 'G2' | 'periodic_replan' | 'target_bmi_20' | 'underweight_bmi' | 'underweight_decline';
+export const PLAN_EVENT_RULES: readonly PlanEventRule[] = ['G1', 'G2', 'periodic_replan', 'target_bmi_20', 'underweight_bmi', 'underweight_decline'];
+
+/** One entry of the persistent trace (pass 5a). `message`: the text shown, null when nothing is shown. */
+export type PlanEvent = {
+  id: string;
+  /** Local day of the event. */
+  date: string;
+  rule: PlanEventRule;
+  /** 'failed': the rule applied but the rebuild failed, the plan stayed (reason given). */
+  status: 'applied' | 'failed';
+  reason?: string;
+  before: PlanSummary | null;
+  after: PlanSummary | null;
+  message: string | null;
+  /** The user closed the message (always true when there is none). */
+  seen: boolean;
+};
+
 export type AppMeta = {
   /** ISO date of onboarding completion. */
   onboardingDate: string | null;
@@ -214,6 +263,12 @@ export type AppMeta = {
   lastSurfacedCalibration: { tdeeKcal: number; interval80Width: number; surfacedOn: string } | null;
   /** Raw data preserved when stored JSON could not be read (never silently discarded). */
   recoveredCorruptData: { savedAt: string; key: string } | null;
+  /** Persistent trace of the automatic plan changes and safety messages (pass 5a), oldest first. */
+  planEvents: PlanEvent[];
+  /** Last day the periodic replan was evaluated (done, failed or without calibration): the next one is 28 days later. */
+  periodicReplanCheckedOn: string | null;
+  /** Day the BMI-20 guardrail imposed the maintenance in force; null once the user chooses a goal again. */
+  guardrailMaintenanceSince: string | null;
 };
 
 export type WheightyStore = {
@@ -253,4 +308,7 @@ export const DEFAULT_META: AppMeta = {
   initialWeightKg: null,
   lastSurfacedCalibration: null,
   recoveredCorruptData: null,
+  planEvents: [],
+  periodicReplanCheckedOn: null,
+  guardrailMaintenanceSince: null,
 };

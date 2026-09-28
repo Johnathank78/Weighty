@@ -1,0 +1,3 @@
+vitesse 0.0065
+Ta vitesse est limitée par ton minimum de 1 200 kcal par jour.
+Pour tenir 1,0 % par semaine, il faudrait environ 8 700 pas par jour.

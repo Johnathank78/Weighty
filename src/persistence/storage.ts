@@ -82,7 +82,7 @@ export function loadStore(storage: KeyValueStorage | null, nowIso: string): Load
     return { store, status: 'recovered_corrupt', recoveryKey, dropped: [{ path: '', reason: 'invalid_json' }] };
   }
 
-  const migrated = migrateToCurrent(parsed);
+  const migrated = migrateToCurrent(parsed, undefined, undefined, { nowIso });
   if (!migrated.ok) {
     const recoveryKey = preserveRaw(storage, raw, nowIso);
     const store = emptyStore();

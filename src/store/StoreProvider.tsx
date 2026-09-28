@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { WheightyStore } from '@/domain/types';
 import { emptyFoodJournal } from '@/domain/types';
 import { ensureDailyLogs } from '@/domain/engine';
+import { runDailyChecks } from '@/domain/planSafety';
 import type { CalibrationState } from '@/domain/engine';
 import { calibrationFingerprint, createCalibrationRunner } from './calibrationClient';
 import type { CalibrationRunner } from './calibrationClient';
@@ -67,8 +68,11 @@ export function StoreProvider({ children, storage: injected }: { children: React
     setSaveError(!result.ok && result.error !== 'unavailable');
   }, [store, initial.store]);
 
+  // Day change (opening, return to the foreground, midnight): logs up to today, guardrails of the plan in force, periodic
+  // replan when due, underweight alert (pass 5a). Evaluated once on the day's state; the same store comes back when nothing
+  // changes. Also runs once at start, on the loaded store.
   useEffect(() => {
-    setStore((s) => (s.plan ? ensureDailyLogs(s, today) : s));
+    setStore((s) => (s.plan ? runDailyChecks(s, today, new Date().toISOString()) : s));
   }, [today]);
 
   const commit = useCallback((next: WheightyStore) => setStore(next), []);

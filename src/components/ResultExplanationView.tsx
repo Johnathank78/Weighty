@@ -221,8 +221,17 @@ export function ResultExplanationDigest({ x, units }: { x: ResultExplanation; un
         </div>
         {x.solve ? (
           <Note>
-            C’est l’apport constant qui amène le modèle dynamique du poids à {formatWeight(x.solve.targetWeightAtHorizonKg, units)} {u} au jour {x.solve.horizonDays}
-            {x.goal.goal === 'maintenance' ? ', c’est-à-dire à ton poids actuel.' : '.'}
+            {x.solve.horizonMetric === 'tissue' ? (
+              <>
+                C’est l’apport constant qui tient ta vitesse sur {x.solve.horizonDays} jours dans le modèle dynamique : il amène ta masse de tissus (graisse et masse maigre, hors eau et glycogène) à {formatWeight(x.solve.targetWeightAtHorizonKg, units)} {u} au jour {x.solve.horizonDays}
+                {x.goal.goal === 'maintenance' ? ', c’est-à-dire à son niveau actuel.' : '.'}
+              </>
+            ) : (
+              <>
+                C’est l’apport constant qui amène le modèle dynamique du poids à {formatWeight(x.solve.targetWeightAtHorizonKg, units)} {u} au jour {x.solve.horizonDays}
+                {x.goal.goal === 'maintenance' ? ', c’est-à-dire à ton poids actuel.' : '.'}
+              </>
+            )}
           </Note>
         ) : null}
         {x.prescription.stepsAdjusted ? <Note>Calories ajustées à ton objectif de pas.</Note> : null}
@@ -455,7 +464,10 @@ export function ResultExplanationDetails({ x }: { x: ResultExplanation }) {
         <Kv k="Rejets" v={x.goal.rejections.length === 0 ? 'aucun' : x.goal.rejections.map((r) => `${formatRatePercent(r.weeklyRate)} ${r.reason}`).join(', ')} />
         {x.solve ? (
           <>
-            <Kv k="Cible à 42 j / poids du modèle" v={`${formatNumber(x.solve.targetWeightAtHorizonKg, 2)} / ${formatNumber(x.solve.weightAtHorizonKg, 2)} kg`} />
+            <Kv
+              k={`Cible à ${x.solve.horizonDays} j / ${x.solve.horizonMetric === 'tissue' ? 'masse de tissus' : 'poids'} du modèle`}
+              v={`${formatNumber(x.solve.targetWeightAtHorizonKg, 2)} / ${formatNumber(x.solve.weightAtHorizonKg, 2)} kg`}
+            />
             <Kv k="Solveur" v={`${x.solve.iterations} itérations, ${x.solve.converged ? 'convergé' : 'non convergé'}, ${kcal(x.solve.calorieTargetKcal)}`} />
           </>
         ) : null}

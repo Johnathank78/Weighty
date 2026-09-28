@@ -132,21 +132,31 @@ describe('evidence support', () => {
 describe('monotonicity in the declared intake (warm start alone, profile and goal rate fixed)', () => {
   // At fixed weights a higher declared intake implies a higher maintenance: the prescription is non-decreasing.
   // Model 1.1.0 failed between 1 370 and 1 380 on case S and between 1 250 and 1 260 on case R.
+  // Model 1.4.0 (K2): at 1 percent per week the hard floor limits R and S for the lower declared intakes (R: 1 % -> 0.9 %
+  // on its reference plan, report 38). The applied rate then rises with the maintenance by 0.05-percent steps, and at each
+  // step the calories drop (the known second source below). Frozen: the maintenance and the rate never decrease; the
+  // calories never decrease at a fixed rate; they drop only where the rate steps up, and never under the floor.
+  const RATE_STEPS: Record<'R' | 'S', number[]> = { R: [1090, 1280, 1470, 1660], S: [970, 1170] };
   for (const [name, profile] of [['R', CASE_R], ['S', CASE_S]] as const) {
-    it(`case ${name}: maintenance and calories never decrease from 900 to 2 500 kcal/day`, () => {
+    it(`case ${name}: maintenance and rate never decrease from 900 to 2 500 kcal/day; calories only drop at a rate step`, () => {
       let prev: { maintenance: number; calories: number; rate: number } | null = null;
+      const steps: number[] = [];
       for (let kcal = 900; kcal <= 2500; kcal += 10) {
         const p = previewInitialPlan(profile, TODAY, history(kcal));
         if (!p.ok) throw new Error(p.reason);
         const cur = { maintenance: p.plan.maintenanceKcal, calories: p.plan.calorieTarget, rate: p.plan.weeklyRateTarget };
+        expect(cur.calories).toBeGreaterThanOrEqual(p.goalPlan.hardFloorKcal);
         if (prev) {
           expect(cur.maintenance, `maintenance at ${kcal}`).toBeGreaterThanOrEqual(prev.maintenance);
-          expect(cur.rate).toBe(prev.rate);
+          expect(cur.rate, `rate at ${kcal}`).toBeGreaterThanOrEqual(prev.rate);
+          if (cur.rate > prev.rate) steps.push(kcal);
           // Solver tolerance: 1 kcal/day.
-          expect(cur.calories, `calories at ${kcal}`).toBeGreaterThanOrEqual(prev.calories - 1);
+          else expect(cur.calories, `calories at ${kcal}`).toBeGreaterThanOrEqual(prev.calories - 1);
         }
         prev = cur;
       }
+      expect(steps).toEqual(RATE_STEPS[name]);
+      expect(prev?.rate).toBe(0.01);
     });
   }
 });
@@ -163,14 +173,17 @@ describe('known second source of non-monotonicity, outside the warm start (not f
     return p.plan;
   };
 
-  it('rate steps 0.75 -> 0.80 percent at 1 100 -> 1 110 and 0.80 -> 0.85 percent at 2 130 -> 2 140 kcal/day', () => {
-    for (const [lo, hi, rateLo, rateHi] of [[1100, 1110, 0.0075, 0.008], [2130, 2140, 0.008, 0.0085]] as const) {
+  // Model 1.4.0 (K2, rate held on the tissue mass over 28 days): the floor allows slower rates than the 42-day weight did
+  // (0.60 to 0.65 percent instead of 0.75 to 0.85), and the single step left between 900 and 2 500 kcal/day is larger.
+  // Up to model 1.3.0: 0.75 -> 0.80 percent at 1 100 -> 1 110 and 0.80 -> 0.85 percent at 2 130 -> 2 140, about -100 kcal/day.
+  it('rate step 0.60 -> 0.65 percent at 1 820 -> 1 830 kcal/day (model 1.4.0)', () => {
+    for (const [lo, hi, rateLo, rateHi] of [[1820, 1830, 0.006, 0.0065]] as const) {
       const a = at(lo);
       const b = at(hi);
       expect(b.maintenanceKcal).toBeGreaterThan(a.maintenanceKcal);
       expect([a.weeklyRateTarget, b.weeklyRateTarget]).toEqual([rateLo, rateHi]);
-      expect(b.calorieTarget - a.calorieTarget).toBeLessThan(-100);
-      expect(b.calorieTarget - a.calorieTarget).toBeGreaterThan(-105);
+      expect(b.calorieTarget - a.calorieTarget).toBeLessThan(-146);
+      expect(b.calorieTarget - a.calorieTarget).toBeGreaterThan(-152);
     }
   });
 });

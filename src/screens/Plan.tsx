@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useNav } from '@/app/navigation';
 import { useWheighty } from '@/store/StoreProvider';
-import { GOAL_LABEL, PROTEIN_RULE_TEXT, SPEED_LABEL } from '@/app/copy';
+import { GOAL_LABEL, PLAN_SOURCE_LABEL, PROTEIN_RULE_TEXT, SPEED_LABEL } from '@/app/copy';
 import { Mascot } from '@/components/Mascot';
 import { formatGrams, formatKcal, formatNumber, formatRatePercent, formatSignedKcal, formatSteps, formatWeight, weightUnitLabel } from '@/domain/format';
 import { currentWeightKg } from '@/domain/engine';
@@ -149,7 +149,7 @@ export function PlanScreen() {
       ) : null}
       {store.preferences.showScientificDetails ? (
         <p className="small" style={{ marginTop: 16 }}>
-          Plan {plan.source === 'recalibrated' ? 'recalibré' : plan.source === 'user_adjusted_slider' ? 'ajusté' : 'initial'} · rythme visé {formatNumber(plan.weeklyRateTarget * 100, 2)} % / sem. · {PROTEIN_RULE_TEXT[plan.proteinRule ?? ''] ?? ''}
+          Plan {PLAN_SOURCE_LABEL[plan.source]} · rythme visé {formatNumber(plan.weeklyRateTarget * 100, 2)} % / sem. · {PROTEIN_RULE_TEXT[plan.proteinRule ?? ''] ?? ''}
         </p>
       ) : null}
     </main>

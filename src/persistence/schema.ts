@@ -5,8 +5,8 @@
 import { isIsoDate } from '@/science/dates';
 import { SCIENTIFIC_MODEL_VERSION } from '@/science/constants';
 import type { CalibrationSnapshot, DailyLog, HistoricalIntakeEvidence, StructuredActivity, UserProfile } from '@/science/types';
-import type { AppMeta, CurrentPlan, FoodEntry, FoodJournal, FoodNutrients, LibraryFood, PersonalPortion, Preferences, StoredWeight, WheightyStore } from '@/domain/types';
-import { DEFAULT_META, DEFAULT_PREFERENCES, emptyFoodJournal, SCHEMA_VERSION } from '@/domain/types';
+import type { AppMeta, CurrentPlan, FoodEntry, FoodJournal, FoodNutrients, LibraryFood, PersonalPortion, PlanEvent, PlanSummary, Preferences, StoredWeight, WheightyStore } from '@/domain/types';
+import { DEFAULT_META, DEFAULT_PREFERENCES, emptyFoodJournal, PLAN_EVENT_RULES, PLAN_SOURCES, SCHEMA_VERSION } from '@/domain/types';
 
 type Obj = Record<string, unknown>;
 
@@ -116,7 +116,7 @@ export function isCurrentPlan(v: unknown): v is CurrentPlan {
   const proj = v.projection;
   return (
     isStr(v.createdAt) &&
-    oneOf(v.source, ['initial', 'recalibrated', 'user_adjusted_slider'] as const) &&
+    oneOf(v.source, PLAN_SOURCES) &&
     isNum(v.maintenanceKcal) &&
     isInterval(v.maintenanceInterval80) &&
     isInterval(v.maintenanceInterval95) &&
@@ -219,10 +219,45 @@ export function isPersonalPortion(v: unknown): v is PersonalPortion {
   );
 }
 
+const isNullableNum = (v: unknown): v is number | null => v === null || isNum(v);
+
+export function isPlanSummary(v: unknown): v is PlanSummary {
+  return (
+    isObject(v) &&
+    isStr(v.createdAt) &&
+    oneOf(v.source, PLAN_SOURCES) &&
+    oneOf(v.goal, GOALS) &&
+    isNum(v.calorieTarget) &&
+    isNum(v.stepTarget) &&
+    isNum(v.weeklyRateTarget) &&
+    isNullableNum(v.requestedWeeklyRate) &&
+    isNum(v.maintenanceKcal) &&
+    isNullableNum(v.targetWeightKg)
+  );
+}
+
+/** One entry of the persistent trace of pass 5a (`AppMeta.planEvents`). */
+export function isPlanEvent(v: unknown): v is PlanEvent {
+  return (
+    isObject(v) &&
+    isStr(v.id) &&
+    isStr(v.date) &&
+    isIsoDate(v.date) &&
+    oneOf(v.rule, PLAN_EVENT_RULES) &&
+    oneOf(v.status, ['applied', 'failed'] as const) &&
+    (v.reason === undefined || isStr(v.reason)) &&
+    (v.before === null || isPlanSummary(v.before)) &&
+    (v.after === null || isPlanSummary(v.after)) &&
+    (v.message === null || isStr(v.message)) &&
+    isBool(v.seen)
+  );
+}
+
 function sanitizeMeta(v: unknown): AppMeta {
-  if (!isObject(v)) return { ...DEFAULT_META };
+  if (!isObject(v)) return { ...DEFAULT_META, planEvents: [] };
   const surfaced = v.lastSurfacedCalibration;
   const recovered = v.recoveredCorruptData;
+  const optionalDate = (x: unknown): string | null => (isStr(x) && isIsoDate(x) ? x : null);
   return {
     onboardingDate: isStr(v.onboardingDate) && isIsoDate(v.onboardingDate) ? v.onboardingDate : null,
     initialMaintenanceKcal: isNum(v.initialMaintenanceKcal) ? v.initialMaintenanceKcal : null,
@@ -235,6 +270,9 @@ function sanitizeMeta(v: unknown): AppMeta {
         ? { tdeeKcal: surfaced.tdeeKcal, interval80Width: surfaced.interval80Width, surfacedOn: surfaced.surfacedOn }
         : null,
     recoveredCorruptData: isObject(recovered) && isStr(recovered.savedAt) && isStr(recovered.key) ? { savedAt: recovered.savedAt, key: recovered.key } : null,
+    planEvents: Array.isArray(v.planEvents) ? v.planEvents.filter(isPlanEvent) : [],
+    periodicReplanCheckedOn: optionalDate(v.periodicReplanCheckedOn),
+    guardrailMaintenanceSince: optionalDate(v.guardrailMaintenanceSince),
   };
 }
 
@@ -302,6 +340,13 @@ export function validateStore(v: unknown): StoreValidation | { error: string } {
   const historicalEvidence = v.historicalEvidence === null || v.historicalEvidence === undefined ? null : isHistoricalEvidence(v.historicalEvidence) ? v.historicalEvidence : null;
   if (v.historicalEvidence !== null && v.historicalEvidence !== undefined && historicalEvidence === null) dropped.push({ path: 'historicalEvidence', reason: 'invalid' });
 
+  // Trace entries (pass 5a) that cannot be read are reported like any other record, never dropped silently.
+  if (isObject(v.meta) && Array.isArray(v.meta.planEvents)) {
+    v.meta.planEvents.forEach((e, i) => {
+      if (!isPlanEvent(e)) dropped.push({ path: `meta.planEvents.${i}`, reason: 'invalid' });
+    });
+  }
+
   const store: WheightyStore = {
     schemaVersion: SCHEMA_VERSION,
     scientificModelVersion: isStr(v.scientificModelVersion) ? v.scientificModelVersion : SCIENTIFIC_MODEL_VERSION,
@@ -330,6 +375,6 @@ export function emptyStore(): WheightyStore {
     historicalEvidence: null,
     foodJournal: emptyFoodJournal(),
     preferences: { ...DEFAULT_PREFERENCES },
-    meta: { ...DEFAULT_META },
+    meta: { ...DEFAULT_META, planEvents: [] },
   };
 }

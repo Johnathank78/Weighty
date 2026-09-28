@@ -634,8 +634,9 @@ function speedModelFor(draft: OnboardingDraft, units: UnitPreference, today: str
   return profile ? onboardingSpeedSliderModel(profile, today, draftToEvidence(draft, units, today)) : null;
 }
 
-function defaultTargetFor(goal: Goal, weightKg: number): number | null {
-  return goal === 'maintenance' ? null : goal === 'loss' ? Math.round(weightKg * 0.93 * 2) / 2 : Math.round(weightKg * 1.05 * 2) / 2;
+function defaultTargetFor(goal: Goal, weightKg: number, minTargetKg: number): number | null {
+  // Pass 5a: a loss target never starts under the BMI-20 weight (rounded up to the slider's half kilo).
+  return goal === 'maintenance' ? null : goal === 'loss' ? Math.max(Math.round(weightKg * 0.93 * 2) / 2, Math.ceil(minTargetKg * 2) / 2) : Math.round(weightKg * 1.05 * 2) / 2;
 }
 
 export function StepGoal({ draft, patch, errors, units, today }: StepProps & { today: string }) {
@@ -644,13 +645,14 @@ export function StepGoal({ draft, patch, errors, units, today }: StepProps & { t
   const guard = goalGuardrails(heightCm, weightKg);
   const goal = draft.goal;
   const setGoal = (g: Goal) => {
-    const targetWeight = defaultTargetFor(g, weightKg);
+    const targetWeight = defaultTargetFor(g, weightKg, guard.minTargetKg);
     const nextModel = g === 'maintenance' ? null : speedModelFor({ ...draft, targetWeight }, units, today, g);
     patch({ goal: g, targetWeight, weeklyRate: g === 'maintenance' ? null : defaultWeeklyRate(g, nextModel?.maxSelectableRate ?? null) });
   };
   const target = draft.targetWeight ?? weightKg;
-  const range = goal === 'loss' ? [Math.max(35, weightKg * 0.6), weightKg - 0.5] : [weightKg + 0.5, weightKg * 1.35];
-  const min = Math.round((range[0] as number) * 2) / 2;
+  const range = goal === 'loss' ? [Math.max(35, weightKg * 0.6, guard.minTargetKg), weightKg - 0.5] : [weightKg + 0.5, weightKg * 1.35];
+  // Loss: rounded up, so the lowest position never falls under the BMI-20 weight (pass 5a).
+  const min = goal === 'loss' ? Math.ceil((range[0] as number) * 2) / 2 : Math.round((range[0] as number) * 2) / 2;
   const max = Math.round((range[1] as number) * 2) / 2;
 
   return (

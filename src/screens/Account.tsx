@@ -7,7 +7,7 @@ import { BottomSheet } from '@/components/BottomSheet';
 import { Mascot } from '@/components/Mascot';
 import { NavRow, Range, Row, Segmented, Toggle } from '@/components/controls';
 import { SpeedSlider } from '@/components/SpeedSlider';
-import { changeGoal, currentWeightKg, storeSpeedSliderModel } from '@/domain/engine';
+import { changeGoal, currentWeightKg, storeSpeedSliderModel, switchToMaintenance } from '@/domain/engine';
 import { exportFileName, exportStore, parseImport } from '@/persistence/exportImport';
 import type { ImportResult } from '@/persistence/exportImport';
 import { formatFullDate, formatHeight, formatInteger, formatKcal, formatNumber, formatSignedWeight, formatWeight, KG_PER_LB, weightUnitLabel } from '@/domain/format';
@@ -125,11 +125,12 @@ export function GoalSheet() {
   const guard = goalGuardrails(profile.heightCm, weight);
   const pick = (g: Goal) => {
     setGoal(g);
-    setTarget(g === 'maintenance' ? Math.round(weight * 10) / 10 : g === 'loss' ? Math.round(weight * 0.95 * 2) / 2 : Math.round(weight * 1.04 * 2) / 2);
+    setTarget(g === 'maintenance' ? Math.round(weight * 10) / 10 : g === 'loss' ? Math.max(Math.round(weight * 0.95 * 2) / 2, Math.ceil(guard.minTargetKg * 2) / 2) : Math.round(weight * 1.04 * 2) / 2);
     setRate(g === 'maintenance' ? null : g === plan.goal ? (plan.requestedWeeklyRate ?? plan.weeklyRateTarget) : defaultWeeklyRate(g, storeSpeedSliderModel(store, today, g)?.maxSelectableRate ?? null));
     setError(null);
   };
-  const min = goal === 'loss' ? Math.max(35, weight * 0.6) : weight + 0.5;
+  // Pass 5a: the lowest loss target is the BMI-20 weight.
+  const min = goal === 'loss' ? Math.max(35, weight * 0.6, guard.minTargetKg) : weight + 0.5;
   const max = goal === 'loss' ? weight - 0.5 : weight * 1.35;
   const shownRate = model && model.maxSelectableRate !== null ? Math.min(rate ?? model.defaultRate, model.maxSelectableRate) : null;
 
@@ -584,7 +585,8 @@ export function ReachedScreen() {
         className="btn btn--primary"
         style={{ marginTop: 26 }}
         onClick={() => {
-          const r = changeGoal(store, today, { goal: 'maintenance', targetWeightKg: Math.round(weight * 10) / 10, weeklyRate: 0 });
+          // Same path as the BMI-20 guardrail (pass 5a): maintenance at the current weight, steps of the plan kept.
+          const r = switchToMaintenance(store, today);
           if (!r.ok) {
             showToast(PLAN_ERROR_TEXT[r.reason] ?? 'Impossible de passer en maintien.');
             return;

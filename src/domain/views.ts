@@ -4,18 +4,17 @@
  */
 import { GATE_MIN_ADHERENCE_COVERAGE, GATE_MIN_CLEAN_WEIGHINS, GATE_MIN_SPAN_DAYS, GATE_MIN_WEIGHINS, KCAL_PER_G_CARB, KCAL_PER_G_FAT, KCAL_PER_G_PROTEIN, WEIGH_IN_REMINDER_INTERVAL_DAYS } from '@/science/constants';
 import { addDays, daysBetween } from '@/science/dates';
-import { lossAvailability, maintenanceZone, projectPlan } from '@/science/goals';
-import type { Projection } from '@/science/goals';
-import { bmi } from '@/science/macros';
+import { initialEnergyBalanceKcal, lossAvailability, maintenanceZone, projectPlan, projectPlanWindow } from '@/science/goals';
+import type { Projection, ProjectionWindow } from '@/science/goals';
+import { bmi, minimumTargetWeightKg } from '@/science/macros';
 import type { DailyLog, Goal, MacroGrams, SpeedZone } from '@/science/types';
 import { assessBaseline, planContextFrom } from '@/science/assessment';
-import { simulateHall } from '@/science/hall/model';
 import { evaluateGate } from '@/science/calibration';
 import type { GateStatus } from '@/science/calibration';
 import { formatInteger } from './format';
-import { hallInputFor, hallParametersFor, snapWeeklyRate, speedZoneFor } from '@/science/goals';
+import { snapWeeklyRate, speedZoneFor } from '@/science/goals';
 import type { CalibrationState } from './engine';
-import { goalStatus, latestAppliedSnapshot, latestRawWeight, MAINTENANCE_PROJECTION_DAYS, trendOf, weighInDue } from './engine';
+import { contextForCurrentPlan, goalStatus, latestAppliedSnapshot, latestRawWeight, MAINTENANCE_PROJECTION_DAYS, solverOptionsFor, trendOf, weighInDue } from './engine';
 import { localTimeOf } from './journal';
 import type { CurrentPlan, WheightyStore } from './types';
 
@@ -118,11 +117,18 @@ export function nextWeighInDate(store: WheightyStore, today: string): string {
   return next < today ? today : next;
 }
 
-/** Goal availability hints for the onboarding goal step (guardrails come from the engine). */
-export function goalGuardrails(heightCm: number, weightKg: number): { lossAvailable: boolean; maxLossRate: number | null } {
+/**
+ * Goal availability hints for the goal screens (guardrails come from the engine). `minTargetKg` (pass 5a): lowest loss
+ * target, the BMI-20 weight; loss is not offered when it leaves less than half a kilo below the current weight.
+ */
+export function goalGuardrails(heightCm: number, weightKg: number): { lossAvailable: boolean; maxLossRate: number | null; minTargetKg: number } {
+  const minTargetKg = minimumTargetWeightKg(heightCm);
   const a = lossAvailability(bmi(weightKg, heightCm));
-  return a.available ? { lossAvailable: true, maxLossRate: a.maxRate } : { lossAvailable: false, maxLossRate: null };
+  return a.available && minTargetKg <= weightKg - LOSS_TARGET_MIN_GAP_KG ? { lossAvailable: true, maxLossRate: a.maxRate, minTargetKg } : { lossAvailable: false, maxLossRate: null, minTargetKg };
 }
+
+/** Smallest gap between the current weight and a loss target offered by the target sliders, kg. */
+export const LOSS_TARGET_MIN_GAP_KG = 0.5;
 
 /** Estimated kg per week equivalent of a weekly rate at the given weight (display only). */
 export function weeklyChangeKg(weeklyRate: number, weightKg: number): number {
@@ -158,8 +164,12 @@ export type ChartSeries = {
  * Where the plan leads from today (A3): the same model as the plan, restarted from the current trend
  * weight and from the maintenance Wheighty estimates now, not the snapshot frozen when the plan was
  * created. Nothing is stored and no engine output changes: this is what the Suivi chart draws.
+ * Production solver (pass 5a): the Hall model starts from the modeled body of the day, at the offset of the calibration
+ * shown (the candidate when the gate is met, else the latest applied one); equilibrium before any calibration.
+ * `frame` (pass 5a s4, warning ahead of BMI 20): fixed horizon, daily step, stop under a weight, instead of the plan's
+ * projection to its target.
  */
-export function projectionFromToday(store: WheightyStore, today: string, state: CalibrationState | null): Projection | null {
+export function projectionFromToday(store: WheightyStore, today: string, state: CalibrationState | null, frame?: ProjectionWindow): Projection | null {
   const plan = store.plan;
   const profile = store.profile;
   const latest = trendOf(store).summary.latest;
@@ -167,14 +177,15 @@ export function projectionFromToday(store: WheightyStore, today: string, state: 
   const maintenanceKcal = state?.currentMaintenanceKcal ?? plan.maintenanceKcal;
   const interval80 = state?.currentInterval80 ?? plan.maintenanceInterval80;
   const assessment = assessBaseline(profile, today, { weightKg: latest.trendKg, palCategory: plan.palCategory });
-  const context = planContextFrom(profile, assessment, maintenanceKcal);
-  return projectPlan(context, {
+  const snapshot = state?.gate.met && state.candidate ? state.candidate : latestAppliedSnapshot(store);
+  const context = { ...planContextFrom(profile, assessment, maintenanceKcal), solver: solverOptionsFor(store, today, snapshot) };
+  const base = {
     goal: plan.goal,
     scenario: { calorieTargetKcal: plan.calorieTarget, stepsPerDay: plan.stepTarget },
-    targetWeightKg: plan.targetWeightKg ?? profile.targetWeightKg,
-    maintenanceOffsets80: [interval80[0] - maintenanceKcal, interval80[1] - maintenanceKcal],
-    maintenanceHorizonDays: MAINTENANCE_PROJECTION_DAYS,
-  });
+    maintenanceOffsets80: [interval80[0] - maintenanceKcal, interval80[1] - maintenanceKcal] as const,
+  };
+  if (frame) return projectPlanWindow(context, base, frame);
+  return projectPlan(context, { ...base, targetWeightKg: plan.targetWeightKg ?? profile.targetWeightKg, maintenanceHorizonDays: MAINTENANCE_PROJECTION_DAYS });
 }
 
 /** Weight chart data for Suivi: raw points, trend, and where the plan leads from the last trend point. */
@@ -196,12 +207,16 @@ export function trackingChart(store: WheightyStore, today: string, rangeDays: nu
   let projection: ChartSeries['projection'] = [];
   let band: ChartSeries['band'] = [];
   if (live) {
-    // Day 0 of the simulation is the weight of the last trend point, on its own day.
-    const anchor = trend[trend.length - 1]?.day ?? todayDay;
+    // Day 0 of the simulation is drawn on the last trend point, on its own day. Since model 1.4.0 the simulation starts
+    // from the modeled weight of the day, a few hundred grams off the smoothed trend: the curve and its band are moved by
+    // that gap so the drawing has no step at the junction (display only; the model's changes are drawn unchanged).
+    const last = trend[trend.length - 1];
+    const anchor = last?.day ?? todayDay;
+    const shift = last && live.trajectory[0] ? last.kg - live.trajectory[0].weightKg : 0;
     const within = (day: number) => day <= todayDay + horizonAhead;
-    projection = live.trajectory.map((pt) => ({ day: anchor + pt.day, kg: pt.weightKg })).filter((p) => within(p.day));
+    projection = live.trajectory.map((pt) => ({ day: anchor + pt.day, kg: pt.weightKg + shift })).filter((p) => within(p.day));
     band = live.trajectory
-      .map((pt, i) => ({ day: anchor + pt.day, lo: live.lower80[i]?.weightKg ?? pt.weightKg, hi: live.upper80[i]?.weightKg ?? pt.weightKg }))
+      .map((pt, i) => ({ day: anchor + pt.day, lo: (live.lower80[i]?.weightKg ?? pt.weightKg) + shift, hi: (live.upper80[i]?.weightKg ?? pt.weightKg) + shift }))
       .filter((p) => within(p.day));
   }
   return { raw, trend, projection, band, todayDay, startDate, projectionPending: learning };
@@ -283,19 +298,13 @@ export function analysisView(store: WheightyStore, state: CalibrationState | nul
   };
 }
 
-/** Day-0 energy balance of the current plan on the dynamic model (intake minus expenditure). */
+/** Day-0 energy balance of the current plan on the dynamic model (intake minus expenditure), from the plan's own solve start. */
 export function planEnergyBalanceKcal(store: WheightyStore, today: string): number | null {
   const plan = store.plan;
-  const profile = store.profile;
-  if (!plan || !profile) return null;
-  const weight = plan.planWeightKg ?? profile.currentWeightKg;
-  const assessment = assessBaseline(profile, today, { weightKg: weight, palCategory: plan.palCategory });
-  const ctx = planContextFrom(profile, assessment, plan.maintenanceKcal);
-  const p = hallParametersFor(ctx, plan.goal);
-  const u = hallInputFor(ctx, plan.goal, { calorieTargetKcal: plan.calorieTarget, stepsPerDay: plan.stepTarget });
-  const sim = simulateHall(p, 0, () => u);
-  const ee = sim.days[0]?.energyExpenditureKcal;
-  return ee === undefined ? null : plan.calorieTarget - ee;
+  const ctx = contextForCurrentPlan(store, today);
+  if (!plan || !ctx) return null;
+  const balance = initialEnergyBalanceKcal(ctx, plan.goal, { calorieTargetKcal: plan.calorieTarget, stepsPerDay: plan.stepTarget });
+  return Number.isFinite(balance) ? balance : null;
 }
 
 export { goalStatus };

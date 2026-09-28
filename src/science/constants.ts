@@ -9,7 +9,7 @@
  * statistical_robustness_parameter requires a SCIENTIFIC_MODEL_VERSION bump.
  */
 
-export const SCIENTIFIC_MODEL_VERSION = '1.3.0';
+export const SCIENTIFIC_MODEL_VERSION = '1.4.0';
 
 export type ConstantCategory =
   | 'published_constant'
@@ -195,7 +195,7 @@ export const GAIN_RATE_HARD_MAX = 0.005; // product_safety_rule
 /** Slider resolution: 0.05 percent of body weight per week. */
 export const WEEKLY_RATE_STEP = 0.0005; // ui_rounding_rule
 
-export const TARGET_BMI_MIN = 18.5; // product_safety_rule
+export const TARGET_BMI_MIN = 20; // product_safety_rule (pass 5a: 18.5 before model 1.4.0)
 export const LOSS_UNAVAILABLE_BMI_BELOW = 20; // product_safety_rule
 export const LOSS_GENTLE_ONLY_BMI_BELOW = 22; // product_safety_rule
 export const LOSS_MODERATE_MAX_BMI_BELOW = 25; // product_safety_rule
@@ -217,7 +217,22 @@ export const MAINTENANCE_ZONE_FRACTION = 0.0075; // engineering_prior
 export const MAINTENANCE_ZONE_MIN_KG = 0.5; // engineering_prior
 export const MAINTENANCE_ZONE_MAX_KG = 1.0; // engineering_prior
 
-export const GOAL_SOLVER_HORIZON_DAYS = 42; // engineering_prior
+/** Solver horizon of the plans (K2, report 38): 28 days since model 1.4.0. */
+export const GOAL_SOLVER_HORIZON_DAYS = 28; // engineering_prior
+/** Horizon of the superseded solver (models up to 1.3.0), kept only for the explicit legacy options (comparison). */
+export const LEGACY_SOLVER_HORIZON_DAYS = 42; // engineering_prior
+/** Periodic replan of the plan in force (K2, report 38): every 28 days from the day's state. */
+export const PERIODIC_REPLAN_EVERY_DAYS = 28; // engineering_prior
+/** A periodic replan is announced to the user when the calorie target moves by at least this much (pass 5a). */
+export const PERIODIC_REPLAN_NOTICE_MIN_KCAL = 10; // ui_rounding_rule
+/** Warning ahead of the BMI-20 guardrail: horizon of the daily projection (pass 5a, 4 weeks). */
+export const BMI20_WARNING_HORIZON_DAYS = 28; // product_safety_rule
+/** Underweight alert (pass 5a): trend BMI below this value. */
+export const UNDERWEIGHT_ALERT_BMI_BELOW = 18.5; // product_safety_rule
+/** Underweight alert (pass 5a): weekly declines of the trend during a maintenance imposed by the BMI-20 guardrail. */
+export const UNDERWEIGHT_ALERT_DECLINE_WEEKS = 4; // product_safety_rule
+/** Underweight alert (pass 5a): shown at most once per this many days. */
+export const UNDERWEIGHT_ALERT_MIN_INTERVAL_DAYS = 7; // product_safety_rule
 export const GOAL_SOLVER_MAX_ITERATIONS = 60; // engineering_prior
 export const GOAL_SOLVER_CALORIE_TOLERANCE_KCAL = 1; // engineering_prior
 export const GOAL_SOLVER_WEIGHT_TOLERANCE_KG = 0.01; // engineering_prior
@@ -508,7 +523,7 @@ export const CONSTANT_METADATA: Readonly<Record<string, ConstantMetadata>> = {
   GAIN_RATE_MODERATE_ZONE_MAX: m('ui_rounding_rule', '04 s2 qualitative zones'),
   GAIN_RATE_HARD_MAX: m('product_safety_rule', '04 s2'),
   WEEKLY_RATE_STEP: m('ui_rounding_rule', '04 s2 slider resolution'),
-  TARGET_BMI_MIN: m('product_safety_rule', '04 s3'),
+  TARGET_BMI_MIN: m('product_safety_rule', '04 s3, pass 5a (20 since model 1.4.0)'),
   LOSS_UNAVAILABLE_BMI_BELOW: m('product_safety_rule', '04 s3'),
   LOSS_GENTLE_ONLY_BMI_BELOW: m('product_safety_rule', '04 s3'),
   LOSS_MODERATE_MAX_BMI_BELOW: m('product_safety_rule', '04 s3'),
@@ -522,7 +537,14 @@ export const CONSTANT_METADATA: Readonly<Record<string, ConstantMetadata>> = {
   MAINTENANCE_ZONE_FRACTION: m('engineering_prior', '04 s5'),
   MAINTENANCE_ZONE_MIN_KG: m('engineering_prior', '04 s5'),
   MAINTENANCE_ZONE_MAX_KG: m('engineering_prior', '04 s5'),
-  GOAL_SOLVER_HORIZON_DAYS: m('engineering_prior', '04 s6'),
+  GOAL_SOLVER_HORIZON_DAYS: m('engineering_prior', '04 s6, K2 of report 38 (28 days since model 1.4.0)'),
+  LEGACY_SOLVER_HORIZON_DAYS: m('engineering_prior', '04 s6 (superseded solver, comparison only)'),
+  PERIODIC_REPLAN_EVERY_DAYS: m('engineering_prior', 'K2 of report 38, pass 5a'),
+  PERIODIC_REPLAN_NOTICE_MIN_KCAL: m('ui_rounding_rule', 'pass 5a'),
+  BMI20_WARNING_HORIZON_DAYS: m('product_safety_rule', 'pass 5a'),
+  UNDERWEIGHT_ALERT_BMI_BELOW: m('product_safety_rule', 'pass 5a'),
+  UNDERWEIGHT_ALERT_DECLINE_WEEKS: m('product_safety_rule', 'pass 5a'),
+  UNDERWEIGHT_ALERT_MIN_INTERVAL_DAYS: m('product_safety_rule', 'pass 5a'),
   GOAL_SOLVER_MAX_ITERATIONS: m('engineering_prior', '04 s6'),
   GOAL_SOLVER_CALORIE_TOLERANCE_KCAL: m('engineering_prior', '04 s6'),
   GOAL_SOLVER_WEIGHT_TOLERANCE_KG: m('engineering_prior', '04 s6'),

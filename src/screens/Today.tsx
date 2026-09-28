@@ -3,6 +3,7 @@ import { useWheighty } from '@/store/StoreProvider';
 import { ADHERENCE_LABEL, CONFIDENCE_LABEL, JOURNAL_GAUGE_TEXT, JOURNAL_TEXT } from '@/app/copy';
 import { intakeGauge, journalDay } from '@/domain/journal';
 import { Mascot } from '@/components/Mascot';
+import { PlanNotices } from '@/components/PlanNotices';
 import { formatDayMonth, formatGrams, formatInteger, formatKcal, formatLongDate, formatSignedWeight, formatSteps, formatWeight, weightUnitLabel } from '@/domain/format';
 import { displayMacros, gateProgress, goalStatus, nextWeighInDate, reminderDue, todayLog } from '@/domain/views';
 import { trendOf } from '@/domain/engine';
@@ -55,6 +56,8 @@ export function TodayScreen() {
           )}
         </button>
       </header>
+
+      <PlanNotices />
 
       {reached ? (
         <button type="button" className="note note--warn" style={{ width: '100%', border: 0, textAlign: 'left', marginBottom: 22 }} onClick={() => go('reached')}>

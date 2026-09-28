@@ -48,7 +48,9 @@ describe('warm start reference cases (model 1.2.0)', () => {
     expect(h.fusedMedianKcal).toBeCloseTo(2074.0, 1);
     expect(x.maintenance.personalOffsetKcal).toBeCloseTo(-182.0, 1);
     expect(x.maintenance.confidence).toBe('low');
-    expect(x.prescription.calorieTargetKcal).toBeCloseTo(1405.2, 1);
+    // Model 1.4.0 (K2): 1 242.5 kcal/day at 0.9 percent per week (floor), was 1 405.2 at 1 percent (report 38: -163).
+    expect(x.goal.appliedWeeklyRate).toBe(0.009);
+    expect(x.prescription.calorieTargetKcal).toBeCloseTo(1242.5, 1);
     expect(roundDeep(x)).toMatchSnapshot();
   });
 
@@ -68,11 +70,13 @@ describe('warm start reference cases (model 1.2.0)', () => {
     expect(h.incoherent).toBe(false);
     expect(h.conflictZ).toBeCloseTo(-1.68, 2);
     expect(x.maintenance.personalOffsetKcal).toBeCloseTo(-206.6, 1);
-    expect(x.prescription.calorieTargetKcal).toBeCloseTo(1502.8, 1);
+    // Model 1.4.0 (K2): 1 264.5 kcal/day at 1 percent per week, was 1 502.8 (report 38: -238).
+    expect(x.goal.appliedWeeklyRate).toBe(0.01);
+    expect(x.prescription.calorieTargetKcal).toBeCloseTo(1264.5, 1);
     expect(roundDeep(x)).toMatchSnapshot();
   });
 
-  it('the target weight changes the time to target, not the 42-day calorie solve (R 60 kg vs 62 kg)', () => {
+  it('the target weight changes the time to target, not the calorie solve (R 60 kg vs 62 kg)', () => {
     const r60 = explainPreview(CASE_R, TODAY, history(1450));
     const r62 = explainPreview({ ...CASE_R, targetWeightKg: 62 }, TODAY, history(1450));
     expect(r60?.prescription.calorieTargetKcal).toBe(r62?.prescription.calorieTargetKcal);
