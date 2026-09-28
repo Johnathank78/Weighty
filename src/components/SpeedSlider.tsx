@@ -64,6 +64,7 @@ export function SpeedSlider({ model, value, onChange, units }: { model: SpeedSli
         <p className="small" style={{ margin: '8px 0 0' }}>
           {/* Pass 5a s6: when the floor limits (alone or after the BMI cap), the text says so. */}
           {model.limitedBy === 'below_hard_floor' ? PLAN_MESSAGE.floorLimit(model.floorKcal) : SPEED_LIMIT_TEXT} Maximum : {formatRatePercent(limit)} par semaine.
+          {model.floorSteps ? ` ${model.floorSteps.text}` : ''}
         </p>
       ) : null}
       <div className={`note ${zone === 'fast' ? 'note--warn' : ''}`} style={{ marginTop: 14 }}>

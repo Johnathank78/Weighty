@@ -13,6 +13,7 @@ import {
   enforcePlanGuardrails,
   ensureDailyLogs,
   markPlanEventSeen,
+  onboardingSpeedSliderModel,
   periodicReplan,
   setAdherence,
   switchToMaintenance,
@@ -324,6 +325,17 @@ describe('floor explained, steps proposal', () => {
     const none = floorAdviceOf(build(20000, -900), 20000);
     expect(none?.proposal).toEqual({ kind: 'unreachable', maxRate: null });
     expect(none?.lines[1]).toBe('Même en marchant davantage, cette vitesse n’est pas atteignable.');
+  });
+
+  it('speed slider limited by the floor: the floor is named with the steps for the fastest rate the BMI cap allows', () => {
+    const p = makeProfile({ sexForEquation: 'female', ageYears: 60, heightCm: 155, currentWeightKg: 60.5, averageSteps7d: 3000, goal: 'loss', targetWeightKg: 55, weeklyRateTarget: 0.005 });
+    const model = onboardingSpeedSliderModel(p, D0, null);
+    expect(model?.limitedBy).toBe('below_hard_floor');
+    expect(model?.maxSelectableRate).toBe(0.0065);
+    expect(model?.floorKcal).toBe(1200);
+    expect(model?.floorSteps).toEqual({ rate: 0.01, proposal: { kind: 'steps', steps: 8700 }, text: PLAN_MESSAGE.floorSteps(0.01, 8700) });
+    const notLimited = onboardingSpeedSliderModel({ ...p, ageYears: 30, averageSteps7d: 9000 }, D0, null);
+    expect(notLimited?.floorSteps ?? null).toBeNull();
   });
 
   it('no advice when the floor does not limit, and the explanation names the floor when it does', () => {

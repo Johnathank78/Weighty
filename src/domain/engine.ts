@@ -21,6 +21,7 @@ import {
   baselineCarbFractionFor,
   buildGoalPlan,
   effectiveMinSliderSteps,
+  fastestRateReachableWithSteps,
   guardrailMaxWeeklyRate,
   hardFloorKcal,
   maintenanceZone,
@@ -30,6 +31,7 @@ import {
   snapWeeklyRate,
   solveRoundedSliderPoint,
   speedZoneFor,
+  stepsToHoldRateAtFloor,
   weeklyRateRange,
   baselineWeightAtHorizon,
 } from '@/science/goals';
@@ -427,6 +429,11 @@ export type SpeedSliderModel = {
   weightKg: number;
   /** Hard calorie floor of the profile, kcal/day (named when it limits the slider, pass 5a s6). */
   floorKcal: number;
+  /**
+   * When the floor limits the slider (pass 5a s6): the steps that would hold the fastest rate the BMI cap allows at the
+   * floor, or the unreachable case with the fastest rate walking more allows. Null otherwise.
+   */
+  floorSteps: { rate: number; proposal: { kind: 'steps'; steps: number } | { kind: 'unreachable'; maxRate: number | null }; text: string } | null;
 };
 
 /** Consecutive slider grid positions grouped by qualitative zone, so labels match speedZoneFor exactly. */
@@ -447,6 +454,13 @@ export function speedSliderModelFor(ctx: PlanContext, goal: Goal): SpeedSliderMo
   if (goal === 'maintenance') return null;
   const range = weeklyRateRange(goal);
   const limit = maxSelectableWeeklyRate(ctx, goal, ctx.maintenanceStepsPerDay);
+  let floorSteps: SpeedSliderModel['floorSteps'] = null;
+  if (limit.limitedBy === 'below_hard_floor' && limit.guardrailMaxRate !== null) {
+    const rate = Math.min(range.maxRate, limit.guardrailMaxRate);
+    const steps = stepsToHoldRateAtFloor(ctx, goal, rate, ctx.maintenanceStepsPerDay);
+    const proposal = steps !== null ? ({ kind: 'steps', steps } as const) : ({ kind: 'unreachable', maxRate: fastestRateReachableWithSteps(ctx, goal, rate, ctx.maintenanceStepsPerDay) } as const);
+    floorSteps = { rate, proposal, text: proposal.kind === 'steps' ? PLAN_MESSAGE.floorSteps(rate, proposal.steps) : PLAN_MESSAGE.floorUnreachable(proposal.maxRate) };
+  }
   return {
     goal,
     minRate: range.minRate,
@@ -459,6 +473,7 @@ export function speedSliderModelFor(ctx: PlanContext, goal: Goal): SpeedSliderMo
     zones: zonesFor(goal, range.minRate, range.maxRate, range.step),
     weightKg: ctx.currentWeightKg,
     floorKcal: hardFloorKcal(ctx.reeKcal, ctx.sex),
+    floorSteps,
   };
 }
 
