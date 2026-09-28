@@ -6,7 +6,7 @@ import { GATE_MIN_ADHERENCE_COVERAGE, GATE_MIN_CLEAN_WEIGHINS, GATE_MIN_SPAN_DAY
 import { addDays, daysBetween } from '@/science/dates';
 import { initialEnergyBalanceKcal, lossAvailability, maintenanceZone, projectPlan, projectPlanWindow } from '@/science/goals';
 import type { Projection, ProjectionWindow } from '@/science/goals';
-import { bmi } from '@/science/macros';
+import { bmi, minimumTargetWeightKg } from '@/science/macros';
 import type { DailyLog, Goal, MacroGrams, SpeedZone } from '@/science/types';
 import { assessBaseline, planContextFrom } from '@/science/assessment';
 import { evaluateGate } from '@/science/calibration';
@@ -117,11 +117,18 @@ export function nextWeighInDate(store: WheightyStore, today: string): string {
   return next < today ? today : next;
 }
 
-/** Goal availability hints for the onboarding goal step (guardrails come from the engine). */
-export function goalGuardrails(heightCm: number, weightKg: number): { lossAvailable: boolean; maxLossRate: number | null } {
+/**
+ * Goal availability hints for the goal screens (guardrails come from the engine). `minTargetKg` (pass 5a): lowest loss
+ * target, the BMI-20 weight; loss is not offered when it leaves less than half a kilo below the current weight.
+ */
+export function goalGuardrails(heightCm: number, weightKg: number): { lossAvailable: boolean; maxLossRate: number | null; minTargetKg: number } {
+  const minTargetKg = minimumTargetWeightKg(heightCm);
   const a = lossAvailability(bmi(weightKg, heightCm));
-  return a.available ? { lossAvailable: true, maxLossRate: a.maxRate } : { lossAvailable: false, maxLossRate: null };
+  return a.available && minTargetKg <= weightKg - LOSS_TARGET_MIN_GAP_KG ? { lossAvailable: true, maxLossRate: a.maxRate, minTargetKg } : { lossAvailable: false, maxLossRate: null, minTargetKg };
 }
+
+/** Smallest gap between the current weight and a loss target offered by the target sliders, kg. */
+export const LOSS_TARGET_MIN_GAP_KG = 0.5;
 
 /** Estimated kg per week equivalent of a weekly rate at the given weight (display only). */
 export function weeklyChangeKg(weeklyRate: number, weightKg: number): number {

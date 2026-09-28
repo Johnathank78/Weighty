@@ -5,6 +5,7 @@ import { ADHERENCE_LABEL, PERIOD_TEXT } from '@/app/copy';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Range, Segmented } from '@/components/controls';
 import { addWeight, setActualSteps, setAdherence } from '@/domain/engine';
+import { runWeighInChecks } from '@/domain/planSafety';
 import { formatInteger, formatWeight, lbToKg, weightUnitLabel } from '@/domain/format';
 import { latestRawWeight } from '@/domain/engine';
 import { todayLog } from '@/domain/views';
@@ -71,7 +72,9 @@ export function WeighSheet() {
       return;
     }
     const date = day === 'today' ? today : addDays(today, -1);
-    update((s) => addWeight(s, { date, weightKg: kg, ...(asksPeriod && menstruating ? { menstruating: true } : {}) }, nowIso()));
+    // After each weigh-in: guardrails of the plan in force and underweight alert, on the new trend weight (pass 5a).
+    const at = nowIso();
+    update((s) => runWeighInChecks(addWeight(s, { date, weightKg: kg, ...(asksPeriod && menstruating ? { menstruating: true } : {}) }, at), today, at));
     closeSheet();
     showToast('Pesée enregistrée. Tendance mise à jour.');
   };

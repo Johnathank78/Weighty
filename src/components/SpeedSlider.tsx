@@ -2,6 +2,7 @@ import { SPEED_LABEL, SPEED_LIMIT_TEXT, SPEED_NOTE, speedCautionText } from '@/a
 import { Mascot } from '@/components/Mascot';
 import { Range } from '@/components/controls';
 import type { SpeedSliderModel } from '@/domain/engine';
+import { PLAN_MESSAGE } from '@/domain/planMessages';
 import { formatNumber, formatRatePercent, kgToLb, weightUnitLabel } from '@/domain/format';
 import type { UnitPreference } from '@/domain/types';
 import { snapRate, speedZone, weeklyChangeKg } from '@/domain/views';
@@ -61,7 +62,8 @@ export function SpeedSlider({ model, value, onChange, units }: { model: SpeedSli
       </div>
       {limited ? (
         <p className="small" style={{ margin: '8px 0 0' }}>
-          {SPEED_LIMIT_TEXT} Maximum : {formatRatePercent(limit)} par semaine.
+          {/* Pass 5a s6: when the floor limits (alone or after the BMI cap), the text says so. */}
+          {model.limitedBy === 'below_hard_floor' ? PLAN_MESSAGE.floorLimit(model.floorKcal) : SPEED_LIMIT_TEXT} Maximum : {formatRatePercent(limit)} par semaine.
         </p>
       ) : null}
       <div className={`note ${zone === 'fast' ? 'note--warn' : ''}`} style={{ marginTop: 14 }}>

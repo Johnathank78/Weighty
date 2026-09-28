@@ -4,9 +4,12 @@ import { useWheighty } from '@/store/StoreProvider';
 import { ADHERENCE_LABEL, CONFIDENCE_LABEL, GATE_CRITERION_LABEL } from '@/app/copy';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Mascot } from '@/components/Mascot';
+import { PlanNotices } from '@/components/PlanNotices';
 import { ConfidenceBar, ConfidenceGauge, Segmented } from '@/components/controls';
 import { WeightChart } from '@/components/WeightChart';
-import { applyRecalibration, buildPlanFromStore, deleteWeight, markRecalibrationSeen, trendOf } from '@/domain/engine';
+import { applyRecalibration, applyRecalibrationAsMaintenance, buildPlanFromStore, deleteWeight, markRecalibrationSeen, trendOf } from '@/domain/engine';
+import { recalibrationRefusedText } from '@/domain/planMessages';
+import { floorAdviceOf } from '@/domain/planSafety';
 import { formatDayMonth, formatInteger, formatKcal, formatKcalRange, formatShortMonth, formatSignedKcal, formatSignedWeight, formatSteps, formatWeight, weightUnitLabel } from '@/domain/format';
 import { adherenceSummary, analysisView, averageLoggedSteps, gateCriterionValue, gateProgress, recentWeights, trackingChart, weeksOfTracking } from '@/domain/views';
 import type { ChartSeries } from '@/domain/views';
@@ -47,6 +50,8 @@ export function SuiviScreen() {
           + Pesée
         </button>
       </header>
+
+      <PlanNotices />
 
       {trend.latest ? (
         <>
@@ -341,11 +346,14 @@ export function RecalibrationScreen() {
   const [shown, setShown] = useState(plan?.maintenanceKcal ?? 0);
   const marked = useRef(false);
 
-  const preview = useMemo(() => {
+  // The rebuild the recalibration would apply. A refusal keeps its reason (pass 5a s5): shown with the maintenance offer.
+  const build = useMemo(() => {
     if (!state?.candidate) return null;
     const r = buildPlanFromStore(store, today, { source: 'recalibrated', snapshot: state.candidate, ...(plan ? { stepTarget: plan.stepTarget } : {}) });
-    return r.ok ? r.plan : null;
+    const advice = store.profile ? floorAdviceOf(r, store.profile.averageSteps7d) : null;
+    return r.ok ? { ok: true as const, plan: r.plan, advice } : { ok: false as const, reason: r.reason, floorKcal: 'goalPlan' in r ? (r.goalPlan?.hardFloorKcal ?? null) : null, advice };
   }, [state?.candidate, store, today, plan]);
+  const preview = build?.ok ? build.plan : null;
 
   const target = state?.proposedMaintenanceKcal ?? null;
   useEffect(() => {
@@ -399,12 +407,24 @@ export function RecalibrationScreen() {
   const apply = () => {
     const r = applyRecalibration(store, state, today, nowIso());
     if (!r.ok) {
-      showToast('Recalibration impossible pour le moment.');
+      showToast(recalibrationRefusedText(r.reason, build && !build.ok ? build.floorKcal : null));
       return;
     }
     commit(r.store);
     showToast('Nouveau plan appliqué.');
     go('today', { replace: true });
+  };
+
+  const maintain = () => {
+    // The new estimate is applied, then the plan switches to maintenance.
+    const r = applyRecalibrationAsMaintenance(store, state, today, nowIso());
+    if (!r.ok) {
+      showToast(recalibrationRefusedText(r.reason, null));
+      return;
+    }
+    commit(r.store);
+    showToast('Ton plan passe en maintien.');
+    go('plan', { replace: true });
   };
 
   return (
@@ -457,10 +477,31 @@ export function RecalibrationScreen() {
           ) : null}
         </p>
       </div>
+      {build && !build.ok ? (
+        <div className="note note--warn" role="status" style={{ marginTop: 14 }}>
+          <Mascot variant="search" width={36} />
+          <span>
+            {recalibrationRefusedText(build.reason, build.floorKcal)}
+            {build.reason === 'no_feasible_speed' && build.advice ? ` ${build.advice.lines[1]}` : ''}
+          </span>
+        </div>
+      ) : null}
+      {build?.ok && build.advice ? (
+        <div className="note" style={{ marginTop: 14 }}>
+          <Mascot variant="search" width={36} />
+          <span>{build.advice.lines.join(' ')}</span>
+        </div>
+      ) : null}
       <div className="spacer" />
-      <button type="button" className="btn btn--primary" style={{ marginTop: 26 }} onClick={apply} disabled={!preview || calibrationPending}>
-        {calibrationPending ? 'Mise à jour…' : 'Appliquer le nouveau plan'}
-      </button>
+      {build && !build.ok ? (
+        <button type="button" className="btn btn--primary" style={{ marginTop: 26 }} onClick={maintain} disabled={calibrationPending}>
+          Passer en maintien
+        </button>
+      ) : (
+        <button type="button" className="btn btn--primary" style={{ marginTop: 26 }} onClick={apply} disabled={!preview || calibrationPending}>
+          {calibrationPending ? 'Mise à jour…' : 'Appliquer le nouveau plan'}
+        </button>
+      )}
       <button type="button" className="btn btn--ghost" onClick={() => openSheet('why', 'recalibration')}>
         Pourquoi ce changement ?
       </button>

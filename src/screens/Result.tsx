@@ -8,6 +8,7 @@ import { ConfidenceBar } from '@/components/controls';
 import { completeOnboarding, previewInitialPlan, updateProfile } from '@/domain/engine';
 import { formatGrams, formatKcal, formatKcalRange, formatRatePercent, formatSteps } from '@/domain/format';
 import { draftToEvidence, draftToProfile } from '@/domain/onboarding';
+import { floorAdviceOf } from '@/domain/planSafety';
 import { displayMacros, warmStartView } from '@/domain/views';
 
 export function ResultScreen() {
@@ -16,6 +17,8 @@ export function ResultScreen() {
   const profile = useMemo(() => draftToProfile(draft, store.preferences.units), [draft, store.preferences.units]);
   const evidence = useMemo(() => draftToEvidence(draft, store.preferences.units, today), [draft, store.preferences.units, today]);
   const preview = useMemo(() => (profile ? previewInitialPlan(profile, today, evidence) : null), [profile, today, evidence]);
+  // Pass 5a s6: when the floor limits the speed, the floor and the steps that would hold the requested speed.
+  const advice = useMemo(() => (preview && profile ? floorAdviceOf(preview, profile.averageSteps7d) : null), [preview, profile]);
 
   if (!profile || !preview) {
     return (
@@ -47,6 +50,11 @@ export function ResultScreen() {
         <p className="body" style={{ textAlign: 'center', marginTop: 10 }}>
           {PLAN_ERROR_TEXT[preview.reason] ?? PLAN_ERROR_TEXT.no_feasible_speed}
         </p>
+        {advice ? (
+          <p className="body" style={{ textAlign: 'center', marginTop: 10 }}>
+            {advice.lines.join(' ')}
+          </p>
+        ) : null}
         <div className="spacer" />
         <button type="button" className="btn btn--primary" onClick={() => go('onboarding')}>
           Modifier mon objectif
@@ -155,7 +163,11 @@ export function ResultScreen() {
         </div>
 
         {warm.conflict ? <ResultNote>{WARM_START_TEXT.conflict}</ResultNote> : null}
-        {goalPlan.rateAdjusted ? <ResultNote warn>Vitesse ajustée à {formatRatePercent(goalPlan.weeklyRateTarget)} par semaine pour respecter les limites de sécurité.</ResultNote> : null}
+        {goalPlan.rateAdjusted ? (
+          <ResultNote warn>
+            Vitesse ajustée à {formatRatePercent(goalPlan.weeklyRateTarget)} par semaine pour respecter les limites de sécurité.{advice ? ` ${advice.lines.join(' ')}` : ''}
+          </ResultNote>
+        ) : null}
         {goalPlan.warnings.belowRee ? <ResultNote>Cet apport est inférieur à ton métabolisme au repos estimé. Ce n’est pas dangereux en soi, mais c’est un rythme exigeant.</ResultNote> : null}
         {goalPlan.warnings.lowEnergyAvailability ? <ResultNote warn>Avec ton volume d’entraînement, l’énergie disponible serait basse. Préfère une vitesse plus douce et surveille ta fatigue.</ResultNote> : null}
         {goalPlan.warnings.gainWithoutResistance ? <ResultNote>Une prise de poids rapide sans entraînement de résistance favorise moins la prise de masse maigre.</ResultNote> : null}

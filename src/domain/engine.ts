@@ -22,6 +22,7 @@ import {
   buildGoalPlan,
   effectiveMinSliderSteps,
   guardrailMaxWeeklyRate,
+  hardFloorKcal,
   maintenanceZone,
   maxSelectableWeeklyRate,
   projectPlan,
@@ -424,6 +425,8 @@ export type SpeedSliderModel = {
   zones: Array<{ zone: SpeedZone; from: number; to: number }>;
   /** Weight used for the kg/week equivalent. */
   weightKg: number;
+  /** Hard calorie floor of the profile, kcal/day (named when it limits the slider, pass 5a s6). */
+  floorKcal: number;
 };
 
 /** Consecutive slider grid positions grouped by qualitative zone, so labels match speedZoneFor exactly. */
@@ -455,6 +458,7 @@ export function speedSliderModelFor(ctx: PlanContext, goal: Goal): SpeedSliderMo
     cautionAboveRate: goal === 'loss' ? LOSS_RATE_CAUTION_ABOVE : null,
     zones: zonesFor(goal, range.minRate, range.maxRate, range.step),
     weightKg: ctx.currentWeightKg,
+    floorKcal: hardFloorKcal(ctx.reeKcal, ctx.sex),
   };
 }
 
@@ -794,6 +798,17 @@ export function applyRecalibration(store: WheightyStore, state: CalibrationState
   if (!result.ok) return { ok: false, reason: result.reason };
   const seen = markRecalibrationSeen(withSnapshot, state, today);
   return { ok: true, store: syncTodayLogTargets({ ...seen, plan: result.plan }, today) };
+}
+
+/**
+ * Refused recalibration, maintenance chosen instead (pass 5a s5): the new estimate is applied (snapshot recorded, surfacing
+ * reference updated), then the plan switches to maintenance at the current weight from it (`switchToMaintenance`).
+ */
+export function applyRecalibrationAsMaintenance(store: WheightyStore, state: CalibrationState, today: string, nowIso: string): { ok: true; store: WheightyStore } | { ok: false; reason: string } {
+  if (!state.candidate || !state.gate.met) return { ok: false, reason: 'gate_not_met' };
+  const snapshot: CalibrationSnapshot = { ...state.candidate, appliedAt: nowIso };
+  const withSnapshot = markRecalibrationSeen({ ...store, calibrationSnapshots: [...store.calibrationSnapshots, snapshot] }, state, today);
+  return switchToMaintenance(withSnapshot, today);
 }
 
 // ---------------------------------------------------------------------------

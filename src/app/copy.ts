@@ -115,10 +115,19 @@ export const PROTEIN_RULE_TEXT: Record<string, string> = {
   capped_2_2_actual: 'Plafonnées volontairement pour rester dans une zone raisonnable.',
 };
 
+/** "Plan {source}" line of the plan screen. Pass 5a: plans rebuilt by a guardrail or by the periodic replan. */
+export const PLAN_SOURCE_LABEL = {
+  initial: 'initial',
+  recalibrated: 'recalibré',
+  user_adjusted_slider: 'ajusté',
+  guardrail: 'ajusté par un garde-fou',
+  periodic_replan: 'recalculé',
+} as const;
+
 export const PLAN_ERROR_TEXT: Record<string, string> = {
   invalid_profile: 'Certaines informations sont hors des limites prises en charge. Vérifie ton profil.',
   loss_unavailable_low_bmi: 'Avec ton poids actuel, Wheighty ne propose pas de perte de poids. Le maintien reste disponible.',
-  target_bmi_too_low: 'Ce poids cible est trop bas pour ta taille. Choisis un objectif plus élevé.',
+  target_bmi_too_low: 'Ce poids cible est sous le minimum pour ta taille, qui correspond à un IMC de 20. Choisis un objectif plus élevé.',
   target_not_below_current: 'Pour une perte, le poids cible doit être inférieur à ton poids actuel.',
   target_not_above_current: 'Pour une prise, le poids cible doit être supérieur à ton poids actuel.',
   no_feasible_speed: 'Aucune vitesse ne respecte les limites de sécurité pour ce profil. Essaie le maintien ou un objectif plus doux.',
