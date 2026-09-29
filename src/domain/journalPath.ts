@@ -812,11 +812,14 @@ export function switchToMaintenanceOnPath(store: WheightyStore, today: string): 
 // Day change
 // ---------------------------------------------------------------------------
 
-/** Day change on the journal path: automatic proposal (assumed), weigh-in encouragement (aligned), weekly evaluation. */
-export function runJournalDailyChecks(store: WheightyStore, today: string, nowIso: string): WheightyStore {
+/**
+ * Day change on the journal path: automatic proposal (assumed), weigh-in encouragement (aligned), weekly evaluation. `week`
+ * false leaves the weekly evaluation out: the app runs it in a worker (StoreProvider, `applyJournalWeek`).
+ */
+export function runJournalDailyChecks(store: WheightyStore, today: string, nowIso: string, options: { week?: boolean } = {}): WheightyStore {
   let s = checkAlignProposal(store, today, nowIso);
   s = checkWeighDaily(s, today, nowIso);
-  return runJournalWeek(s, today, nowIso);
+  return options.week === false ? s : runJournalWeek(s, today, nowIso);
 }
 
 // ---------------------------------------------------------------------------

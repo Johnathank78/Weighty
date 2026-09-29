@@ -84,6 +84,11 @@ export type DailyCheckOptions = {
    * reports 38 and 39, which checks them once a week, turns it off on the other days.
    */
   guardrails?: boolean;
+  /**
+   * Run the weekly evaluation of the journal path here (default true). It is heavy (the journal fit of the measured habit):
+   * the app runs it in a worker (StoreProvider) and passes false.
+   */
+  journalWeek?: boolean;
 };
 
 /**
@@ -96,7 +101,7 @@ export function runDailyChecks(store: WheightyStore, today: string, nowIso: stri
   let s = ensureDailyLogs(store, today);
   if (options.guardrails !== false) s = guardrailsOnPath(s, today, nowIso);
   // Journal path (pass 5b): proposal, weigh-in encouragement, weekly evaluation (after the guardrails, as the prototype).
-  s = runJournalDailyChecks(s, today, nowIso);
+  s = runJournalDailyChecks(s, today, nowIso, { week: options.journalWeek !== false });
   if (journalMethodOf(s) === 'measured') {
     const periodic = measuredPeriodicReplan(s, today, nowIso);
     if (periodic.status !== 'not_due') s = periodic.store;

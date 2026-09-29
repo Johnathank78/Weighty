@@ -6,6 +6,9 @@ import { ensureDailyLogs } from '@/domain/engine';
 import { runDailyChecks } from '@/domain/planSafety';
 import type { CalibrationState } from '@/domain/engine';
 import { calibrationFingerprint, createCalibrationRunner } from './calibrationClient';
+import { applyJournalWeek, journalWeekDue } from '@/domain/journalPath';
+import { createJournalWeekRunner } from './journalClient';
+import type { JournalWeekRunner } from './journalClient';
 import type { CalibrationRunner } from './calibrationClient';
 import { browserStorage, deleteAllData, loadStore, saveStore } from '@/persistence/storage';
 import type { KeyValueStorage, LoadResult } from '@/persistence/storage';
@@ -72,7 +75,7 @@ export function StoreProvider({ children, storage: injected }: { children: React
   // replan when due, underweight alert (pass 5a). Evaluated once on the day's state; the same store comes back when nothing
   // changes. Also runs once at start, on the loaded store.
   useEffect(() => {
-    setStore((s) => (s.plan ? runDailyChecks(s, today, new Date().toISOString()) : s));
+    setStore((s) => (s.plan ? runDailyChecks(s, today, new Date().toISOString(), { journalWeek: false }) : s));
   }, [today]);
 
   const commit = useCallback((next: WheightyStore) => setStore(next), []);
@@ -115,6 +118,38 @@ export function StoreProvider({ children, storage: injected }: { children: React
     }, CALIBRATION_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
   }, [calibrationKey, needsCalibration, today]);
+
+  // Weekly evaluation of the journal path (pass 5b), off the main thread: when it is due, the store (journal included) is
+  // sent to its worker; the result is written if the evaluation is still due and the method has not changed meanwhile.
+  const journalRunner = useRef<JournalWeekRunner | null>(null);
+  const journalRequest = useRef(0);
+  const journalAsked = useRef<string | null>(null);
+  useEffect(() => {
+    journalRunner.current = createJournalWeekRunner();
+    return () => {
+      journalRunner.current?.dispose();
+      journalRunner.current = null;
+      // A request sent to the disposed worker is never answered: it is sent again to the next one.
+      journalAsked.current = null;
+    };
+  }, []);
+  const path = store.meta.journalPath;
+  const journalKey = store.plan && journalWeekDue(store, today) ? `${today}|${path.method}|${path.lastEvaluatedOn ?? ''}` : null;
+  useEffect(() => {
+    if (journalKey === null || journalAsked.current === journalKey || !journalRunner.current) return;
+    journalAsked.current = journalKey;
+    const id = ++journalRequest.current;
+    const method = latestStore.current.meta.journalPath.method;
+    const nowIso = new Date().toISOString();
+    journalRunner.current.run({ id, store: latestStore.current, today, nowIso }, (response) => {
+      if (response.id !== journalRequest.current) return;
+      if (!response.ok) {
+        console.error('Journal evaluation failed:', response.message);
+        return;
+      }
+      setStore((s) => (journalWeekDue(s, today) && s.meta.journalPath.method === method ? applyJournalWeek(s, response.week, today, nowIso) : s));
+    });
+  }, [journalKey, today]);
 
   const calibrationState = needsCalibration ? (calibration?.state ?? null) : null;
   const calibrationPending = needsCalibration && calibration?.key !== calibrationKey;

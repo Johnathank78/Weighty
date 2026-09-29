@@ -2,7 +2,8 @@
  * Pass 5b (report 45), verification 4: time of the weekly evaluation of the measured habit (journal fit on the +-2 000 grid,
  * habit, plan; `evaluateJournalWeek`) on profiles with one year of data (a weigh-in and three meals logged every day,
  * aligned target from day 30, measured habit from day 58), and of the day change (`runDailyChecks`: nothing due; weekly
- * evaluation due; periodic replan of the habit due), of the weigh-in checks and of the projection of the Suivi chart.
+ * evaluation due, run here or, as the app does, in its worker; periodic replan of the habit due), of the weigh-in checks
+ * and of the projection of the Suivi chart.
  * Reference of pass 5a: full recalculation of the current method P95 x 4 = 1 432 ms on one-year profiles.
  * Run: npx vitest run -c vitest.journal.config.ts prod5b/timing
  */
@@ -91,7 +92,7 @@ it('pass 5b timing on one-year profiles in the measured habit', () => {
     const w = 64 + 4 * i;
     profiles.push(makeProfile({ sexForEquation: i % 2 ? 'male' : 'female', heightCm: 160 + i * 2, currentWeightKg: w, ageYears: 25 + 3 * i, averageSteps7d: 5000 + 700 * i, goal, targetWeightKg: goal === 'loss' ? w - 8 : goal === 'gain' ? w + 5 : w, weeklyRateTarget: goal === 'loss' ? 0.005 : goal === 'gain' ? 0.0025 : 0 }));
   }
-  const rows: Record<string, number[]> = { weeklyEvaluation: [], dayChangeNotDue: [], dayChangeWeekDue: [], dayChangePeriodicDue: [], weighIn: [], projection: [] };
+  const rows: Record<string, number[]> = { weeklyEvaluation: [], dayChangeNotDue: [], dayChangeWeekDue: [], dayChangeWeekDueApp: [], dayChangePeriodicDue: [], weighIn: [], projection: [] };
   let measured = 0;
   profiles.forEach((p, i) => {
     const s = yearStore(p, 7_000 + i);
@@ -102,6 +103,8 @@ it('pass 5b timing on one-year profiles in the measured habit', () => {
     const checked = runDailyChecks({ ...due, meta: { ...due.meta, journalPath: { ...due.meta.journalPath, lastEvaluatedOn: today } } }, today, at(today));
     rows.dayChangeNotDue?.push(time(() => runDailyChecks(checked, today, at(today))));
     rows.dayChangeWeekDue?.push(time(() => runDailyChecks({ ...checked, meta: { ...checked.meta, journalPath: { ...checked.meta.journalPath, lastEvaluatedOn: addDays(today, -7) } } }, today, at(today))));
+    // In the app the weekly evaluation runs in its worker: the day change on the main thread leaves it out.
+    rows.dayChangeWeekDueApp?.push(time(() => runDailyChecks({ ...checked, meta: { ...checked.meta, journalPath: { ...checked.meta.journalPath, lastEvaluatedOn: addDays(today, -7) } } }, today, at(today), { journalWeek: false })));
     const periodic: WheightyStore = { ...checked, meta: { ...checked.meta, periodicReplanCheckedOn: null }, plan: checked.plan ? { ...checked.plan, createdAt: `${addDays(today, -28)}T00:00:00.000Z` } : null };
     rows.dayChangePeriodicDue?.push(time(() => runDailyChecks(periodic, today, at(today))));
     rows.weighIn?.push(time(() => runWeighInChecks(checked, today, at(today))));
