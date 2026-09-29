@@ -12,7 +12,7 @@ import { exportFileName, exportStore, parseImport } from '@/persistence/exportIm
 import type { ImportResult } from '@/persistence/exportImport';
 import { formatFullDate, formatHeight, formatInteger, formatKcal, formatNumber, formatSignedWeight, formatWeight, KG_PER_LB, weightUnitLabel } from '@/domain/format';
 import { defaultWeeklyRate, draftFromProfile, profileInitials } from '@/domain/onboarding';
-import { appliedWeightCalibrations, goalGuardrails, weeksOfTracking } from '@/domain/views';
+import { appliedWeightCalibrations, goalGuardrails, targetWeightSliderBounds, weeksOfTracking } from '@/domain/views';
 import { usePwa } from '@/hooks/usePwa';
 import type { WheightyStore } from '@/domain/types';
 import { SCIENTIFIC_MODEL_VERSION } from '@/science/constants';
@@ -129,13 +129,14 @@ export function GoalSheet() {
     setRate(g === 'maintenance' ? null : g === plan.goal ? (plan.requestedWeeklyRate ?? plan.weeklyRateTarget) : defaultWeeklyRate(g, storeSpeedSliderModel(store, today, g)?.maxSelectableRate ?? null));
     setError(null);
   };
-  // Pass 5a: the lowest loss target is the BMI-20 weight.
-  const min = goal === 'loss' ? Math.max(35, weight * 0.6, guard.minTargetKg) : weight + 0.5;
-  const max = goal === 'loss' ? weight - 0.5 : weight * 1.35;
+  // Same bounds as onboarding (UX pass 1, D): the lowest loss target is the BMI-20 weight rounded up to the half kilo.
+  const { minKg: min, maxKg: max } = targetWeightSliderBounds(goal === 'gain' ? 'gain' : 'loss', weight, profile.heightCm);
+  // What the slider shows is what is applied (a stored target off the half-kilo grid is shown at its slider position).
+  const shownTarget = Math.min(max, Math.max(min, target));
   const shownRate = model && model.maxSelectableRate !== null ? Math.min(rate ?? model.defaultRate, model.maxSelectableRate) : null;
 
   const apply = () => {
-    const r = changeGoal(store, today, { goal, targetWeightKg: goal === 'maintenance' ? weight : target, weeklyRate: goal === 'maintenance' ? 0 : (shownRate ?? rate ?? 0) });
+    const r = changeGoal(store, today, { goal, targetWeightKg: goal === 'maintenance' ? weight : shownTarget, weeklyRate: goal === 'maintenance' ? 0 : (shownRate ?? rate ?? 0) });
     if (!r.ok) {
       setError(PLAN_ERROR_TEXT[r.reason] ?? 'Objectif impossible.');
       return;
@@ -170,12 +171,12 @@ export function GoalSheet() {
               Poids cible
             </span>
             <span className="tabular" style={{ font: '600 20px var(--font)' }}>
-              {formatWeight(target, units)} {weightUnitLabel(units)}
+              {formatWeight(shownTarget, units)} {weightUnitLabel(units)}
             </span>
           </div>
-          <Range value={Math.min(max, Math.max(min, target))} min={min} max={max} step={units === 'imperial' ? KG_PER_LB : 0.5} onChange={setTarget} label="Poids cible" valueText={`${formatWeight(target, units)} ${weightUnitLabel(units)}`} />
+          <Range value={shownTarget} min={min} max={max} step={units === 'imperial' ? KG_PER_LB : 0.5} onChange={setTarget} label="Poids cible" valueText={`${formatWeight(shownTarget, units)} ${weightUnitLabel(units)}`} />
           <p className="small" style={{ margin: '4px 0 20px' }}>
-            {formatSignedWeight(target - weight, units)} {weightUnitLabel(units)} par rapport à ta tendance actuelle.
+            {formatSignedWeight(shownTarget - weight, units)} {weightUnitLabel(units)} par rapport à ta tendance actuelle.
           </p>
         </>
       )}

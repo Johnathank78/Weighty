@@ -1,7 +1,9 @@
-import { useCallback, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent, ReactNode } from 'react';
 import { CONFIDENCE_LABEL } from '@/app/copy';
 import type { ConfidenceLevel } from '@/science/types';
+import { canStep, snapToGrid, stepValue, valueAtPosition } from './rangeMath';
+import type { RangeGrid } from './rangeMath';
 
 export type Option<T extends string> = { value: T; label: string; hint?: string };
 
@@ -93,25 +95,38 @@ type RangeProps = {
   disabled?: boolean;
 };
 
+/** Hold on − or +: first repeat after this delay, then one step every REPEAT_EVERY_MS. */
+const REPEAT_DELAY_MS = 420;
+const REPEAT_EVERY_MS = 70;
+/** A press this close to the thumb centre grabs it where it is, without a jump (relative drag). */
+const THUMB_GRAB_PX = 22;
+
 export function Range({ value, min, max, step, onChange, onCommit, label, valueText, size = 'md', zone, blockedBelow, lowerLimit, upperLimit, disabled }: RangeProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
+  /** Offset between the finger and the thumb centre when the thumb was grabbed (0 for a tap on the track). */
+  const grabOffset = useRef(0);
   const span = max - min || 1;
   const pct = (v: number) => Math.max(0, Math.min(100, ((v - min) / span) * 100));
-  const clamp = useCallback(
-    (v: number) => {
-      const stepped = Math.round((v - min) / step) * step + min;
-      return Math.max(lowerLimit ?? min, Math.min(upperLimit ?? max, stepped));
-    },
-    [lowerLimit, upperLimit, max, min, step],
-  );
+  const grid: RangeGrid = { min, max, step, ...(lowerLimit !== undefined ? { lowerLimit } : {}), ...(upperLimit !== undefined ? { upperLimit } : {}) };
+  // The repeat of a held button reads the latest value, not the one of the render that started it.
+  const latest = useRef({ value, grid, onChange, onCommit });
+  useEffect(() => {
+    latest.current = { value, grid, onChange, onCommit };
+  });
+  const repeat = useRef<{ timer: number | null; moved: boolean }>({ timer: null, moved: false });
+  useEffect(() => {
+    const r = repeat.current;
+    return () => {
+      if (r.timer !== null) window.clearTimeout(r.timer);
+    };
+  }, []);
 
-  const fromPointer = (e: PointerEvent<HTMLDivElement>) => {
+  const positionOf = (clientX: number) => {
     const el = ref.current;
-    if (!el) return value;
+    if (!el) return null;
     const r = el.getBoundingClientRect();
-    const p = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
-    return clamp(min + p * span);
+    return (clientX - r.left) / r.width;
   };
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
@@ -122,60 +137,126 @@ export function Range({ value, min, max, step, onChange, onCommit, label, valueT
       /* capture unsupported */
     }
     setDragging(true);
-    onChange(fromPointer(e));
+    const r = ref.current?.getBoundingClientRect();
+    const thumbX = r ? r.left + (pct(value) / 100) * r.width : e.clientX;
+    // Grabbing the thumb keeps it under the finger; a tap elsewhere on the track moves it there (UX pass 1, D).
+    grabOffset.current = Math.abs(e.clientX - thumbX) <= THUMB_GRAB_PX ? e.clientX - thumbX : 0;
+    if (grabOffset.current === 0) {
+      const p = positionOf(e.clientX);
+      if (p !== null) onChange(valueAtPosition(p, grid));
+    }
   };
   const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
-    if (dragging) onChange(fromPointer(e));
+    if (!dragging) return;
+    const p = positionOf(e.clientX - grabOffset.current);
+    if (p !== null) onChange(valueAtPosition(p, grid));
   };
   const end = (e: PointerEvent<HTMLDivElement>) => {
     if (!dragging) return;
     setDragging(false);
-    onCommit?.(fromPointer(e));
+    const p = positionOf(e.clientX - grabOffset.current);
+    onCommit?.(p === null ? value : valueAtPosition(p, grid));
   };
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (disabled) return;
     const big = step * 10;
     let next: number | null = null;
-    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') next = value + step;
-    else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') next = value - step;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') next = stepValue(value, 1, grid);
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') next = stepValue(value, -1, grid);
     else if (e.key === 'PageUp') next = value + big;
     else if (e.key === 'PageDown') next = value - big;
     else if (e.key === 'Home') next = lowerLimit ?? min;
     else if (e.key === 'End') next = upperLimit ?? max;
     if (next !== null) {
       e.preventDefault();
-      const c = clamp(next);
+      const c = snapToGrid(next, grid);
       onChange(c);
       onCommit?.(c);
     }
   };
 
-  return (
-    <div
-      ref={ref}
-      className={`range ${size === 'lg' ? 'range--lg' : ''}`}
-      role="slider"
-      tabIndex={disabled ? -1 : 0}
-      aria-label={label}
-      aria-valuemin={lowerLimit ?? min}
-      aria-valuemax={upperLimit ?? max}
-      aria-valuenow={value}
-      aria-valuetext={valueText}
-      aria-disabled={disabled || undefined}
-      data-dragging={dragging}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={end}
-      onPointerCancel={end}
-      onKeyDown={onKeyDown}
+  /** − and + (UX pass 1, D): exactly one step, through the same grid and handler as the drag; held, they repeat. */
+  const stepOnce = (direction: -1 | 1) => {
+    const { value: v, grid: g, onChange: change } = latest.current;
+    if (!canStep(v, direction, g)) return false;
+    const next = stepValue(v, direction, g);
+    // The next repeat must not wait for the re-render to see the new value.
+    latest.current = { ...latest.current, value: next };
+    change(next);
+    return true;
+  };
+  const stopRepeat = () => {
+    if (repeat.current.timer !== null) window.clearTimeout(repeat.current.timer);
+    repeat.current.timer = null;
+  };
+  const startRepeat = (direction: -1 | 1) => (e: PointerEvent<HTMLButtonElement>) => {
+    if (disabled || e.button !== 0) return;
+    stopRepeat();
+    repeat.current.moved = stepOnce(direction);
+    const again = (delay: number) => {
+      repeat.current.timer = window.setTimeout(() => {
+        if (stepOnce(direction)) again(REPEAT_EVERY_MS);
+        else repeat.current.timer = null;
+      }, delay);
+    };
+    again(REPEAT_DELAY_MS);
+  };
+  const release = () => {
+    if (repeat.current.timer === null && !repeat.current.moved) return;
+    stopRepeat();
+    repeat.current.moved = false;
+    latest.current.onCommit?.(latest.current.value);
+  };
+  const stepButton = (direction: -1 | 1) => (
+    <button
+      type="button"
+      className="range-step"
+      aria-label={`${direction < 0 ? 'Diminuer' : 'Augmenter'} : ${label}`}
+      disabled={disabled || !canStep(value, direction, grid)}
+      onPointerDown={startRepeat(direction)}
+      onPointerUp={release}
+      onPointerLeave={release}
+      onPointerCancel={release}
+      onContextMenu={(e) => e.preventDefault()}
+      // Keyboard activation (Enter, Space) arrives as a click without a pointer press.
+      onClick={(e) => {
+        if (e.detail === 0 && stepOnce(direction)) latest.current.onCommit?.(latest.current.value);
+      }}
     >
-      <div className="range__track">
-        {zone ? <div className="range__zone" style={{ left: `${pct(zone[0])}%`, right: `${100 - pct(zone[1])}%` }} /> : null}
-        {blockedBelow !== undefined && blockedBelow > min ? <div className="range__blocked" style={{ width: `${pct(blockedBelow)}%` }} /> : null}
-        {upperLimit !== undefined && upperLimit < max ? <div className="range__blocked range__blocked--above" style={{ left: `${pct(upperLimit)}%` }} /> : null}
-        <div className="range__fill" style={{ width: `${pct(value)}%` }} />
+      <span aria-hidden="true">{direction < 0 ? '−' : '+'}</span>
+    </button>
+  );
+
+  return (
+    <div className={size === 'lg' ? 'range-row range-row--lg' : 'range-row'}>
+      {stepButton(-1)}
+      <div
+        ref={ref}
+        className={`range ${size === 'lg' ? 'range--lg' : ''}`}
+        role="slider"
+        tabIndex={disabled ? -1 : 0}
+        aria-label={label}
+        aria-valuemin={lowerLimit ?? min}
+        aria-valuemax={upperLimit ?? max}
+        aria-valuenow={value}
+        aria-valuetext={valueText}
+        aria-disabled={disabled || undefined}
+        data-dragging={dragging}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={end}
+        onPointerCancel={end}
+        onKeyDown={onKeyDown}
+      >
+        <div className="range__track">
+          {zone ? <div className="range__zone" style={{ left: `${pct(zone[0])}%`, right: `${100 - pct(zone[1])}%` }} /> : null}
+          {blockedBelow !== undefined && blockedBelow > min ? <div className="range__blocked" style={{ width: `${pct(blockedBelow)}%` }} /> : null}
+          {upperLimit !== undefined && upperLimit < max ? <div className="range__blocked range__blocked--above" style={{ left: `${pct(upperLimit)}%` }} /> : null}
+          <div className="range__fill" style={{ width: `${pct(value)}%` }} />
+        </div>
+        <div className="range__thumb" style={{ left: `${pct(value)}%` }} />
       </div>
-      <div className="range__thumb" style={{ left: `${pct(value)}%` }} />
+      {stepButton(1)}
     </div>
   );
 }

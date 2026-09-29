@@ -130,6 +130,25 @@ export function goalGuardrails(heightCm: number, weightKg: number): { lossAvaila
 /** Smallest gap between the current weight and a loss target offered by the target sliders, kg. */
 export const LOSS_TARGET_MIN_GAP_KG = 0.5;
 
+/** Resolution of the target weight sliders, kg (metric). */
+export const TARGET_WEIGHT_STEP_KG = 0.5;
+
+/**
+ * Bounds of the target weight slider (UX pass 1, D), the same at onboarding and in the goal change. Loss: from the BMI-20
+ * weight (`minimumTargetWeightKg`, through `goalGuardrails`) rounded up to the half kilo, so the lowest position never
+ * falls under BMI 20, to half a kilo under the current weight. Gain: from half a kilo above the current weight to 35 %
+ * above it. The rule of the onboarding slider, now shared.
+ */
+export function targetWeightSliderBounds(goal: 'loss' | 'gain', weightKg: number, heightCm: number): { minKg: number; maxKg: number } {
+  const half = (kg: number, round: (x: number) => number) => round(kg / TARGET_WEIGHT_STEP_KG) * TARGET_WEIGHT_STEP_KG;
+  if (goal === 'loss') {
+    const minKg = half(Math.max(35, weightKg * 0.6, goalGuardrails(heightCm, weightKg).minTargetKg), Math.ceil);
+    return { minKg, maxKg: Math.max(minKg, half(weightKg - LOSS_TARGET_MIN_GAP_KG, Math.round)) };
+  }
+  const minKg = half(weightKg + 0.5, Math.round);
+  return { minKg, maxKg: Math.max(minKg, half(weightKg * 1.35, Math.round)) };
+}
+
 /** Estimated kg per week equivalent of a weekly rate at the given weight (display only). */
 export function weeklyChangeKg(weeklyRate: number, weightKg: number): number {
   return weeklyRate * weightKg;

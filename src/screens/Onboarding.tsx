@@ -28,7 +28,7 @@ import {
 } from '@/domain/onboarding';
 import type { OnboardingDraft, StepErrors } from '@/domain/onboarding';
 import type { UnitPreference } from '@/domain/types';
-import { goalGuardrails } from '@/domain/views';
+import { goalGuardrails, targetWeightSliderBounds } from '@/domain/views';
 import { BODY_FAT_MIN_PERCENT, MEASURED_RMR_MAX_KCAL, MEASURED_RMR_MIN_KCAL, SESSION_DURATION_MAX_MIN, SESSIONS_MAX_PER_WEEK, STEPS_MAX_PER_DAY } from '@/science/constants';
 import { isIsoDate } from '@/science/dates';
 import type { ActivityIntensity, BodyFatMethod, Goal, MeasuredRmr, StructuredActivity, StructuredActivityType, TrackingQuality } from '@/science/types';
@@ -650,10 +650,8 @@ export function StepGoal({ draft, patch, errors, units, today }: StepProps & { t
     patch({ goal: g, targetWeight, weeklyRate: g === 'maintenance' ? null : defaultWeeklyRate(g, nextModel?.maxSelectableRate ?? null) });
   };
   const target = draft.targetWeight ?? weightKg;
-  const range = goal === 'loss' ? [Math.max(35, weightKg * 0.6, guard.minTargetKg), weightKg - 0.5] : [weightKg + 0.5, weightKg * 1.35];
-  // Loss: rounded up, so the lowest position never falls under the BMI-20 weight (pass 5a).
-  const min = goal === 'loss' ? Math.ceil((range[0] as number) * 2) / 2 : Math.round((range[0] as number) * 2) / 2;
-  const max = Math.round((range[1] as number) * 2) / 2;
+  // Same bounds as the goal change (UX pass 1, D): loss from the BMI-20 weight rounded up to the half kilo.
+  const { minKg: min, maxKg: max } = targetWeightSliderBounds(goal === 'gain' ? 'gain' : 'loss', weightKg, heightCm);
 
   return (
     <>

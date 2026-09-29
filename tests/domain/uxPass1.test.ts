@@ -2,8 +2,16 @@
  * UX pass 1 (report 44): interface only. Each block covers one request (A to G) of the pass: what the screens read comes
  * from pure domain selectors tested here; the science and the plan are untouched (bit-exact captures, see the report).
  */
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { JOURNAL_TEXT } from '@/app/copy';
+import { canStep, snapToGrid, stepValue, valueAtPosition } from '@/components/rangeMath';
+import type { RangeGrid } from '@/components/rangeMath';
+import { KG_PER_LB } from '@/domain/format';
+import { goalGuardrails, snapRate, targetWeightSliderBounds } from '@/domain/views';
+import { BODY_FAT_MIN_PERCENT } from '@/science/constants';
+import { sliderBounds, weeklyRateRange } from '@/science/goals';
+import { bmi, minimumTargetWeightKg } from '@/science/macros';
 import { intakeObservationsFrom } from '@/domain/intakeObservations';
 import { completeOnboarding } from '@/domain/engine';
 import { addFoodEntry, deleteFoodEntry, hasNoMacros, hourGroupKcal, hourGroups, intakeTotals, journalDay, kcalWithoutMacros, replaceManualEntry } from '@/domain/journal';
@@ -211,5 +219,108 @@ describe('C. kcal of each hour group', () => {
       expect(kcal.reduce((a, b) => a + b, 0)).toBe(Math.round(intakeTotals(entries.filter(counted)).energyKcal));
     }
     expect(hourGroupKcal([])).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// D. Sliders: every allowed value reachable, bounds and steps unchanged
+// ---------------------------------------------------------------------------
+
+/** Walks with + from the lowest position to the end, then with − back: every value met, in order. */
+function walk(g: RangeGrid, after: (v: number) => number): { up: number[]; down: number[] } {
+  const up = [after(snapToGrid(g.lowerLimit ?? g.min, g))];
+  while (canStep(up[up.length - 1] as number, 1, g)) up.push(after(stepValue(up[up.length - 1] as number, 1, g)));
+  const down = [up[up.length - 1] as number];
+  while (canStep(down[down.length - 1] as number, -1, g)) down.push(after(stepValue(down[down.length - 1] as number, -1, g)));
+  return { up, down };
+}
+
+/**
+ * Every value of the grid within the limits (what the stored values can be). When the step does not divide the range
+ * (pounds on a kilogram range), the limit itself is the last value, as the arrow keys already gave it in the base.
+ */
+function allowedValues(g: RangeGrid, after: (v: number) => number): number[] {
+  const out: number[] = [];
+  const count = Math.ceil((g.max - g.min) / g.step - 1e-9);
+  for (let k = 0; k <= count; k++) {
+    const v = after(snapToGrid(g.min + k * g.step, g));
+    if (!out.includes(v)) out.push(v);
+  }
+  return out;
+}
+
+const weeklyRateGrid = (goal: 'loss' | 'gain'): RangeGrid => ({ min: weeklyRateRange(goal).minRate, max: weeklyRateRange(goal).maxRate, step: weeklyRateRange(goal).step });
+const same = (v: number) => v;
+
+describe('D. sliders', () => {
+  // `after`: what the screen does with the value (the speed slider snaps it with snapRate, as in the base).
+  const SLIDERS: Array<{ name: string; grid: RangeGrid; after: (v: number) => number; values: number }> = [
+    { name: 'vitesse, perte', grid: weeklyRateGrid('loss'), after: snapRate, values: 17 },
+    { name: 'vitesse, perte, limitée à 0,75 %', grid: { ...weeklyRateGrid('loss'), upperLimit: 0.0075 }, after: snapRate, values: 12 },
+    { name: 'vitesse, prise', grid: weeklyRateGrid('gain'), after: snapRate, values: 9 },
+    { name: 'poids cible, perte (78 kg, 168 cm)', grid: { min: 56.5, max: 77.5, step: 0.5 }, after: same, values: 43 },
+    { name: 'poids cible, prise (78 kg)', grid: { min: 78.5, max: 105.5, step: 0.5 }, after: same, values: 55 },
+    { name: 'poids cible, perte, en livres', grid: { min: 56.5, max: 77.5, step: KG_PER_LB }, after: same, values: 48 },
+    { name: 'masse grasse (onboarding)', grid: { min: BODY_FAT_MIN_PERCENT, max: 50, step: 1 }, after: same, values: 48 },
+    { name: 'pas moyens (onboarding)', grid: { min: 0, max: 25000, step: 100 }, after: same, values: 251 },
+    { name: 'manger et marcher (7 500 pas de base, plancher à 3 400)', grid: { min: sliderBounds(7500).minSteps, max: sliderBounds(7500).maxSteps, step: 100, lowerLimit: 3400 }, after: same, values: 142 },
+    { name: 'pas du jour', grid: { min: 0, max: 30000, step: 100 }, after: same, values: 301 },
+  ];
+
+  it.each(SLIDERS)('$name: − and + reach every allowed value, one step at a time, both ways', ({ grid, after, values }) => {
+    const allowed = allowedValues(grid, after);
+    expect(allowed).toHaveLength(values);
+    const { up, down } = walk(grid, after);
+    expect(up).toEqual(allowed);
+    expect(down).toEqual([...allowed].reverse());
+    // The buttons and the drag share one grid: each grid value the buttons give is also the value of its drag position.
+    const span = grid.max - grid.min;
+    const onGrid = (v: number) => Math.abs((v - grid.min) / grid.step - Math.round((v - grid.min) / grid.step)) < 1e-6;
+    for (const v of up.filter(onGrid)) expect(after(valueAtPosition((v - grid.min) / span, grid))).toBe(v);
+  });
+
+  it('bounds, steps and limits of every slider are those of the base', () => {
+    expect(weeklyRateRange('loss')).toEqual({ minRate: 0.002, maxRate: 0.01, defaultRate: 0.005, step: 0.0005 });
+    expect(weeklyRateRange('gain')).toEqual({ minRate: 0.001, maxRate: 0.005, defaultRate: 0.0025, step: 0.0005 });
+    expect(sliderBounds(7500)).toEqual({ minSteps: 2000, maxSteps: 17500, recommendedMinSteps: 4500, recommendedMaxSteps: 10500 });
+    // Literal props of the Range components, as in the base (only the target weight bounds moved into the domain).
+    const props = (file: string) => [...readFileSync(file, 'utf8').matchAll(/<Range[\s\S]*?\/>/g)].map((m) => (m[0].match(/\b(min|max|step|lowerLimit|upperLimit|blockedBelow)=\{[^}]*\}/g) ?? []).join(' '));
+    expect(props('src/components/SpeedSlider.tsx')).toEqual(['min={model.minRate} max={model.maxRate} step={model.step} upperLimit={limit}']);
+    expect(props('src/screens/BalanceSheet.tsx')).toEqual(['min={bounds.minSteps} max={bounds.maxSteps} step={100} lowerLimit={effectiveMinSteps} blockedBelow={effectiveMinSteps}']);
+    expect(props('src/screens/DailySheets.tsx')).toEqual(['min={0} max={STEPS_SHEET_MAX} step={100}']);
+    expect(props('src/screens/Onboarding.tsx')).toEqual(['min={BODY_FAT_MIN_PERCENT} max={50} step={1}', 'min={0} max={ONB_STEPS_MAX} step={100}', "min={min} max={max} step={units === 'imperial' ? KG_PER_LB : 0.5}"]);
+    expect(props('src/screens/Account.tsx')).toEqual(["min={min} max={max} step={units === 'imperial' ? KG_PER_LB : 0.5}"]);
+    expect(readFileSync('src/screens/Onboarding.tsx', 'utf8')).toMatch(/const ONB_STEPS_MAX = 25000;/);
+    expect(readFileSync('src/screens/DailySheets.tsx', 'utf8')).toMatch(/const STEPS_SHEET_MAX = 30000;/);
+  });
+
+  it('target weight: the same bounds at onboarding and in the goal change, from one domain function', () => {
+    for (const file of ['src/screens/Onboarding.tsx', 'src/screens/Account.tsx']) expect(readFileSync(file, 'utf8')).toMatch(/targetWeightSliderBounds\(goal === 'gain' \? 'gain' : 'loss', /);
+    // It is the onboarding rule of the base, exactly, over a grid of weights and heights.
+    const baseOnboarding = (goal: 'loss' | 'gain', w: number, h: number) => {
+      const range = goal === 'loss' ? [Math.max(35, w * 0.6, goalGuardrails(h, w).minTargetKg), w - 0.5] : [w + 0.5, w * 1.35];
+      return { minKg: goal === 'loss' ? Math.ceil((range[0] as number) * 2) / 2 : Math.round((range[0] as number) * 2) / 2, maxKg: Math.round((range[1] as number) * 2) / 2 };
+    };
+    let checked = 0;
+    for (let h = 150; h <= 200; h += 2.5) {
+      for (let w = 45; w <= 160; w += 0.35) {
+        for (const goal of ['loss', 'gain'] as const) {
+          if (goal === 'loss' && !goalGuardrails(h, w).lossAvailable) continue;
+          const b = targetWeightSliderBounds(goal, w, h);
+          const base = baseOnboarding(goal, w, h);
+          // Just above the BMI-20 weight, the base rounding could invert the slider (min above max): the max is then the min.
+          expect(b).toEqual(base.maxKg < base.minKg ? { minKg: base.minKg, maxKg: base.minKg } : base);
+          checked++;
+          if (goal === 'loss') {
+            // The lowest position: the BMI-20 weight rounded up to the half kilo, never under BMI 20.
+            expect(b.minKg).toBeGreaterThanOrEqual(minimumTargetWeightKg(h));
+            if (minimumTargetWeightKg(h) >= Math.max(35, w * 0.6)) expect(b.minKg - minimumTargetWeightKg(h)).toBeLessThan(0.5);
+            expect(bmi(b.minKg, h)).toBeGreaterThanOrEqual(20);
+            expect(b.minKg % 0.5).toBe(0);
+          }
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(10000);
   });
 });
