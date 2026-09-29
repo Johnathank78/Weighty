@@ -357,7 +357,8 @@ describe('G. messages of pass 5a', () => {
     expect(notices.map((n) => n.kind)).toEqual(['underweight', 'guardrail', 'guardrail', 'bmi20_warning', 'target_migration', 'periodic_replan']);
     // Within a kind, the trace order.
     expect(notices.map((n) => n.eventId)).toEqual(['u', 'g2', 'g1', null, 't', 'p']);
-    expect(PLAN_NOTICE_ORDER).toEqual(['underweight', 'guardrail', 'bmi20_warning', 'target_migration', 'periodic_replan']);
+    // Pass 5b adds the messages of the journal path, before the periodic replan.
+    expect(PLAN_NOTICE_ORDER).toEqual(['underweight', 'guardrail', 'bmi20_warning', 'target_migration', 'journal', 'periodic_replan']);
     expect(PLAN_NOTICES_VISIBLE).toBe(2);
     expect(PLAN_NOTICE_TEXT.more(notices.length - PLAN_NOTICES_VISIBLE)).toBe('Voir les autres messages (4)');
     // Same tones as pass 5a: the underweight alert and G1 stand out.
@@ -369,7 +370,8 @@ describe('G. messages of pass 5a', () => {
     expect(warning).toMatchObject({ kind: 'bmi20_warning', eventId: null, weeks: 1 });
     expect(PLAN_NOTICE_TEXT.bmi20Short(1)).toBe('IMC sous 20 possible d’ici 1 semaine');
     expect(PLAN_NOTICE_TEXT.bmi20Short(3).length).toBeLessThanOrEqual(40);
-    expect(Object.keys(DEFAULT_META)).toEqual(['onboardingDate', 'initialMaintenanceKcal', 'initialInterval80', 'initialPalCategory', 'initialProvisionalPal', 'initialWeightKg', 'lastSurfacedCalibration', 'recoveredCorruptData', 'planEvents', 'periodicReplanCheckedOn', 'guardrailMaintenanceSince']);
+    // Pass 5b (schema 8) adds the journal path; still no dismissal date for this warning.
+    expect(Object.keys(DEFAULT_META)).toEqual(['onboardingDate', 'initialMaintenanceKcal', 'initialInterval80', 'initialPalCategory', 'initialProvisionalPal', 'initialWeightKg', 'lastSurfacedCalibration', 'recoveredCorruptData', 'planEvents', 'periodicReplanCheckedOn', 'guardrailMaintenanceSince', 'journalPath']);
   });
 
   it('periodic replan: the new words, also for an entry written before this pass; other entries show their message', () => {

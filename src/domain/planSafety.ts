@@ -16,7 +16,8 @@ import { fastestRateReachableWithSteps, guardrailMaxWeeklyRate, stepsToHoldRateA
 import type { GoalPlan, PlanContext } from '@/science/goals';
 import { bmi, weightAtBmi } from '@/science/macros';
 import type { CalibrationState, PlanBuildResult } from './engine';
-import { enforcePlanGuardrails, ensureDailyLogs, periodicReplan, recordPlanEvent, trendOf } from './engine';
+import { enforcePlanGuardrails, ensureDailyLogs, journalMethodOf, periodicReplan, recordPlanEvent, trendOf } from './engine';
+import { enforceMeasuredGuardrails, measuredPeriodicReplan, runJournalDailyChecks } from './journalPath';
 import { PLAN_MESSAGE } from './planMessages';
 import type { PlanEvent, PlanEventRule, WheightyStore } from './types';
 import { projectionFromToday } from './views';
@@ -93,16 +94,31 @@ export type DailyCheckOptions = {
 export function runDailyChecks(store: WheightyStore, today: string, nowIso: string, options: DailyCheckOptions = {}): WheightyStore {
   if (!store.plan || !store.profile) return store;
   let s = ensureDailyLogs(store, today);
-  if (options.guardrails !== false) s = enforcePlanGuardrails(s, today, { nowIso }).store;
-  const periodic = periodicReplan(s, today, { nowIso });
-  if (periodic.status !== 'not_due') s = periodic.store;
+  if (options.guardrails !== false) s = guardrailsOnPath(s, today, nowIso);
+  // Journal path (pass 5b): proposal, weigh-in encouragement, weekly evaluation (after the guardrails, as the prototype).
+  s = runJournalDailyChecks(s, today, nowIso);
+  if (journalMethodOf(s) === 'measured') {
+    const periodic = measuredPeriodicReplan(s, today, nowIso);
+    if (periodic.status !== 'not_due') s = periodic.store;
+  } else {
+    const periodic = periodicReplan(s, today, { nowIso });
+    if (periodic.status !== 'not_due') s = periodic.store;
+  }
   return checkUnderweight(s, today, nowIso);
+}
+
+/**
+ * Guardrails of the plan in force on the journal path: those of pass 5a (with the floor x 1.10 on the aligned target, and
+ * G1 only on the aligned target itself), or those of the measured habit (pass 5b).
+ */
+export function guardrailsOnPath(store: WheightyStore, today: string, nowIso: string): WheightyStore {
+  return journalMethodOf(store) === 'measured' ? enforceMeasuredGuardrails(store, today, nowIso) : enforcePlanGuardrails(store, today, { nowIso }).store;
 }
 
 /** What runs after each weigh-in: the guardrails and the underweight alert, on the new trend weight. */
 export function runWeighInChecks(store: WheightyStore, today: string, nowIso: string): WheightyStore {
   if (!store.plan || !store.profile) return store;
-  return checkUnderweight(enforcePlanGuardrails(store, today, { nowIso }).store, today, nowIso);
+  return checkUnderweight(guardrailsOnPath(store, today, nowIso), today, nowIso);
 }
 
 // ---------------------------------------------------------------------------
@@ -168,10 +184,10 @@ export function floorAdviceOf(result: PlanBuildResult | { ok: false; reason: str
 // Message zone of Aujourd'hui and Suivi (UX pass 1, G1)
 // ---------------------------------------------------------------------------
 
-export type PlanNoticeKind = 'underweight' | 'guardrail' | 'bmi20_warning' | 'target_migration' | 'periodic_replan';
+export type PlanNoticeKind = 'underweight' | 'guardrail' | 'bmi20_warning' | 'target_migration' | 'journal' | 'periodic_replan';
 
-/** Priority of the message zone, first shown first. */
-export const PLAN_NOTICE_ORDER: readonly PlanNoticeKind[] = ['underweight', 'guardrail', 'bmi20_warning', 'target_migration', 'periodic_replan'];
+/** Priority of the message zone, first shown first. Journal path messages (pass 5b) come before the periodic replan. */
+export const PLAN_NOTICE_ORDER: readonly PlanNoticeKind[] = ['underweight', 'guardrail', 'bmi20_warning', 'target_migration', 'journal', 'periodic_replan'];
 
 /** Messages visible at once; the others wait behind "Voir les autres messages". */
 export const PLAN_NOTICES_VISIBLE = 2;
@@ -193,6 +209,15 @@ const KIND_OF_RULE: Record<PlanEventRule, PlanNoticeKind> = {
   G2: 'guardrail',
   target_bmi_20: 'target_migration',
   periodic_replan: 'periodic_replan',
+  journal_switch: 'journal',
+  journal_proposal_declined: 'journal',
+  journal_log_more: 'journal',
+  journal_weigh_daily: 'journal',
+  journal_measured_offer: 'journal',
+  journal_measured_enter: 'journal',
+  journal_measured_update: 'journal',
+  journal_offer_declined: 'journal',
+  journal_measured_exit: 'journal',
 };
 
 /**

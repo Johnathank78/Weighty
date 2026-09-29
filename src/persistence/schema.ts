@@ -5,8 +5,8 @@
 import { isIsoDate } from '@/science/dates';
 import { SCIENTIFIC_MODEL_VERSION } from '@/science/constants';
 import type { CalibrationSnapshot, DailyLog, HistoricalIntakeEvidence, StructuredActivity, UserProfile } from '@/science/types';
-import type { AppMeta, CurrentPlan, FoodEntry, FoodJournal, FoodNutrients, LibraryFood, PersonalPortion, PlanEvent, PlanSummary, Preferences, StoredWeight, WheightyStore } from '@/domain/types';
-import { DEFAULT_META, DEFAULT_PREFERENCES, emptyFoodJournal, PLAN_EVENT_RULES, PLAN_SOURCES, SCHEMA_VERSION } from '@/domain/types';
+import type { AppMeta, CurrentPlan, FoodEntry, FoodJournal, FoodNutrients, JournalPathState, LibraryFood, PersonalPortion, PlanEvent, PlanSummary, Preferences, StoredWeight, WheightyStore } from '@/domain/types';
+import { DEFAULT_META, DEFAULT_PREFERENCES, defaultJournalPath, emptyFoodJournal, JOURNAL_METHODS, PLAN_EVENT_RULES, PLAN_SOURCES, SCHEMA_VERSION } from '@/domain/types';
 
 type Obj = Record<string, unknown>;
 
@@ -253,8 +253,49 @@ export function isPlanEvent(v: unknown): v is PlanEvent {
   );
 }
 
+const isNullableIsoDate = (v: unknown): boolean => v === null || (isStr(v) && isIsoDate(v));
+const isJournalEstimate = (v: unknown): boolean => isObject(v) && isNum(v.offsetKcal) && isInterval(v.interval80) && isInterval(v.interval95);
+const isHabitSummary = (v: unknown): boolean => isObject(v) && isNum(v.h) && isNum(v.raw) && (v.bound === null || v.bound === 'low' || v.bound === 'high') && isNum(v.days);
+const isSurfacingRef = (v: unknown): boolean => isObject(v) && isNum(v.tdeeKcal) && isNum(v.interval80Width) && isStr(v.surfacedOn);
+
+/** Journal path of the user (pass 5b, `AppMeta.journalPath`, schema 8). */
+export function isJournalPath(v: unknown): v is JournalPathState {
+  if (!isObject(v)) return false;
+  const a = v.alignedTarget;
+  const g = v.gate;
+  const o = v.offer;
+  const x = v.lastExit;
+  return (
+    oneOf(v.method, JOURNAL_METHODS) &&
+    isNullableIsoDate(v.switchedOn) &&
+    (a === null || (isObject(a) && isNum(a.medianKcal) && isNum(a.roundedKcal) && isNum(a.finalKcal) && isNum(a.floorKcal) && isBool(a.raised))) &&
+    isBool(v.chosenTargetActive) &&
+    isNullableIsoDate(v.proposalOpenedOn) &&
+    isNullableIsoDate(v.proposalDeclinedOn) &&
+    isNullableIsoDate(v.firstPlanDeclinedOn) &&
+    isNullableIsoDate(v.measuredSince) &&
+    isNullableIsoDate(v.lastEvaluatedOn) &&
+    (v.estimate === null || isJournalEstimate(v.estimate)) &&
+    (v.habit === null || isHabitSummary(v.habit)) &&
+    (v.surfacingReference === null || isSurfacingRef(v.surfacingReference)) &&
+    (o === null ||
+      (isObject(o) &&
+        oneOf(o.kind, ['first', 'update'] as const) &&
+        isStr(o.date) &&
+        isIsoDate(o.date) &&
+        isCurrentPlan(o.plan) &&
+        isJournalEstimate(o.estimate) &&
+        isHabitSummary(o.habit) &&
+        isNum(o.maintenanceKcal) &&
+        isNum(o.interval80Width) &&
+        isNum(o.intakeKcal))) &&
+    (g === null || (isObject(g) && isStr(g.date) && isIsoDate(g.date) && isBool(g.met) && Array.isArray(g.missing) && g.missing.every(isStr) && isNum(g.missedWeighIns) && isNum(g.unusableDays))) &&
+    (x === null || (isObject(x) && isStr(x.date) && isIsoDate(x.date) && oneOf(x.reason, ['weighins', 'logging'] as const)))
+  );
+}
+
 function sanitizeMeta(v: unknown): AppMeta {
-  if (!isObject(v)) return { ...DEFAULT_META, planEvents: [] };
+  if (!isObject(v)) return { ...DEFAULT_META, planEvents: [], journalPath: defaultJournalPath() };
   const surfaced = v.lastSurfacedCalibration;
   const recovered = v.recoveredCorruptData;
   const optionalDate = (x: unknown): string | null => (isStr(x) && isIsoDate(x) ? x : null);
@@ -273,6 +314,7 @@ function sanitizeMeta(v: unknown): AppMeta {
     planEvents: Array.isArray(v.planEvents) ? v.planEvents.filter(isPlanEvent) : [],
     periodicReplanCheckedOn: optionalDate(v.periodicReplanCheckedOn),
     guardrailMaintenanceSince: optionalDate(v.guardrailMaintenanceSince),
+    journalPath: isJournalPath(v.journalPath) ? v.journalPath : defaultJournalPath(),
   };
 }
 
@@ -347,6 +389,9 @@ export function validateStore(v: unknown): StoreValidation | { error: string } {
     });
   }
 
+  // The journal path (pass 5b) that cannot be read is reported, never reset silently.
+  if (isObject(v.meta) && v.meta.journalPath !== undefined && !isJournalPath(v.meta.journalPath)) dropped.push({ path: 'meta.journalPath', reason: 'invalid' });
+
   const store: WheightyStore = {
     schemaVersion: SCHEMA_VERSION,
     scientificModelVersion: isStr(v.scientificModelVersion) ? v.scientificModelVersion : SCIENTIFIC_MODEL_VERSION,
@@ -375,6 +420,6 @@ export function emptyStore(): WheightyStore {
     historicalEvidence: null,
     foodJournal: emptyFoodJournal(),
     preferences: { ...DEFAULT_PREFERENCES },
-    meta: { ...DEFAULT_META, planEvents: [] },
+    meta: { ...DEFAULT_META, planEvents: [], journalPath: defaultJournalPath() },
   };
 }

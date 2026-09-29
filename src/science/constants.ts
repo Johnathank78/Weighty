@@ -9,7 +9,7 @@
  * statistical_robustness_parameter requires a SCIENTIFIC_MODEL_VERSION bump.
  */
 
-export const SCIENTIFIC_MODEL_VERSION = '1.4.0';
+export const SCIENTIFIC_MODEL_VERSION = '1.5.0';
 
 export type ConstantCategory =
   | 'published_constant'
@@ -233,6 +233,48 @@ export const UNDERWEIGHT_ALERT_BMI_BELOW = 18.5; // product_safety_rule
 export const UNDERWEIGHT_ALERT_DECLINE_WEEKS = 4; // product_safety_rule
 /** Underweight alert (pass 5a): shown at most once per this many days. */
 export const UNDERWEIGHT_ALERT_MIN_INTERVAL_DAYS = 7; // product_safety_rule
+
+// ---------------------------------------------------------------------------
+// Journal path (pass 5b, model 1.5.0): aligned target and measured habit, validated in reports 40 and 41 (iteration 2d)
+// ---------------------------------------------------------------------------
+/** Proposal and button: at least this many logged days among the last JOURNAL_ALIGN_WINDOW_DAYS. */
+export const JOURNAL_ALIGN_MIN_LOGGED_DAYS = 10; // product_safety_rule
+/** Window of the aligned target: median of the logged totals of these last days (report 40, s5.3). */
+export const JOURNAL_ALIGN_WINDOW_DAYS = 14; // engineering_prior
+/** Rounding of the aligned target, kcal (report 40, s5.3). */
+export const JOURNAL_ALIGN_ROUNDING_KCAL = 50; // ui_rounding_rule
+/** Floor factor of every target after the switch (aligned target and measured habit, prompt 41 s3.2 and s3.1.6). */
+export const JOURNAL_FLOOR_FACTOR = 1.1; // product_safety_rule
+/** First recalibration of the aligned target: the weekly evaluation 7 days after the switch (report 40). */
+export const JOURNAL_ALIGNED_FIRST_RECAL_DAYS = 7; // engineering_prior
+/** Cadence of the journal evaluations (weekly, from the switch). */
+export const JOURNAL_EVALUATION_EVERY_DAYS = 7; // engineering_prior
+/** Measured habit: days since the switch before its gate can open (prompt 41 s3.1.3). */
+export const MEASURED_MIN_DAYS_SINCE_SWITCH = 14; // engineering_prior
+/** Measured habit: minimum journal span, first to last weigh-in of the window, days (prompt 36 s3.3). */
+export const MEASURED_MIN_JOURNAL_SPAN_DAYS = 28; // engineering_prior
+/** Measured habit: habit window, days (prompt 41 s3.1.5). */
+export const HABIT_WINDOW_DAYS = 28; // engineering_prior
+/** Measured habit: bounds of h (prompt 41 s3.1.5). */
+export const HABIT_MIN = 0.8; // product_safety_rule
+export const HABIT_MAX = 1.25; // product_safety_rule
+/** Measured habit estimate: half-range of the offset grid, kcal/day (report 40, arm J). */
+export const MEASURED_GRID_HALF_RANGE_KCAL = 2000; // statistical_robustness_parameter
+/** Evidence weight of a non-usable journal day in the measured habit estimate (report 40, arm J). */
+export const MEASURED_NON_USABLE_DAY_WEIGHT = 0.5; // statistical_robustness_parameter
+/** Measured habit tolerances (decisions 6 and 7 of 28/09): missed weigh-ins, and non-usable days, over the last days. */
+export const MEASURED_TOLERANCE_WINDOW_DAYS = 28; // product_safety_rule
+export const MEASURED_TOLERATED_MISSED_WEIGHINS = 2; // product_safety_rule
+export const MEASURED_TOLERATED_UNLOGGED_DAYS = 2; // product_safety_rule
+/** Measured habit: a declined first plan is offered again at the earliest after this many days (decision of 28/09). */
+export const MEASURED_FIRST_PLAN_RETRY_DAYS = 28; // product_safety_rule
+/** Missed meal (decision 8 of 28/09): a logged day under this share of the median of the previous logged days is not usable. */
+export const MISSED_MEAL_FRACTION = 0.5; // engineering_prior
+/** Journal messages (proposal, logging invitation, daily weigh-in encouragement): at most once per this many days. */
+export const JOURNAL_MESSAGE_MIN_INTERVAL_DAYS = 7; // ui_rounding_rule
+/** Suggested adherence (decision 12 of 28/09): relative gap of the logged total to the day's target. */
+export const SUGGESTED_ADHERENCE_ON_PLAN_BELOW = 0.1; // ui_rounding_rule
+export const SUGGESTED_ADHERENCE_MINOR_UP_TO = 0.25; // ui_rounding_rule
 export const GOAL_SOLVER_MAX_ITERATIONS = 60; // engineering_prior
 export const GOAL_SOLVER_CALORIE_TOLERANCE_KCAL = 1; // engineering_prior
 export const GOAL_SOLVER_WEIGHT_TOLERANCE_KG = 0.01; // engineering_prior
@@ -545,6 +587,27 @@ export const CONSTANT_METADATA: Readonly<Record<string, ConstantMetadata>> = {
   UNDERWEIGHT_ALERT_BMI_BELOW: m('product_safety_rule', 'pass 5a'),
   UNDERWEIGHT_ALERT_DECLINE_WEEKS: m('product_safety_rule', 'pass 5a'),
   UNDERWEIGHT_ALERT_MIN_INTERVAL_DAYS: m('product_safety_rule', 'pass 5a'),
+  JOURNAL_ALIGN_MIN_LOGGED_DAYS: m('product_safety_rule', 'pass 5b, decision 3 of 28/09'),
+  JOURNAL_ALIGN_WINDOW_DAYS: m('engineering_prior', 'report 40 s5.3, pass 5b'),
+  JOURNAL_ALIGN_ROUNDING_KCAL: m('ui_rounding_rule', 'report 40 s5.3, pass 5b'),
+  JOURNAL_FLOOR_FACTOR: m('product_safety_rule', 'prompt 41 s3.2 and s3.1.6, report 41, pass 5b'),
+  JOURNAL_ALIGNED_FIRST_RECAL_DAYS: m('engineering_prior', 'weekly evaluation of the prototype, reports 40 and 41, pass 5b'),
+  JOURNAL_EVALUATION_EVERY_DAYS: m('engineering_prior', 'weekly evaluation of the prototype, reports 40 and 41, pass 5b'),
+  MEASURED_MIN_DAYS_SINCE_SWITCH: m('engineering_prior', 'prompt 41 s3.1.3, report 41, pass 5b'),
+  MEASURED_MIN_JOURNAL_SPAN_DAYS: m('engineering_prior', 'prompt 36 s3.3, report 41, pass 5b'),
+  HABIT_WINDOW_DAYS: m('engineering_prior', 'prompt 41 s3.1.5, report 41, pass 5b'),
+  HABIT_MIN: m('product_safety_rule', 'prompt 41 s3.1.5, report 41, pass 5b'),
+  HABIT_MAX: m('product_safety_rule', 'prompt 41 s3.1.5, report 41, pass 5b'),
+  MEASURED_GRID_HALF_RANGE_KCAL: m('statistical_robustness_parameter', 'prompt 35 s3, report 40 arm J, pass 5b'),
+  MEASURED_NON_USABLE_DAY_WEIGHT: m('statistical_robustness_parameter', 'prompt 34 s3.2, report 40 arm J, pass 5b'),
+  MEASURED_TOLERANCE_WINDOW_DAYS: m('product_safety_rule', 'pass 5b, decisions 6 and 7 of 28/09'),
+  MEASURED_TOLERATED_MISSED_WEIGHINS: m('product_safety_rule', 'pass 5b, decision 6 of 28/09'),
+  MEASURED_TOLERATED_UNLOGGED_DAYS: m('product_safety_rule', 'pass 5b, decision 7 of 28/09'),
+  MEASURED_FIRST_PLAN_RETRY_DAYS: m('product_safety_rule', 'pass 5b, decision 4 of 28/09'),
+  MISSED_MEAL_FRACTION: m('engineering_prior', 'pass 5b, decision 8 of 28/09 (rule R1 of prompt 34)'),
+  JOURNAL_MESSAGE_MIN_INTERVAL_DAYS: m('ui_rounding_rule', 'pass 5b'),
+  SUGGESTED_ADHERENCE_ON_PLAN_BELOW: m('ui_rounding_rule', 'pass 5b, decision 12 of 28/09'),
+  SUGGESTED_ADHERENCE_MINOR_UP_TO: m('ui_rounding_rule', 'pass 5b, decision 12 of 28/09'),
   GOAL_SOLVER_MAX_ITERATIONS: m('engineering_prior', '04 s6'),
   GOAL_SOLVER_CALORIE_TOLERANCE_KCAL: m('engineering_prior', '04 s6'),
   GOAL_SOLVER_WEIGHT_TOLERANCE_KG: m('engineering_prior', '04 s6'),

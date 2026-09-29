@@ -25,8 +25,11 @@ import type {
  * Version 7 (model 1.4.0, pass 5a): plan sources 'guardrail' and 'periodic_replan'; `AppMeta.planEvents` (persistent trace
  * of guardrails, periodic replans, target migration and underweight alerts), `periodicReplanCheckedOn` and
  * `guardrailMaintenanceSince`; loss targets below the BMI-20 weight raised to it.
+ * Version 8 (model 1.5.0, pass 5b): `AppMeta.journalPath`, the journal path of the user (method in force, switch date,
+ * refusals, gate and habit of the measured habit, offer awaiting confirmation, last return to the aligned target), and the
+ * trace rules of the journal path. Loaded from schema 7 with the method 'assumed' (the target is assumed to be followed).
  */
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 /**
  * A weigh-in as this app stores it: the engine contract (`WeightEntry`, science) plus fields that are
@@ -231,8 +234,54 @@ export type PlanSummary = {
  * - 'target_bmi_20': a stored loss target under the BMI-20 weight raised to it (migration to schema 7);
  * - 'underweight_bmi': trend under BMI 18.5; 'underweight_decline': trend down 4 weeks running in a maintenance imposed by G1.
  */
-export type PlanEventRule = 'G1' | 'G2' | 'periodic_replan' | 'target_bmi_20' | 'underweight_bmi' | 'underweight_decline';
-export const PLAN_EVENT_RULES: readonly PlanEventRule[] = ['G1', 'G2', 'periodic_replan', 'target_bmi_20', 'underweight_bmi', 'underweight_decline'];
+export type PlanEventRule =
+  | 'G1'
+  | 'G2'
+  | 'periodic_replan'
+  | 'target_bmi_20'
+  | 'underweight_bmi'
+  | 'underweight_decline'
+  | JournalEventRule;
+
+/**
+ * Rules of the journal path (pass 5b):
+ * - 'journal_switch': the user aligned the target on the journal (message when the floor raised it);
+ * - 'journal_proposal_declined': the automatic proposal was refused ("Garder ma cible");
+ * - 'journal_log_more': deviations dominate but the journal is too short (invitation to log for two weeks);
+ * - 'journal_weigh_daily': on the aligned target, the encouragement to weigh in every day;
+ * - 'journal_measured_offer': a plan of the measured habit is offered for confirmation (failed: its build failed, silent);
+ * - 'journal_measured_enter': the first plan of the measured habit was confirmed; 'journal_measured_update': a later one;
+ * - 'journal_offer_declined': an offered plan of the measured habit was refused ("Plus tard");
+ * - 'journal_measured_exit': back to the aligned target (reason 'weighins' or 'logging'), with its message.
+ */
+export type JournalEventRule =
+  | 'journal_switch'
+  | 'journal_proposal_declined'
+  | 'journal_log_more'
+  | 'journal_weigh_daily'
+  | 'journal_measured_offer'
+  | 'journal_measured_enter'
+  | 'journal_measured_update'
+  | 'journal_offer_declined'
+  | 'journal_measured_exit';
+
+export const PLAN_EVENT_RULES: readonly PlanEventRule[] = [
+  'G1',
+  'G2',
+  'periodic_replan',
+  'target_bmi_20',
+  'underweight_bmi',
+  'underweight_decline',
+  'journal_switch',
+  'journal_proposal_declined',
+  'journal_log_more',
+  'journal_weigh_daily',
+  'journal_measured_offer',
+  'journal_measured_enter',
+  'journal_measured_update',
+  'journal_offer_declined',
+  'journal_measured_exit',
+];
 
 /** One entry of the persistent trace (pass 5a). `message`: the text shown, null when nothing is shown. */
 export type PlanEvent = {
@@ -249,6 +298,91 @@ export type PlanEvent = {
   /** The user closed the message (always true when there is none). */
   seen: boolean;
 };
+
+// ---------------------------------------------------------------------------
+// Journal path (pass 5b, schema 8)
+// ---------------------------------------------------------------------------
+
+/**
+ * Method in force (pass 5b). 'assumed': "cible supposée tenue", the plan assumes the target is followed (every user until
+ * a switch). 'aligned': "cible alignée sur le journal", the target became what the journal says the user eats, then the
+ * same method with every target floored at the hard floor x 1.10. 'measured': "journal lu, habitude mesurée", the plan is
+ * built from the journal and the weigh-ins, displayed target = intake to aim at / habit h.
+ */
+export type JournalMethod = 'assumed' | 'aligned' | 'measured';
+export const JOURNAL_METHODS: readonly JournalMethod[] = ['assumed', 'aligned', 'measured'];
+
+/** Journal estimate of the measured habit: posterior median offset and intervals (relative to NASEM), kcal/day. */
+export type JournalEstimate = { offsetKcal: number; interval80: Interval; interval95: Interval };
+
+/** Habit h: logged total / total of the displayed targets, bounded; raw ratio, bound applied, days of its window. */
+export type HabitSummary = { h: number; raw: number; bound: 'low' | 'high' | null; days: number };
+
+/** Aligned target of the switch: median of the logged days, rounded, final (raised to the floor x 1.10 when needed). */
+export type AlignedTarget = { medianKcal: number; roundedKcal: number; finalKcal: number; floorKcal: number; raised: boolean };
+
+/** Last evaluation of the gate of the measured habit (weekly). `missing`: criteria not met. */
+export type JournalGateSummary = { date: string; met: boolean; missing: string[]; missedWeighIns: number; unusableDays: number };
+
+/** A plan of the measured habit awaiting the user's confirmation ('first': entry into the habit; 'update': a later one). */
+export type MeasuredOffer = {
+  kind: 'first' | 'update';
+  date: string;
+  plan: CurrentPlan;
+  estimate: JournalEstimate;
+  habit: HabitSummary;
+  /** Maintenance of the journal M (logged units) and the width of its 80 percent interval, kcal/day. */
+  maintenanceKcal: number;
+  interval80Width: number;
+  /** Intake to aim at I*, logged units (the displayed target is I* / h). */
+  intakeKcal: number;
+};
+
+export type JournalPathState = {
+  method: JournalMethod;
+  /** Day of the switch to the aligned target (kept through the measured habit and back). */
+  switchedOn: string | null;
+  alignedTarget: AlignedTarget | null;
+  /** The plan in force is still the aligned target itself (no periodic replan, guardrail G1 only). */
+  chosenTargetActive: boolean;
+  /** An automatic proposal is open since this day, until the user answers it. */
+  proposalOpenedOn: string | null;
+  proposalDeclinedOn: string | null;
+  firstPlanDeclinedOn: string | null;
+  /** Day the first plan of the measured habit was confirmed (current stay in the habit). */
+  measuredSince: string | null;
+  /** Last weekly evaluation of the journal path. */
+  lastEvaluatedOn: string | null;
+  /** Last journal estimate applied and h of the plan in force (measured habit): base of the periodic replan and guardrails. */
+  estimate: JournalEstimate | null;
+  habit: HabitSummary | null;
+  /** Surfacing reference of the measured habit: maintenance / h and 80 percent width / h of the last plan offered. */
+  surfacingReference: { tdeeKcal: number; interval80Width: number; surfacedOn: string } | null;
+  offer: MeasuredOffer | null;
+  gate: JournalGateSummary | null;
+  /** Last return to the aligned target and its reason. */
+  lastExit: { date: string; reason: 'weighins' | 'logging' } | null;
+};
+
+export function defaultJournalPath(): JournalPathState {
+  return {
+    method: 'assumed',
+    switchedOn: null,
+    alignedTarget: null,
+    chosenTargetActive: false,
+    proposalOpenedOn: null,
+    proposalDeclinedOn: null,
+    firstPlanDeclinedOn: null,
+    measuredSince: null,
+    lastEvaluatedOn: null,
+    estimate: null,
+    habit: null,
+    surfacingReference: null,
+    offer: null,
+    gate: null,
+    lastExit: null,
+  };
+}
 
 export type AppMeta = {
   /** ISO date of onboarding completion. */
@@ -269,6 +403,8 @@ export type AppMeta = {
   periodicReplanCheckedOn: string | null;
   /** Day the BMI-20 guardrail imposed the maintenance in force; null once the user chooses a goal again. */
   guardrailMaintenanceSince: string | null;
+  /** Journal path of the user (pass 5b, schema 8). */
+  journalPath: JournalPathState;
 };
 
 export type WheightyStore = {
@@ -311,4 +447,5 @@ export const DEFAULT_META: AppMeta = {
   planEvents: [],
   periodicReplanCheckedOn: null,
   guardrailMaintenanceSince: null,
+  journalPath: defaultJournalPath(),
 };

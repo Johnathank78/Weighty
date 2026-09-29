@@ -4,7 +4,7 @@
  * (G) reworded some of them; the triggers, thresholds and values are those of pass 5a. Never use the em dash character in
  * this file.
  */
-import type { Goal } from '@/science/types';
+import type { DailyLog, Goal } from '@/science/types';
 import { formatKcal, formatNumber, formatRatePercent, formatSteps } from './format';
 
 /** "{vitesse} % par semaine" with the app's rate formatting (0.005 -> "0,5 %"). */
@@ -29,6 +29,55 @@ export const PLAN_MESSAGE = {
   floorUnreachable: (maxRate: number | null) =>
     `Même en marchant davantage, cette vitesse n’est pas atteignable.${maxRate === null ? '' : ` Le maximum pour toi est ${perWeek(maxRate)}.`}`,
   underweight: 'Ton poids descend sous la zone habituellement recommandée. Si ce n’est pas voulu, parles-en à un professionnel de santé.',
+} as const;
+
+/** Relative gap of the habit h to the target, rounded percent, and its direction. */
+function habitGap(h: number): { percent: number; more: boolean; close: boolean } {
+  const gap = Math.abs(h - 1);
+  return { percent: Math.round(gap * 100), more: h > 1, close: gap < 0.02 };
+}
+
+const ADHERENCE_WORDS: Record<NonNullable<DailyLog['adherence']>, string> = { on_plan: 'plan respecté', minor_deviation: 'écart léger', major_deviation: 'écart important' };
+
+/** Journal path (pass 5b, annex of the prompt). Never use the em dash character in this file. */
+export const JOURNAL_MESSAGE = {
+  proposalTitle: 'Ta cible ne correspond pas à ce que tu manges',
+  proposalText: (kcal: number) => `D’après ton journal, tu manges environ ${formatKcal(kcal)} kcal par jour. Veux-tu viser ça ? Ta cible sera ensuite ajustée pour tenir ta vitesse.`,
+  proposalAccept: (kcal: number) => `Viser ${formatKcal(kcal)} kcal`,
+  proposalDecline: 'Garder ma cible',
+  floorRaised: (medianKcal: number, finalKcal: number) => `Ton journal indique environ ${formatKcal(medianKcal)} kcal, sous ton minimum : on part de ${formatKcal(finalKcal)} kcal.`,
+  logMore: 'Tes journées s’écartent souvent de ta cible. Note ce que tu manges pendant deux semaines : on pourra caler ta cible sur tes habitudes.',
+  alignButton: 'Aligner ma cible sur ce que je mange',
+  alignButtonDisabled: (missing: number) => `Disponible quand 10 des 14 derniers jours sont saisis (encore ${missing}).`,
+  weighDaily: 'Pèse-toi chaque jour : après 4 semaines, ton plan pourra être calculé directement à partir de ton journal, et il sera plus précis.',
+  firstPlanTitle: 'Ton journal permet un plan plus précis',
+  firstPlanText: (h: number, targetKcal: number) => {
+    const g = habitGap(h);
+    const second = g.close
+      ? `Tu tiens ta cible de près. Ta nouvelle cible : ${formatKcal(targetKcal)} kcal par jour.`
+      : `En moyenne, tu manges ${g.percent} % ${g.more ? 'de plus' : 'de moins'} que ta cible ; ta nouvelle cible en tient compte : ${formatKcal(targetKcal)} kcal par jour.`;
+    return `Tu te pèses chaque jour et tu notes ce que tu manges : ton plan peut maintenant être calculé à partir de ton journal. ${second}`;
+  },
+  /** Later plans of the measured habit (no annex text): same buttons as the first plan. */
+  updateTitle: 'Ton plan peut être ajusté',
+  updateText: (beforeKcal: number, afterKcal: number) => `D’après ton journal et tes pesées, ta cible passerait de ${formatKcal(beforeKcal)} à ${formatKcal(afterKcal)} kcal par jour.`,
+  offerAccept: 'Utiliser ce plan',
+  offerDecline: 'Plus tard',
+  habitLine: (h: number) => {
+    const g = habitGap(h);
+    return g.close ? 'Ton habitude : tu tiens ta cible de près.' : `Ton habitude : tu manges en moyenne ${g.percent} % ${g.more ? 'de plus' : 'de moins'} que ta cible. Ta cible affichée en tient compte.`;
+  },
+  balance: (maintenanceKcal: number) => `Équilibre d’après ton journal : ${formatKcal(maintenanceKcal)} kcal par jour.`,
+  exitWeighIns: 'Il manque plusieurs pesées ces dernières semaines : ton plan repasse sur ta cible alignée. Il sera à nouveau calculé à partir de ton journal quand tu auras repris tes pesées quotidiennes.',
+  exitLogging: 'Il y a plusieurs journées non saisies ces dernières semaines : ton plan repasse sur ta cible alignée. Il sera à nouveau calculé à partir de ton journal quand tu auras repris tes saisies.',
+  incompleteDay: 'Journée incomplète ? Elle ne sera pas prise en compte dans ton plan.',
+  suggestedAdherence: (value: NonNullable<DailyLog['adherence']>) => `D’après ton journal : ${ADHERENCE_WORDS[value]}. C’est bien ça ?`,
+  /** No annex text: short lines of the screens (choices of pass 5b). */
+  switchedToast: 'Nouvelle cible appliquée.',
+  offerAcceptedToast: 'Nouveau plan appliqué.',
+  statusMeasured: 'Ton plan suit ton journal et tes pesées.',
+  balanceLabel: 'Équilibre d’après ton journal',
+  sliderUnavailable: 'Ce réglage n’est pas disponible pendant que ton plan suit ta cible alignée ou ton journal.',
 } as const;
 
 /**

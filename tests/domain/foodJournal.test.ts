@@ -230,13 +230,17 @@ describe('journal is kept apart from the plan and the engine', () => {
     expect(imports).toEqual(['./types', '@/persistence/schema', '@/science/dates']);
   });
 
-  it('the journal regime prototype is reachable from tests only: no store, worker or UI module imports it (prompt 34 s3.6)', () => {
-    const PROTOTYPE = ['src/domain/journalCalibration.ts', 'src/domain/intakeObservations.ts'];
+  it('the journal regime is reached only through the journal path (pass 5b): no other module imports it, the calibration worker never does (prompt 34 s3.6)', () => {
+    // Pass 5b: the journal path (journalPath.ts) is the production user of the journal regime; before it, tests only.
+    const REGIME = ['src/domain/journalCalibration.ts', 'src/domain/intakeObservations.ts'];
+    const USERS: Record<string, string[]> = { 'src/domain/journalCalibration.ts': ['src/domain/intakeObservations.ts'], 'src/domain/journalPath.ts': REGIME };
     for (const f of sourceFiles('src')) {
-      if (f === 'src/domain/journalCalibration.ts') continue;
-      for (const p of PROTOTYPE) expect(importsOf(f), f).not.toContain(p);
+      for (const p of REGIME) if (!(USERS[f] ?? []).includes(p)) expect(importsOf(f), f).not.toContain(p);
     }
-    for (const p of PROTOTYPE) expect(closureOf('src/main.tsx')).not.toContain(p);
+    // The calibration of the current method (worker, engine) never reaches the journal nor the regime.
+    for (const entry of ['src/store/calibration.worker.ts', 'src/store/calibrationClient.ts', 'src/domain/engine.ts']) for (const p of REGIME) expect(closureOf(entry), entry).not.toContain(p);
+    // journalPath.ts reads the journal only through the bridge: it does not import the journal module itself.
+    expect(importsOf('src/domain/journalPath.ts')).not.toContain('src/domain/journal.ts');
   });
 });
 

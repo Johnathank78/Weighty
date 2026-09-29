@@ -21,8 +21,8 @@ describe('constants registry (07 s7)', () => {
     for (const name of Object.keys(constants.CONSTANT_METADATA)) expect(name in constants, name).toBe(true);
   });
 
-  it('scientific model version is 1.4.0 (1.3.0: D-31 to D-34; 1.4.0: K2 solver, periodic replan, guardrails G1 and G2, target BMI 20)', () => {
-    expect(constants.SCIENTIFIC_MODEL_VERSION).toBe('1.4.0');
+  it('scientific model version is 1.5.0 (1.3.0: D-31 to D-34; 1.4.0: K2 solver, periodic replan, guardrails G1 and G2, target BMI 20; 1.5.0: journal path of pass 5b)', () => {
+    expect(constants.SCIENTIFIC_MODEL_VERSION).toBe('1.5.0');
   });
 
   it('keeps cadence and uncertainty multipliers classified as engineering priors, never physiological constants', () => {

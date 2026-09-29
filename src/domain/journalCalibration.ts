@@ -1,8 +1,8 @@
 /**
- * Journal regime of the calibration: PROTOTYPE for the measurement battery of prompt 34, phase 1.
+ * Journal regime of the calibration: prototype of the measurement battery of prompt 34, used in production by the measured
+ * habit of the journal path since pass 5b (src/domain/journalPath.ts), with the options of arm J (reports 40 and 41).
  *
- * Reachable only through an explicit option passed by tests: nothing in the store, the worker or the UI imports this
- * module (static test), so the production calibration (`computeCalibrationState`) is unchanged. It never reads the
+ * The production calibration of the current method (`computeCalibrationState`) does not use it. It never reads the
  * journal itself: the journal reaches the science through `intakeObservationsFrom` only (D8).
  *
  * Journal regime (s3.3 to s3.5):
@@ -47,6 +47,8 @@ export type JournalRegimeOptions = {
   carbSource?: 'baseline' | 'harness_scaled';
   /** Benchmarks only: overrides the structural floor (D-33), e.g. 0 for measurement N3. */
   structuralSdKcal?: number;
+  /** Widened offset grid, -value to +value kcal/day (prompt 35 s3; the measured habit, pass 5b: 2 000). Throws with the warm-start history. */
+  offsetGridHalfRangeKcal?: number;
 };
 
 /** Relative width added to the NASEM prior by the 'widened' prior: 10 percent of NASEM at the window start (s3.5). */
@@ -101,6 +103,7 @@ export function journalCalibrationInputFromStore(store: WheightyStore, today: st
     dailyLogs: store.dailyLogs,
     ...(history?.likelihood.logLikelihood ? { historicalLogLikelihood: history.likelihood.logLikelihood } : {}),
     ...(options.structuralSdKcal !== undefined ? { structuralSdKcal: options.structuralSdKcal } : {}),
+    ...(options.offsetGridHalfRangeKcal !== undefined ? { offsetGridHalfRangeKcal: options.offsetGridHalfRangeKcal } : {}),
     intakeObservations: { days: observations, nonUsableDayWeight: options.nonUsableDayWeight, ...(options.carbSource ? { carbSource: options.carbSource } : {}) },
   };
   return { input, observations, windowStart: first.date, windowEnd: last.date, nasemSigmaKcal };

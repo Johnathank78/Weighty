@@ -3,7 +3,7 @@
  * Migrations never drop data they do not understand: unknown fields are carried over.
  */
 import { PLAN_MESSAGE } from '@/domain/planMessages';
-import { emptyFoodJournal, SCHEMA_VERSION } from '@/domain/types';
+import { defaultJournalPath, emptyFoodJournal, SCHEMA_VERSION } from '@/domain/types';
 import type { PlanEvent } from '@/domain/types';
 import { TARGET_BMI_MIN } from '@/science/constants';
 import { localIsoDate } from '@/science/dates';
@@ -129,6 +129,12 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
         guardrailMaintenanceSince: meta.guardrailMaintenanceSince ?? null,
       },
     };
+  },
+  // 7 -> 8 (model 1.5.0, pass 5b): the journal path of the user, with the method 'assumed' (the target is assumed to be
+  // followed, the method of every schema-7 user). Nothing else changes: every field is carried over as it is.
+  7: (input) => {
+    const meta = isObject(input.meta) ? input.meta : {};
+    return { ...input, schemaVersion: 8, meta: { ...meta, journalPath: meta.journalPath ?? defaultJournalPath() } };
   },
 };
 

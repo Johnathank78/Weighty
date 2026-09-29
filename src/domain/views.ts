@@ -14,7 +14,7 @@ import type { GateStatus } from '@/science/calibration';
 import { formatInteger } from './format';
 import { snapWeeklyRate, speedZoneFor } from '@/science/goals';
 import type { CalibrationState } from './engine';
-import { contextForCurrentPlan, goalStatus, latestAppliedSnapshot, latestRawWeight, MAINTENANCE_PROJECTION_DAYS, solverOptionsFor, trendOf, weighInDue } from './engine';
+import { contextForCurrentPlan, goalStatus, latestAppliedSnapshot, latestRawWeight, MAINTENANCE_PROJECTION_DAYS, PRODUCTION_SOLVER, solverOptionsFor, trendOf, weighInDue } from './engine';
 import { localTimeOf } from './journal';
 import type { CurrentPlan, WheightyStore } from './types';
 
@@ -193,6 +193,20 @@ export function projectionFromToday(store: WheightyStore, today: string, state: 
   const profile = store.profile;
   const latest = trendOf(store).summary.latest;
   if (!plan || !profile || !latest) return null;
+  const h = measuredHabit(store);
+  if (h !== null) {
+    // Measured habit (pass 5b): the journal maintenance M of the plan, the intake the plan expects (target x h), the
+    // production solver from the equilibrium at the trend weight (the modeled body of the journal is not rebuilt here).
+    const assessmentM = assessBaseline(profile, today, { weightKg: latest.trendKg, palCategory: plan.palCategory });
+    const ctxM = { ...planContextFrom(profile, assessmentM, plan.maintenanceKcal), solver: { ...PRODUCTION_SOLVER } };
+    const baseM = {
+      goal: plan.goal,
+      scenario: { calorieTargetKcal: plan.calorieTarget * h, stepsPerDay: plan.stepTarget },
+      maintenanceOffsets80: [plan.maintenanceInterval80[0] - plan.maintenanceKcal, plan.maintenanceInterval80[1] - plan.maintenanceKcal] as const,
+    };
+    if (frame) return projectPlanWindow(ctxM, baseM, frame);
+    return projectPlan(ctxM, { ...baseM, targetWeightKg: plan.targetWeightKg ?? profile.targetWeightKg, maintenanceHorizonDays: MAINTENANCE_PROJECTION_DAYS });
+  }
   const maintenanceKcal = state?.currentMaintenanceKcal ?? plan.maintenanceKcal;
   const interval80 = state?.currentInterval80 ?? plan.maintenanceInterval80;
   const assessment = assessBaseline(profile, today, { weightKg: latest.trendKg, palCategory: plan.palCategory });
@@ -221,7 +235,7 @@ export function trackingChart(store: WheightyStore, today: string, rangeDays: nu
   const horizonAhead = Math.max(21, Math.round(Math.max(28, todayDay) / 3));
   // While the first calibration is not reached, the estimate is still the onboarding prior: no curve is
   // drawn ahead rather than a confident looking one (decision of the product owner).
-  const learning = !(state?.gate.met && state.candidate);
+  const learning = measuredHabit(store) === null && !(state?.gate.met && state.candidate);
   const live = learning ? null : projectionFromToday(store, today, state);
   let projection: ChartSeries['projection'] = [];
   let band: ChartSeries['band'] = [];
@@ -298,6 +312,23 @@ export type AnalysisView = {
 export function analysisView(store: WheightyStore, state: CalibrationState | null): AnalysisView | null {
   const plan = store.plan;
   if (!plan) return null;
+  if (measuredHabit(store) !== null) {
+    // Measured habit (pass 5b): the balance of the journal of the plan in force; no recalibration of the current method.
+    return {
+      calibrated: true,
+      maintenanceKcal: plan.maintenanceKcal,
+      initialMaintenanceKcal: null,
+      changeSinceInitialKcal: null,
+      interval80: plan.maintenanceInterval80,
+      interval95: plan.maintenanceInterval95,
+      confidence: state?.confidence ?? latestAppliedSnapshot(store)?.confidence ?? 'low',
+      surfaced: false,
+      weighInCount: store.weights.length,
+      appliedCalibrations: appliedWeightCalibrations(store),
+      posteriorSdKcal: null,
+      observationSpanDays: 0,
+    };
+  }
   const calibrated = Boolean(state?.gate.met && state.candidate);
   const maintenanceKcal = state?.currentMaintenanceKcal ?? plan.maintenanceKcal;
   const initial = store.meta.initialMaintenanceKcal;
@@ -322,8 +353,18 @@ export function planEnergyBalanceKcal(store: WheightyStore, today: string): numb
   const plan = store.plan;
   const ctx = contextForCurrentPlan(store, today);
   if (!plan || !ctx) return null;
-  const balance = initialEnergyBalanceKcal(ctx, plan.goal, { calorieTargetKcal: plan.calorieTarget, stepsPerDay: plan.stepTarget });
+  // Measured habit (pass 5b): the plan expects the displayed target x h (the intake to aim at, in logged kcal, like M).
+  const balance = initialEnergyBalanceKcal(ctx, plan.goal, { calorieTargetKcal: plan.calorieTarget * (measuredHabit(store) ?? 1), stepsPerDay: plan.stepTarget });
   return Number.isFinite(balance) ? balance : null;
+}
+
+/**
+ * h of the plan in force in the measured habit (pass 5b), null otherwise. Read from the stored journal path (views do not
+ * import the journal path, which reads the journal).
+ */
+export function measuredHabit(store: WheightyStore): number | null {
+  const path = store.meta.journalPath;
+  return path.method === 'measured' ? (path.habit?.h ?? null) : null;
 }
 
 export { goalStatus };
