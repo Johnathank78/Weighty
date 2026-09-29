@@ -208,8 +208,9 @@ describe('journal is kept apart from the plan and the engine', () => {
     for (const entry of ['src/store/calibration.worker.ts', 'src/store/calibrationClient.ts', 'src/domain/engine.ts']) expect(closureOf(entry), entry).not.toContain(JOURNAL);
     // In the regime prototype's dependency tree, the bridge is the only module importing the journal.
     expect([...closureOf('src/domain/journalCalibration.ts')].filter((f) => importsOf(f).includes(JOURNAL))).toEqual([BRIDGE]);
-    // explain.ts (display) reaches the journal only through views.ts, a listed display module (localTimeOf).
-    expect([...closureOf('src/domain/explain.ts')].filter((f) => importsOf(f).includes(JOURNAL))).toEqual(['src/domain/views.ts']);
+    // explain.ts (display) reaches the journal only through views.ts, a listed display module (localTimeOf), and, since pass
+    // 5b, through the bridge (views.ts projects the measured habit with the journal path).
+    expect([...closureOf('src/domain/explain.ts')].filter((f) => importsOf(f).includes(JOURNAL)).sort()).toEqual([BRIDGE, 'src/domain/views.ts']);
     // Every module that imports the journal is listed here explicitly (display and journal features, plus the bridge).
     const JOURNAL_READERS = [
       'src/adapters/openFoodFacts.ts', // type ResolvedFood only
@@ -234,6 +235,7 @@ describe('journal is kept apart from the plan and the engine', () => {
     // Pass 5b: the journal path (journalPath.ts) is the production user of the journal regime; before it, tests only.
     const REGIME = ['src/domain/journalCalibration.ts', 'src/domain/intakeObservations.ts'];
     const USERS: Record<string, string[]> = { 'src/domain/journalCalibration.ts': ['src/domain/intakeObservations.ts'], 'src/domain/journalPath.ts': REGIME };
+    // views.ts reaches the regime through journalPath.ts only (projection of the measured habit, display).
     for (const f of sourceFiles('src')) {
       for (const p of REGIME) if (!(USERS[f] ?? []).includes(p)) expect(importsOf(f), f).not.toContain(p);
     }

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNav } from '@/app/navigation';
 import { useWheighty } from '@/store/StoreProvider';
 import { GOAL_LABEL, PLAN_SOURCE_LABEL, PROTEIN_RULE_TEXT, SPEED_LABEL } from '@/app/copy';
@@ -7,6 +7,8 @@ import { formatGrams, formatKcal, formatNumber, formatRatePercent, formatSignedK
 import { currentWeightKg } from '@/domain/engine';
 import { displayMacros, goalStatus, maintenanceZoneFor, planEnergyBalanceKcal, speedZone } from '@/domain/views';
 import { sliderBoundsFor } from '@/domain/sliderView';
+import { AlignProposalCard } from '@/components/JournalCards';
+import { alignButton, alignedTargetPreview, balanceSliderAvailable, habitLine, journalBalanceLine, journalRead } from '@/domain/journalPath';
 
 function BalancePreview() {
   const { openSheet } = useNav();
@@ -42,6 +44,8 @@ export function PlanScreen() {
   const { store, today } = useWheighty();
   const plan = store.plan;
   const balance = useMemo(() => (plan ? planEnergyBalanceKcal(store, today) : null), [plan, store, today]);
+  // Journal path (pass 5b): the proposal asked from the button, shown in place until answered.
+  const [asking, setAsking] = useState(false);
   if (!plan) return null;
   const units = store.preferences.units;
   const macros = displayMacros(plan);
@@ -49,6 +53,11 @@ export function PlanScreen() {
   const target = plan.targetWeightKg ?? store.profile?.targetWeightKg ?? weight ?? 0;
   const zone = plan.goal === 'maintenance' ? maintenanceZoneFor(target) : null;
   const status = goalStatus(store);
+  const read = journalRead(store);
+  const balanceLine = journalBalanceLine(store);
+  const habit = habitLine(store);
+  const align = alignButton(store, today);
+  const asked = asking && align?.enabled ? alignedTargetPreview(store, today) : null;
 
   return (
     <main className="screen">
@@ -76,13 +85,20 @@ export function PlanScreen() {
         </div>
       </div>
 
-      <BalancePreview />
+      {balanceSliderAvailable(store) ? <BalancePreview /> : <div style={{ height: 16 }} />}
 
       <div className="rows">
-        <div className="row">
-          <span className="row__label">Maintien estimé</span>
-          <span className="row__value">{formatKcal(plan.maintenanceKcal)} kcal</span>
-        </div>
+        {balanceLine ? (
+          // Pass 5b: the journal is read, the plan speaks of the balance of the journal, not of expenditure.
+          <div className="row">
+            <span className="row__label">{balanceLine}</span>
+          </div>
+        ) : (
+          <div className="row">
+            <span className="row__label">Maintien estimé</span>
+            <span className="row__value">{formatKcal(plan.maintenanceKcal)} kcal</span>
+          </div>
+        )}
         {plan.goal === 'maintenance' && zone ? (
           <div className="row">
             <span className="row__label">Zone de maintien</span>
@@ -116,6 +132,12 @@ export function PlanScreen() {
         ) : null}
       </div>
 
+      {habit ? (
+        <p className="small" style={{ margin: '14px 0 0' }}>
+          {habit}
+        </p>
+      ) : null}
+
       <button type="button" onClick={() => go('macros')} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'none', border: 0, padding: '22px 0 18px', color: 'var(--ink)' }}>
         <span style={{ font: '600 15px var(--font)' }}>Macros</span>
         <span className="tabular" style={{ font: '500 13.5px var(--font)', color: 'var(--ink2)' }}>
@@ -138,9 +160,30 @@ export function PlanScreen() {
           </span>
         </div>
       </div>
-      <button type="button" className="link" style={{ marginTop: 14 }} onClick={() => openSheet('why', 'estimate')}>
-        Pourquoi ce résultat ?
-      </button>
+      {/* The explanation describes the current method; the measured habit has its habit line instead (pass 5b). */}
+      {read ? null : (
+        <button type="button" className="link" style={{ marginTop: 14 }} onClick={() => openSheet('why', 'estimate')}>
+          Pourquoi ce résultat ?
+        </button>
+      )}
+      {align ? (
+        <div style={{ marginTop: 20 }}>
+          {asked?.ok ? (
+            <AlignProposalCard target={asked.target} onDeclined={() => setAsking(false)} />
+          ) : (
+            <>
+              <button type="button" className="btn btn--outline" disabled={!align.enabled} onClick={() => setAsking(true)}>
+                {align.label}
+              </button>
+              {align.hint ? (
+                <p className="small" style={{ margin: '8px 0 0' }}>
+                  {align.hint}
+                </p>
+              ) : null}
+            </>
+          )}
+        </div>
+      ) : null}
       {plan.warnings?.belowRee ? (
         <div className="note" style={{ marginTop: 16 }}>
           <Mascot variant="search" width={40} />

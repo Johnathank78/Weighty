@@ -6,6 +6,8 @@ import { BottomSheet } from '@/components/BottomSheet';
 import { Mascot } from '@/components/Mascot';
 import { Range } from '@/components/controls';
 import { applySliderSteps, createSliderSession } from '@/domain/engine';
+import { balanceSliderAvailable } from '@/domain/journalPath';
+import { JOURNAL_MESSAGE } from '@/domain/planMessages';
 import { formatKcal, formatSignedKcal, formatSignedWeight, formatSteps, weightUnitLabel } from '@/domain/format';
 
 export function BalanceSheet() {
@@ -23,6 +25,16 @@ export function BalanceSheet() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  if (open && plan && !balanceSliderAvailable(store)) {
+    return (
+      <BottomSheet open onClose={closeSheet} title="Manger ↔ Marcher">
+        <div className="note">
+          <Mascot variant="search" width={38} />
+          <span>{JOURNAL_MESSAGE.sliderUnavailable}</span>
+        </div>
+      </BottomSheet>
+    );
+  }
   if (!open || !plan || !session) return null;
 
   const { bounds, effectiveMinSteps } = session;

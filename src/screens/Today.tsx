@@ -8,6 +8,8 @@ import { formatDayMonth, formatGrams, formatInteger, formatKcal, formatLongDate,
 import { displayMacros, gateProgress, goalStatus, nextWeighInDate, reminderDue, todayLog } from '@/domain/views';
 import { trendOf } from '@/domain/engine';
 import { profileInitials } from '@/domain/onboarding';
+import { adherenceAsked, journalRead } from '@/domain/journalPath';
+import { JOURNAL_MESSAGE } from '@/domain/planMessages';
 
 export function TodayScreen() {
   const { go, openSheet } = useNav();
@@ -31,7 +33,9 @@ export function TodayScreen() {
   const recalibrationReady = calibration?.surfaced === true && !calibrationPending;
 
   let statusTitle: string;
-  if (recalibrationReady) statusTitle = 'Une recalibration est prête.';
+  // Measured habit (pass 5b): the plan follows the journal; the gate of the current method does not apply.
+  if (journalRead(store)) statusTitle = JOURNAL_MESSAGE.statusMeasured;
+  else if (recalibrationReady) statusTitle = 'Une recalibration est prête.';
   else if (!gate.met && gate.remainingWeighIns > 0) statusTitle = `Encore ${gate.remainingWeighIns} pesée${gate.remainingWeighIns > 1 ? 's' : ''} avant la première mise à jour.`;
   else if (!gate.met && gate.remainingDays > 0) statusTitle = `Encore ${gate.remainingDays} jour${gate.remainingDays > 1 ? 's' : ''} de suivi avant la première mise à jour.`;
   else if (!gate.met && gate.criteria.some((c) => c.key === 'cleanWeighIns' && !c.met)) statusTitle = 'Encore quelques pesées en dehors des journées d’écart important.';
@@ -159,11 +163,14 @@ export function TodayScreen() {
             <div style={{ font: '600 16px/1.25 var(--font)' }}>Ajouter</div>
           )}
         </button>
-        <button type="button" className="tile" onClick={() => openSheet('adherence')}>
-          <div style={{ font: '500 11.5px var(--font)', color: 'var(--ink2)', marginBottom: 6 }}>Adhérence</div>
-          <div style={{ font: '600 16px/1.25 var(--font)' }}>{log?.adherence ? ADHERENCE_LABEL[log.adherence] : 'À noter'}</div>
-          <div style={{ font: '500 12px var(--font)', color: 'var(--ink2)', marginTop: 5 }}>Toucher pour noter</div>
-        </button>
+        {/* Measured habit (decision D4): the journal replaces the daily declaration. */}
+        {adherenceAsked(store) ? (
+          <button type="button" className="tile" onClick={() => openSheet('adherence')}>
+            <div style={{ font: '500 11.5px var(--font)', color: 'var(--ink2)', marginBottom: 6 }}>Adhérence</div>
+            <div style={{ font: '600 16px/1.25 var(--font)' }}>{log?.adherence ? ADHERENCE_LABEL[log.adherence] : 'À noter'}</div>
+            <div style={{ font: '500 12px var(--font)', color: 'var(--ink2)', marginTop: 5 }}>Toucher pour noter</div>
+          </button>
+        ) : null}
       </div>
 
       {due && store.preferences.weighInReminder ? (

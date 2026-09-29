@@ -823,6 +823,26 @@ export function runJournalDailyChecks(store: WheightyStore, today: string, nowIs
 // Views of the journal path (display only)
 // ---------------------------------------------------------------------------
 
+/**
+ * Context of the projection from today in the measured habit (Suivi chart, warning ahead of BMI 20, day-0 balance): the
+ * journal maintenance of the day (population TDEE at the trend weight + last estimate applied), the production solver from
+ * the modeled body of the journal at that offset (as the plans of the habit), the intake the plan expects (displayed target
+ * x h, logged kcal) and the 80 percent offsets of the estimate. Null outside the measured habit or without a journal input.
+ */
+export function measuredProjectionContext(store: WheightyStore, today: string): { context: PlanContext; calorieTargetKcal: number; maintenanceOffsets80: readonly [number, number] } | null {
+  const path = pathOf(store);
+  const plan = store.plan;
+  const profile = store.profile;
+  if (path.method !== 'measured' || !path.estimate || !path.habit || !plan || !profile) return null;
+  const prepared = measuredInput(store, today);
+  if (!prepared) return null;
+  const e = path.estimate;
+  const weight = currentWeightKg(store) ?? profile.currentWeightKg;
+  const assessment = assessBaseline(profile, today, { weightKg: weight, palCategory: store.meta.initialPalCategory ?? plan.palCategory });
+  const context: PlanContext = { ...planContextFrom(profile, assessment, assessment.populationTdeeKcal + e.offsetKcal), solver: journalSolverOptions(PRODUCTION_SOLVER, prepared.input, e.offsetKcal, today) };
+  return { context, calorieTargetKcal: plan.calorieTarget * path.habit.h, maintenanceOffsets80: [e.interval80[0] - e.offsetKcal, e.interval80[1] - e.offsetKcal] };
+}
+
 /** The journal is read by the plan (measured habit): the interface speaks of the balance of the journal, not of expenditure. */
 export function journalRead(store: WheightyStore): boolean {
   return pathOf(store).method === 'measured';

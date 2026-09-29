@@ -5,7 +5,8 @@ import { useWheighty } from '@/store/StoreProvider';
 import { CONFIDENCE_LABEL, PLAN_ERROR_TEXT, WARM_START_TEXT } from '@/app/copy';
 import { Mascot } from '@/components/Mascot';
 import { ConfidenceBar } from '@/components/controls';
-import { completeOnboarding, previewInitialPlan, updateProfile } from '@/domain/engine';
+import { completeOnboarding, previewInitialPlan } from '@/domain/engine';
+import { updateProfileOnPath } from '@/domain/journalPath';
 import { formatGrams, formatKcal, formatKcalRange, formatRatePercent, formatSteps } from '@/domain/format';
 import { draftToEvidence, draftToProfile } from '@/domain/onboarding';
 import { floorAdviceOf } from '@/domain/planSafety';
@@ -69,7 +70,7 @@ export function ResultScreen() {
 
   const start = () => {
     if (draft.mode === 'edit') {
-      const r = updateProfile(store, today, profile);
+      const r = updateProfileOnPath(store, today, profile);
       if (!r.ok) {
         showToast(PLAN_ERROR_TEXT[r.reason] ?? 'Impossible de recalculer le plan.');
         return;

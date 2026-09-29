@@ -7,7 +7,8 @@ import { BottomSheet } from '@/components/BottomSheet';
 import { Mascot } from '@/components/Mascot';
 import { NavRow, Range, Row, Segmented, Toggle } from '@/components/controls';
 import { SpeedSlider } from '@/components/SpeedSlider';
-import { changeGoal, currentWeightKg, storeSpeedSliderModel, switchToMaintenance } from '@/domain/engine';
+import { currentWeightKg, storeSpeedSliderModel } from '@/domain/engine';
+import { changeGoalOnPath, switchToMaintenanceOnPath } from '@/domain/journalPath';
 import { exportFileName, exportStore, parseImport } from '@/persistence/exportImport';
 import type { ImportResult } from '@/persistence/exportImport';
 import { formatFullDate, formatHeight, formatInteger, formatKcal, formatNumber, formatSignedWeight, formatWeight, KG_PER_LB, weightUnitLabel } from '@/domain/format';
@@ -136,7 +137,7 @@ export function GoalSheet() {
   const shownRate = model && model.maxSelectableRate !== null ? Math.min(rate ?? model.defaultRate, model.maxSelectableRate) : null;
 
   const apply = () => {
-    const r = changeGoal(store, today, { goal, targetWeightKg: goal === 'maintenance' ? weight : shownTarget, weeklyRate: goal === 'maintenance' ? 0 : (shownRate ?? rate ?? 0) });
+    const r = changeGoalOnPath(store, today, { goal, targetWeightKg: goal === 'maintenance' ? weight : shownTarget, weeklyRate: goal === 'maintenance' ? 0 : (shownRate ?? rate ?? 0) });
     if (!r.ok) {
       setError(PLAN_ERROR_TEXT[r.reason] ?? 'Objectif impossible.');
       return;
@@ -590,7 +591,7 @@ export function ReachedScreen() {
         style={{ marginTop: 26 }}
         onClick={() => {
           // Same path as the BMI-20 guardrail (pass 5a): maintenance at the current weight, steps of the plan kept.
-          const r = switchToMaintenance(store, today);
+          const r = switchToMaintenanceOnPath(store, today);
           if (!r.ok) {
             showToast(PLAN_ERROR_TEXT[r.reason] ?? 'Impossible de passer en maintien.');
             return;

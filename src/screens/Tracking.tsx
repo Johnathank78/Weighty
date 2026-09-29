@@ -11,6 +11,8 @@ import { WeightChart } from '@/components/WeightChart';
 import { applyRecalibration, applyRecalibrationAsMaintenance, buildPlanFromStore, deleteWeight, markRecalibrationSeen, trendOf } from '@/domain/engine';
 import { recalibrationRefusedText } from '@/domain/planMessages';
 import { floorAdviceOf } from '@/domain/planSafety';
+import { journalRead } from '@/domain/journalPath';
+import { JOURNAL_MESSAGE } from '@/domain/planMessages';
 import { formatDayMonth, formatInteger, formatKcal, formatKcalRange, formatShortMonth, formatSignedKcal, formatSignedWeight, formatSteps, formatWeight, weightUnitLabel } from '@/domain/format';
 import { adherenceSummary, analysisView, averageLoggedSteps, gateCriterionValue, gateProgress, recentWeights, trackingChart, weeksOfTracking } from '@/domain/views';
 import type { ChartSeries } from '@/domain/views';
@@ -269,7 +271,7 @@ export function AnalyseScreen() {
         <ConfidenceGauge level={view.confidence} />
       </div>
       <div className="eyebrow" style={{ marginBottom: 2 }}>
-        Maintien estimé aujourd’hui
+        {journalRead(store) ? JOURNAL_MESSAGE.balanceLabel : 'Maintien estimé aujourd’hui'}
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, marginBottom: 10 }}>
         <span className="num-xl">{formatKcal(view.maintenanceKcal)}</span>

@@ -9,6 +9,7 @@ import { runWeighInChecks } from '@/domain/planSafety';
 import { formatInteger, formatWeight, lbToKg, weightUnitLabel } from '@/domain/format';
 import { latestRawWeight } from '@/domain/engine';
 import { todayLog } from '@/domain/views';
+import { suggestedAdherence } from '@/domain/journalPath';
 import { addDays } from '@/science/dates';
 import { STEPS_MAX_PER_DAY, WEIGHT_MAX_KG, WEIGHT_MIN_KG } from '@/science/constants';
 import type { DailyLog } from '@/science/types';
@@ -129,10 +130,12 @@ export function AdherenceSheet() {
   const [day, setDay] = useState<DayChoice>('today');
   const date = day === 'today' ? today : addDays(today, -1);
   const current = store.dailyLogs.find((l) => l.date === date)?.adherence ?? null;
+  // Decision 12 (pass 5b): with a logged day, the declaration is prefilled from the journal; the user confirms or corrects.
+  const suggestion = current === null ? suggestedAdherence(store, date) : null;
   const [choice, setChoice] = useState<NonNullable<DailyLog['adherence']> | null>(current);
 
   useEffect(() => {
-    if (open) setChoice(store.dailyLogs.find((l) => l.date === date)?.adherence ?? null);
+    if (open) setChoice(store.dailyLogs.find((l) => l.date === date)?.adherence ?? suggestedAdherence(store, date)?.value ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, date]);
 
@@ -150,6 +153,11 @@ export function AdherenceSheet() {
         <div style={{ marginBottom: 16 }}>
           <DayPicker value={day} onChange={setDay} />
         </div>
+      ) : null}
+      {suggestion ? (
+        <p className="small" style={{ margin: '0 0 12px' }}>
+          {suggestion.text}
+        </p>
       ) : null}
       <div role="radiogroup" aria-label="Adhérence" style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
         {options.map((o) => (
