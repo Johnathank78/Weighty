@@ -18,9 +18,11 @@ import {
   sourcesSentence,
   TRACKING_QUALITY_SHORT,
   WARM_START_TEXT,
+  WHY_PLAIN_TEXT,
   WHY_TEXT,
 } from '@/app/copy';
 import { ConfidenceGauge } from '@/components/controls';
+import { explanationNotes } from '@/domain/explain';
 import type { ResultExplanation } from '@/domain/explain';
 import {
   formatApproximateFraction,
@@ -130,6 +132,7 @@ function Comparison({ x }: { x: ResultExplanation }) {
 }
 
 export function ResultExplanationDigest({ x, units }: { x: ResultExplanation; units: UnitPreference }) {
+  const notes = explanationNotes(x);
   const u = weightUnitLabel(units);
   const h = x.history;
   const used = h?.status === 'used';
@@ -221,10 +224,10 @@ export function ResultExplanationDigest({ x, units }: { x: ResultExplanation; un
         </div>
         {x.solve ? (
           <Note>
+            {/* UX pass 1, G6: the horizon and the modeled tissue mass in plain words. */}
             {x.solve.horizonMetric === 'tissue' ? (
               <>
-                C’est l’apport constant qui tient ta vitesse sur {x.solve.horizonDays} jours dans le modèle dynamique : il amène ta masse de tissus (graisse et masse maigre, hors eau et glycogène) à {formatWeight(x.solve.targetWeightAtHorizonKg, units)} {u} au jour {x.solve.horizonDays}
-                {x.goal.goal === 'maintenance' ? ', c’est-à-dire à son niveau actuel.' : '.'}
+                {WHY_PLAIN_TEXT.horizon(Math.round(x.solve.horizonDays / 7))} {WHY_PLAIN_TEXT.solveTissue(Math.round(x.solve.horizonDays / 7), `${formatWeight(x.solve.targetWeightAtHorizonKg, units)} ${u}`, x.goal.goal === 'maintenance')}
               </>
             ) : (
               <>
@@ -234,6 +237,8 @@ export function ResultExplanationDigest({ x, units }: { x: ResultExplanation; un
             )}
           </Note>
         ) : null}
+        {notes.maintenanceNotStable ? <Note>{WHY_PLAIN_TEXT.maintenanceNotStable}</Note> : null}
+        {notes.earlyWater ? <Note>{WHY_PLAIN_TEXT.earlyWater}</Note> : null}
         {x.prescription.stepsAdjusted ? <Note>Calories ajustées à ton objectif de pas.</Note> : null}
         {x.safety.atHardFloor ? <Note>Ce niveau correspond à ton plancher calorique.</Note> : null}
       </Block>
@@ -465,7 +470,7 @@ export function ResultExplanationDetails({ x }: { x: ResultExplanation }) {
         {x.solve ? (
           <>
             <Kv
-              k={`Cible à ${x.solve.horizonDays} j / ${x.solve.horizonMetric === 'tissue' ? 'masse de tissus' : 'poids'} du modèle`}
+              k={x.solve.horizonMetric === 'tissue' ? WHY_PLAIN_TEXT.detailsHorizonKey(Math.round(x.solve.horizonDays / 7)) : `Cible à ${x.solve.horizonDays} j / poids du modèle`}
               v={`${formatNumber(x.solve.targetWeightAtHorizonKg, 2)} / ${formatNumber(x.solve.weightAtHorizonKg, 2)} kg`}
             />
             <Kv k="Solveur" v={`${x.solve.iterations} itérations, ${x.solve.converged ? 'convergé' : 'non convergé'}, ${kcal(x.solve.calorieTargetKcal)}`} />

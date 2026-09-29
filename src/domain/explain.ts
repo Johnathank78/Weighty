@@ -525,3 +525,21 @@ export function explainCurrentPlan(store: WheightyStore, today: string): ResultE
   return build(result, profile, { warmStart: warm, evidence: store.historicalEvidence, source, confidence: snapshot?.confidence ?? 'low', stored: plan, snapshot, gate: evaluateGate(store.weights, store.dailyLogs) });
 }
 
+
+/**
+ * Gap from which a maintenance target that differs from the estimated maintenance is explained in words (UX pass 1, G6),
+ * kcal/day. A display threshold: it changes no value.
+ */
+export const MAINTENANCE_GAP_NOTE_MIN_KCAL = 20;
+
+/**
+ * What "Pourquoi ce résultat ?" says in plain words beyond the numbers (UX pass 1, G6), read from the view model only:
+ * the loss plan's first days (mostly water), and a maintenance target that is not the estimated maintenance because the
+ * modeled body is not yet stable (2 340 kcal for 2 300, for example).
+ */
+export function explanationNotes(x: Pick<ResultExplanation, 'goal' | 'maintenance' | 'prescription'>): { earlyWater: boolean; maintenanceNotStable: boolean } {
+  return {
+    earlyWater: x.goal.goal === 'loss',
+    maintenanceNotStable: x.goal.goal === 'maintenance' && Math.abs(x.prescription.calorieTargetKcal - x.maintenance.kcal) >= MAINTENANCE_GAP_NOTE_MIN_KCAL,
+  };
+}

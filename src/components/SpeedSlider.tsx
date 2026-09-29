@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { SPEED_LABEL, SPEED_LIMIT_TEXT, SPEED_NOTE, speedCautionText } from '@/app/copy';
 import { Mascot } from '@/components/Mascot';
 import { Range } from '@/components/controls';
@@ -12,6 +13,7 @@ import { snapRate, speedZone, weeklyChangeKg } from '@/domain/views';
  * the thumb cannot pass the fastest rate the engine accepts for this profile.
  */
 export function SpeedSlider({ model, value, onChange, units }: { model: SpeedSliderModel; value: number; onChange: (rate: number) => void; units: UnitPreference }) {
+  const [stepsOpen, setStepsOpen] = useState(false);
   const zone = speedZone(model.goal, value);
   const kg = weeklyChangeKg(value, model.weightKg);
   const equivalent = `${formatNumber(units === 'imperial' ? kgToLb(kg) : kg, 2)} ${weightUnitLabel(units)} / sem.`;
@@ -61,11 +63,30 @@ export function SpeedSlider({ model, value, onChange, units }: { model: SpeedSli
         <span>{formatRatePercent(model.maxRate)}</span>
       </div>
       {limited ? (
-        <p className="small" style={{ margin: '8px 0 0' }}>
-          {/* Pass 5a s6: when the floor limits (alone or after the BMI cap), the text says so. */}
-          {model.limitedBy === 'below_hard_floor' ? PLAN_MESSAGE.floorLimit(model.floorKcal) : SPEED_LIMIT_TEXT} Maximum : {formatRatePercent(limit)} par semaine.
-          {model.floorSteps ? ` ${model.floorSteps.text}` : ''}
-        </p>
+        model.limitedBy === 'below_hard_floor' ? (
+          // UX pass 1, G4: one line (the floor and the maximum); the steps proposal of pass 5a unfolds on demand.
+          <div style={{ margin: '8px 0 0' }}>
+            <p className="small" style={{ margin: 0 }}>
+              {PLAN_MESSAGE.floorLimitLine(model.floorKcal, limit)}
+            </p>
+            {model.floorSteps ? (
+              <>
+                <button type="button" className="link" style={{ fontSize: 12.5, minHeight: 32, padding: 0 }} aria-expanded={stepsOpen} onClick={() => setStepsOpen(!stepsOpen)}>
+                  {PLAN_MESSAGE.floorStepsLink}
+                </button>
+                {stepsOpen ? (
+                  <p className="small" style={{ margin: 0 }}>
+                    {model.floorSteps.text}
+                  </p>
+                ) : null}
+              </>
+            ) : null}
+          </div>
+        ) : (
+          <p className="small" style={{ margin: '8px 0 0' }}>
+            {SPEED_LIMIT_TEXT} Maximum : {formatRatePercent(limit)} par semaine.
+          </p>
+        )
       ) : null}
       <div className={`note ${zone === 'fast' ? 'note--warn' : ''}`} style={{ marginTop: 14 }}>
         <Mascot variant="search" width={40} />

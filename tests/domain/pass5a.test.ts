@@ -167,7 +167,9 @@ describe('periodic replan (28 days, K2)', () => {
     if (small.status !== 'replanned' || large.status !== 'replanned') throw new Error('replan');
     expect(small.event).toMatchObject({ rule: 'periodic_replan', message: null, seen: true });
     expect(unseenPlanMessages(small.store)).toEqual([]);
-    expect(large.event.message).toBe(PLAN_MESSAGE.periodicReplan(target - 10, target));
+    // UX pass 1 (G3): same trigger and values, new wording; the goal picks the words (speed held, or weight kept).
+    expect(large.event.message).toBe(PLAN_MESSAGE.periodicReplan(target - 10, target, dry.store.plan?.goal ?? 'loss'));
+    expect(large.event.message).toMatch(/^Ton plan a été recalculé pour tenir ta vitesse : /);
     expect(unseenPlanMessages(large.store).map((e) => e.id)).toEqual([large.event.id]);
   });
 

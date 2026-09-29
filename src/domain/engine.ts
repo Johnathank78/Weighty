@@ -913,7 +913,7 @@ export function periodicReplan(store: WheightyStore, today: string, options: { n
     return { status: 'failed', ageDays, reason: result.reason, store: failed };
   }
   const moved = Math.abs(result.plan.calorieTarget - plan.calorieTarget) >= PERIODIC_REPLAN_NOTICE_MIN_KCAL;
-  const message = moved ? PLAN_MESSAGE.periodicReplan(plan.calorieTarget, result.plan.calorieTarget) : null;
+  const message = moved ? PLAN_MESSAGE.periodicReplan(plan.calorieTarget, result.plan.calorieTarget, result.plan.goal) : null;
   const next = recordPlanEvent(
     syncTodayLogTargets({ ...checked, plan: result.plan }, today),
     { date: today, rule: 'periodic_replan', status: 'applied', before: planSummary(plan), after: planSummary(result.plan), message },

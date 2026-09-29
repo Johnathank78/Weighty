@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNav } from '@/app/navigation';
 import { useWheighty } from '@/store/StoreProvider';
-import { ADHERENCE_LABEL, CONFIDENCE_LABEL, GATE_CRITERION_LABEL } from '@/app/copy';
+import { ADHERENCE_LABEL, CHART_BAND_LABEL, CONFIDENCE_LABEL, GATE_CRITERION_LABEL, RECALIBRATION_REFUSED_TITLE } from '@/app/copy';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Mascot } from '@/components/Mascot';
 import { PlanNotices } from '@/components/PlanNotices';
@@ -82,6 +82,7 @@ export function SuiviScreen() {
             label={`Évolution du poids en ${weightUnitLabel(units)} : pesées, tendance lissée${hasFuture ? ' et projection du plan' : ''}`}
             summary={chartSummary(chart, units)}
             axis={{ start: formatShortMonth(chart.startDate), today: 'Auj.', ...(hasFuture ? { future: 'Prévu' } : {}) }}
+            bandLabel={CHART_BAND_LABEL}
           />
           {chart.projectionPending ? (
             <p className="small" style={{ margin: '0 0 22px' }}>
@@ -440,9 +441,16 @@ export function RecalibrationScreen() {
         Recalibration
       </p>
       <h2 style={{ margin: '6px 0 34px', textAlign: 'center', font: '700 27px/1.25 var(--font-display)', letterSpacing: '-0.03em' }}>
-        Wheighty te connaît
-        <br />
-        mieux.
+        {/* UX pass 1, G5: a refused preview does not announce a better plan. */}
+        {build && !build.ok ? (
+          RECALIBRATION_REFUSED_TITLE
+        ) : (
+          <>
+            Wheighty te connaît
+            <br />
+            mieux.
+          </>
+        )}
       </h2>
       <div style={{ textAlign: 'center' }}>
         <div className="eyebrow" style={{ marginBottom: 8 }}>

@@ -4,10 +4,13 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { JOURNAL_TEXT } from '@/app/copy';
+import { CHART_BAND_LABEL, JOURNAL_TEXT, PLAN_NOTICE_TEXT, RECALIBRATION_REFUSED_TITLE, WHY_PLAIN_TEXT } from '@/app/copy';
+import { explanationNotes, MAINTENANCE_GAP_NOTE_MIN_KCAL } from '@/domain/explain';
+import { PLAN_MESSAGE } from '@/domain/planMessages';
+import { PLAN_NOTICE_ORDER, PLAN_NOTICES_VISIBLE, planEventText, planNotices } from '@/domain/planSafety';
 import { canStep, snapToGrid, stepValue, valueAtPosition } from '@/components/rangeMath';
 import type { RangeGrid } from '@/components/rangeMath';
-import { KG_PER_LB } from '@/domain/format';
+import { formatRatePercent, KG_PER_LB } from '@/domain/format';
 import { goalGuardrails, snapRate, targetWeightSliderBounds } from '@/domain/views';
 import { BODY_FAT_MIN_PERCENT } from '@/science/constants';
 import { sliderBounds, weeklyRateRange } from '@/science/goals';
@@ -16,7 +19,8 @@ import { intakeObservationsFrom } from '@/domain/intakeObservations';
 import { completeOnboarding } from '@/domain/engine';
 import { addFoodEntry, deleteFoodEntry, hasNoMacros, hourGroupKcal, hourGroups, intakeTotals, journalDay, kcalWithoutMacros, replaceManualEntry } from '@/domain/journal';
 import type { ManualFood } from '@/domain/journal';
-import type { FoodEntry, WheightyStore } from '@/domain/types';
+import type { FoodEntry, PlanEvent, PlanSummary, WheightyStore } from '@/domain/types';
+import { DEFAULT_META } from '@/domain/types';
 import { emptyStore, isFoodEntry } from '@/persistence/schema';
 import { loadStore, MemoryStorage, saveStore, STORE_KEY } from '@/persistence/storage';
 import { calibrationFingerprint } from '@/store/calibrationClient';
@@ -322,5 +326,73 @@ describe('D. sliders', () => {
       }
     }
     expect(checked).toBeGreaterThan(10000);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// G. Messages and explanations of pass 5a: order and words only
+// ---------------------------------------------------------------------------
+
+/** Thousands in the app's format: narrow no-break space (U+202F). */
+const nb = (text: string) => text.replace(/(\d) (\d{3})/g, '$1 $2');
+
+describe('G. messages of pass 5a', () => {
+  const summary = (calorieTarget: number, goal: 'loss' | 'maintenance' = 'loss'): PlanSummary => ({ createdAt: NOW, source: 'initial', goal, calorieTarget, stepTarget: 8000, weeklyRateTarget: 0.005, requestedWeeklyRate: 0.005, maintenanceKcal: 2300, targetWeightKg: 60 });
+  const event = (id: string, rule: PlanEvent['rule'], message: string | null, before: PlanSummary | null = null, after: PlanSummary | null = null): PlanEvent => ({ id, date: DAY, rule, status: 'applied', before, after, message, seen: message === null });
+
+  it('one zone, in the order underweight, guardrail, warning before BMI 20, target migration, periodic replan; two shown', () => {
+    const unseen = [
+      event('p', 'periodic_replan', 'ancien texte', summary(1800), summary(1750)),
+      event('t', 'target_bmi_20', PLAN_MESSAGE.targetRaised(55.3)),
+      event('g2', 'G2', PLAN_MESSAGE.guardrailRateCap(0.005)),
+      event('u', 'underweight_bmi', PLAN_MESSAGE.underweight),
+      event('g1', 'G1', PLAN_MESSAGE.guardrailBmi20),
+    ];
+    const notices = planNotices(unseen, { weeks: 3, message: PLAN_MESSAGE.bmi20Warning(3) });
+    expect(notices.map((n) => n.kind)).toEqual(['underweight', 'guardrail', 'guardrail', 'bmi20_warning', 'target_migration', 'periodic_replan']);
+    // Within a kind, the trace order.
+    expect(notices.map((n) => n.eventId)).toEqual(['u', 'g2', 'g1', null, 't', 'p']);
+    expect(PLAN_NOTICE_ORDER).toEqual(['underweight', 'guardrail', 'bmi20_warning', 'target_migration', 'periodic_replan']);
+    expect(PLAN_NOTICES_VISIBLE).toBe(2);
+    expect(PLAN_NOTICE_TEXT.more(notices.length - PLAN_NOTICES_VISIBLE)).toBe('Voir les autres messages (4)');
+    // Same tones as pass 5a: the underweight alert and G1 stand out.
+    expect(notices.filter((n) => n.tone === 'warn').map((n) => n.eventId)).toEqual(['u', 'g1', null]);
+  });
+
+  it('the warning before BMI 20 cannot be closed (no stored dismissal without a schema change) and holds on one line', () => {
+    const [warning] = planNotices([], { weeks: 1, message: PLAN_MESSAGE.bmi20Warning(1) });
+    expect(warning).toMatchObject({ kind: 'bmi20_warning', eventId: null, weeks: 1 });
+    expect(PLAN_NOTICE_TEXT.bmi20Short(1)).toBe('IMC sous 20 possible d’ici 1 semaine');
+    expect(PLAN_NOTICE_TEXT.bmi20Short(3).length).toBeLessThanOrEqual(40);
+    expect(Object.keys(DEFAULT_META)).toEqual(['onboardingDate', 'initialMaintenanceKcal', 'initialInterval80', 'initialPalCategory', 'initialProvisionalPal', 'initialWeightKg', 'lastSurfacedCalibration', 'recoveredCorruptData', 'planEvents', 'periodicReplanCheckedOn', 'guardrailMaintenanceSince']);
+  });
+
+  it('periodic replan: the new words, also for an entry written before this pass; other entries show their message', () => {
+    expect(PLAN_MESSAGE.periodicReplan(1800, 1750, 'loss')).toBe(nb('Ton plan a été recalculé pour tenir ta vitesse : 1 800 → 1 750 kcal par jour.'));
+    expect(PLAN_MESSAGE.periodicReplan(2340, 2310, 'maintenance')).toBe(nb('Ton plan a été recalculé pour garder ton poids stable : 2 340 → 2 310 kcal par jour.'));
+    const old = event('p', 'periodic_replan', 'Ton plan a été recalculé à partir de ton poids actuel : 1 800 → 1 750 kcal par jour.', summary(1800), summary(1750));
+    expect(planEventText(old)).toBe(PLAN_MESSAGE.periodicReplan(1800, 1750, 'loss'));
+    // A replan without message (under 10 kcal/day) stays without message: the trigger is untouched.
+    expect(planEventText(event('q', 'periodic_replan', null, summary(1800), summary(1795)))).toBeNull();
+    expect(planEventText(event('t', 'target_bmi_20', PLAN_MESSAGE.targetRaised(55.3)))).toBe(PLAN_MESSAGE.targetRaised(55.3));
+  });
+
+  it('the line under the speed slider, and the texts that did not change', () => {
+    expect(PLAN_MESSAGE.floorLimitLine(1250, 0.009)).toBe(nb(`Limitée par ton minimum de 1 250 kcal par jour. Maximum : ${formatRatePercent(0.009)} par semaine.`));
+    expect(PLAN_MESSAGE.floorStepsLink).toBe('Et avec plus de pas ?');
+    expect(RECALIBRATION_REFUSED_TITLE).toBe('Recalibration impossible pour l’instant');
+    expect(CHART_BAND_LABEL).toBe('zone probable');
+    expect(PLAN_MESSAGE.guardrailBmi20).toBe('Ton IMC atteint 20. Pour rester dans une zone sûre, ton plan passe en maintien : à partir de maintenant, on stabilise ton poids.');
+  });
+
+  it('"Pourquoi ce résultat ?": water for a loss plan, and a maintenance target 20 kcal/day or more away from the estimate', () => {
+    const x = (goal: 'loss' | 'maintenance' | 'gain', target: number, maintenance: number) => ({ goal: { goal } as never, maintenance: { kcal: maintenance } as never, prescription: { calorieTargetKcal: target } as never });
+    expect(explanationNotes(x('loss', 1800, 2300))).toEqual({ earlyWater: true, maintenanceNotStable: false });
+    expect(explanationNotes(x('maintenance', 2340, 2300))).toEqual({ earlyWater: false, maintenanceNotStable: true });
+    expect(explanationNotes(x('maintenance', 2319.9, 2300))).toEqual({ earlyWater: false, maintenanceNotStable: false });
+    expect(explanationNotes(x('maintenance', 2280, 2300)).maintenanceNotStable).toBe(true);
+    expect(explanationNotes(x('gain', 2600, 2300))).toEqual({ earlyWater: false, maintenanceNotStable: false });
+    expect(MAINTENANCE_GAP_NOTE_MIN_KCAL).toBe(20);
+    expect(WHY_PLAIN_TEXT.horizon(4)).toBe('Ton plan vise les 4 prochaines semaines, puis il est recalculé.');
   });
 });

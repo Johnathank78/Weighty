@@ -18,12 +18,14 @@ type Props = {
   summary?: string;
   /** Labels under the chart. "today" is placed on the junction, the same one the drawing uses. */
   axis?: { start: string; today: string; future?: string };
+  /** Legend of the projection band, shown when a band is drawn (UX pass 1, G7). */
+  bandLabel?: string;
 };
 
 const REVEAL_MS = 900;
 
 /** Weight chart on a canvas (A3). The geometry comes from `chartScale`; this only paints it. */
-export function WeightChart({ height, trend = [], raw = [], projection = [], band = [], markers = [], label, summary, axis }: Props) {
+export function WeightChart({ height, trend = [], raw = [], projection = [], band = [], markers = [], label, summary, axis, bandLabel }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [width, setWidth] = useState(0);
   const [theme, setTheme] = useState<string>(() => (typeof document === 'undefined' ? 'light' : (document.documentElement.dataset.theme ?? 'light')));
@@ -103,6 +105,12 @@ export function WeightChart({ height, trend = [], raw = [], projection = [], ban
             <span>{axis.today}</span>
           )}
         </div>
+      ) : null}
+      {bandLabel && band.length > 1 ? (
+        <p className="chart-legend" aria-hidden="true">
+          <span className="chart-legend__swatch" />
+          {bandLabel}
+        </p>
       ) : null}
     </>
   );

@@ -18,7 +18,7 @@ import { bmi, weightAtBmi } from '@/science/macros';
 import type { CalibrationState, PlanBuildResult } from './engine';
 import { enforcePlanGuardrails, ensureDailyLogs, periodicReplan, recordPlanEvent, trendOf } from './engine';
 import { PLAN_MESSAGE } from './planMessages';
-import type { PlanEvent, WheightyStore } from './types';
+import type { PlanEvent, PlanEventRule, WheightyStore } from './types';
 import { projectionFromToday } from './views';
 
 // ---------------------------------------------------------------------------
@@ -162,4 +162,62 @@ export function floorAdvice(context: PlanContext, goalPlan: GoalPlan, baselineSt
 export function floorAdviceOf(result: PlanBuildResult | { ok: false; reason: string }, baselineSteps: number): FloorAdvice | null {
   if (!('goalPlan' in result) || !result.goalPlan || !result.context) return null;
   return floorAdvice(result.context, result.goalPlan, baselineSteps);
+}
+
+// ---------------------------------------------------------------------------
+// Message zone of Aujourd'hui and Suivi (UX pass 1, G1)
+// ---------------------------------------------------------------------------
+
+export type PlanNoticeKind = 'underweight' | 'guardrail' | 'bmi20_warning' | 'target_migration' | 'periodic_replan';
+
+/** Priority of the message zone, first shown first. */
+export const PLAN_NOTICE_ORDER: readonly PlanNoticeKind[] = ['underweight', 'guardrail', 'bmi20_warning', 'target_migration', 'periodic_replan'];
+
+/** Messages visible at once; the others wait behind "Voir les autres messages". */
+export const PLAN_NOTICES_VISIBLE = 2;
+
+export type PlanNotice = {
+  kind: PlanNoticeKind;
+  /** Trace entry closed by "OK"; null for the warning ahead of BMI 20, which is not an entry. */
+  eventId: string | null;
+  text: string;
+  tone: 'warn' | 'calm';
+  /** Weeks announced by the warning ahead of BMI 20 (its compact line). */
+  weeks?: number;
+};
+
+const KIND_OF_RULE: Record<PlanEventRule, PlanNoticeKind> = {
+  underweight_bmi: 'underweight',
+  underweight_decline: 'underweight',
+  G1: 'guardrail',
+  G2: 'guardrail',
+  target_bmi_20: 'target_migration',
+  periodic_replan: 'periodic_replan',
+};
+
+/**
+ * Text of a trace entry as shown. A periodic replan is worded from its before and after plans, so an entry written before
+ * UX pass 1 reads like a new one; any other entry shows the message it was recorded with.
+ */
+export function planEventText(e: PlanEvent): string | null {
+  if (e.rule === 'periodic_replan' && e.message !== null && e.before && e.after) return PLAN_MESSAGE.periodicReplan(e.before.calorieTarget, e.after.calorieTarget, e.after.goal);
+  return e.message;
+}
+
+/**
+ * The messages to show (unread entries of the trace, and the warning ahead of BMI 20 while the projection announces it),
+ * in the order of the zone: underweight alert, guardrail, BMI-20 warning, target migration, periodic replan; the trace
+ * order within a kind. Which messages exist and when is decided by pass 5a; this only orders and words them.
+ */
+export function planNotices(unseen: readonly PlanEvent[], warning: { weeks: number; message: string } | null): PlanNotice[] {
+  const out: PlanNotice[] = [];
+  for (const e of unseen) {
+    const text = planEventText(e);
+    if (text === null) continue;
+    const kind = KIND_OF_RULE[e.rule];
+    out.push({ kind, eventId: e.id, text, tone: kind === 'underweight' || e.rule === 'G1' ? 'warn' : 'calm' });
+  }
+  if (warning) out.push({ kind: 'bmi20_warning', eventId: null, text: warning.message, tone: 'warn', weeks: warning.weeks });
+  const rank = (k: PlanNoticeKind) => PLAN_NOTICE_ORDER.indexOf(k);
+  return out.map((n, i) => ({ n, i })).sort((a, b) => rank(a.n.kind) - rank(b.n.kind) || a.i - b.i).map(({ n }) => n);
 }

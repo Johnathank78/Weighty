@@ -172,6 +172,38 @@ export const LIMITING_RULE_TEXT = {
 } as const;
 
 /** "Pourquoi ce résultat ?" digest (D-30). Copy of the sources and "pourquoi pas" blocks validated with the product owner. */
+/** UX pass 1, G: the message zone of Aujourd'hui and Suivi. */
+export const PLAN_NOTICE_TEXT = {
+  close: 'OK',
+  closeLabel: 'Fermer ce message',
+  more: (n: number) => `Voir les autres messages (${n})`,
+  less: 'Masquer les autres messages',
+  /** G2: the warning ahead of BMI 20 stays visible (no stored dismissal without a schema change), on one line. */
+  bmi20Short: (weeks: number) => `IMC sous 20 possible d’ici ${weeks} semaine${weeks > 1 ? 's' : ''}`,
+  bmi20Expand: 'Voir le détail',
+} as const;
+
+/** UX pass 1, G5: title of the recalibration screen when the preview refuses the new plan. */
+export const RECALIBRATION_REFUSED_TITLE = 'Recalibration impossible pour l’instant';
+
+/** UX pass 1, G7: legend of the projection band of the Suivi chart. */
+export const CHART_BAND_LABEL = 'zone probable';
+
+/**
+ * UX pass 1, G6: "Pourquoi ce résultat ?" in plain words. `weeks`: the solve horizon in weeks (28 days: 4).
+ */
+export const WHY_PLAIN_TEXT = {
+  horizon: (weeks: number) => `Ton plan vise les ${weeks} prochaines semaines, puis il est recalculé.`,
+  solveTissue: (weeks: number, kg: string, maintenance: boolean) =>
+    maintenance
+      ? `C’est l’apport constant qui garde ta masse de graisse et de muscle, sans l’eau, à son niveau actuel (${kg}) pendant ces ${weeks} semaines.`
+      : `C’est l’apport constant qui tient ta vitesse pendant ces ${weeks} semaines : il amène ta masse de graisse et de muscle, sans l’eau, à ${kg}.`,
+  earlyWater: 'Les premiers jours, la balance descend plus vite : c’est surtout de l’eau.',
+  maintenanceNotStable: 'Ton corps n’est pas encore tout à fait stable : ta cible de maintien en tient compte pendant les prochaines semaines.',
+  /** Scientific details: the key of the solve row. */
+  detailsHorizonKey: (weeks: number) => `Cible dans ${weeks} semaines, graisse et muscle sans l’eau / modèle`,
+} as const;
+
 export const WHY_TEXT = {
   comparisonTitle: 'Ton maintien estimé',
   theoretical: 'Estimation théorique',
