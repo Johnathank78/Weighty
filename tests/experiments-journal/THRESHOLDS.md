@@ -96,3 +96,7 @@ Face à la méthode actuelle (ingénierie) :
 ### R2 : performance (bloquant)
 - P95 ≤ 1 s par calibration avec rejeu, pour 84 jours de pesées quotidiennes et un journal complet.
 - Mesuré sur un appareil de référence, ou avec un ralentissement du CPU × 4 (produit).
+
+## Note du 28/09/2026
+
+Décision produit : journal lu, habitude mesurée, retenu malgré le NO-GO de V3 (semaine réelle sous le plancher en sous-déclaration légère), critère que la cible alignée échoue de la même façon (2,30 % contre 2,00 % sur la même période). Nouveau niveau d'exigence : app grand public.
