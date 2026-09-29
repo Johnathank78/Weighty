@@ -6,7 +6,7 @@ import { BARCODE_TEXT, FOOD_SEARCH_TEXT, FOOD_SOURCE_LABEL, JOURNAL_GAUGE_TEXT, 
 import { BottomSheet } from '@/components/BottomSheet';
 import { NumberField, parseDecimal, Segmented } from '@/components/controls';
 import { formatDayMonth, formatGrams, formatInteger, formatKcal, formatNumber } from '@/domain/format';
-import { addFoodEntry, addPortion, consumptionDate, deleteFoodEntry, foodKey, hourGroups, intakeGauge, intakeTotals, journalDay, MACRO_KEYS, maskedGaugeParts, missingMacros, localTimeOf, nutrientsForGrams, portionsFor, restoreFoodEntry } from '@/domain/journal';
+import { addFoodEntry, addPortion, consumptionDate, deleteFoodEntry, foodKey, hourGroups, intakeGauge, intakeTotals, journalDay, kcalWithoutMacros, MACRO_KEYS, maskedGaugeParts, missingMacros, localTimeOf, nutrientsForGrams, portionsFor, restoreFoodEntry } from '@/domain/journal';
 import type { ManualFood, NewEntryInput, RecentFood, ResolvedFood } from '@/domain/journal';
 import { buildSearchIndex, loadCiqual, resolveCiqualFood, searchIndex } from '@/domain/foodSearch';
 import { libraryFoodToManual, libraryFoodToResolved, previousFoods, productLibraryKey, rememberManualFood, rememberProduct, touchLibraryFood } from '@/domain/foodLibrary';
@@ -57,6 +57,8 @@ export function JournalScreen() {
   // B3: the gauges sum the visible entries, so their completeness is read on that same set.
   const missing = missingMacros(visibleEntries);
   const incomplete = MACRO_KEYS.filter((k) => missing[k]);
+  // A: the kcal of entries without any macro are named next to the total, so the macro gauges never pass for complete.
+  const withoutMacros = kcalWithoutMacros(visibleEntries);
   const maskedKcal = Math.max(0, summary.intakeLoggedKcal - visible.energyKcal);
   const kcal = intakeGauge(visible.energyKcal, targetKcal);
   const guidance = JOURNAL_TEXT.completenessGuidance;
@@ -113,6 +115,11 @@ export function JournalScreen() {
           {kcal.beyond > 0 ? JOURNAL_GAUGE_TEXT.beyond(formatInteger(kcal.beyond)) : JOURNAL_GAUGE_TEXT.remaining(formatInteger(kcal.remaining))}
           {maskedKcal > 0 ? ` · ${JOURNAL_MASK_TEXT.maskedKcal(formatInteger(Math.round(maskedKcal)))}` : ''}
         </p>
+        {withoutMacros > 0 ? (
+          <p className="tabular" style={{ margin: '2px 0 0', font: '500 12.5px var(--font)', color: 'var(--ink2)' }}>
+            {JOURNAL_TEXT.kcalWithoutMacros(formatInteger(Math.round(withoutMacros)))}
+          </p>
+        ) : null}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 14, marginTop: 18 }}>
           {(
             [
@@ -883,6 +890,8 @@ function ManualTab({ prefill, onSave, timingProps }: { prefill: ManualFood | nul
   const [carbs, setCarbs] = useState(prefill?.intake.carbsG != null ? String(prefill.intake.carbsG) : '');
   const [fat, setFat] = useState(prefill?.intake.fatG != null ? String(prefill.intake.fatG) : '');
   const [grams, setGrams] = useState(prefill?.grams != null ? String(prefill.grams) : '');
+  // A: a free entry reused (or edited) that was saved without macros opens with the option ticked.
+  const [noMacros, setNoMacros] = useState(prefill !== null && prefill.intake.energyKcal > 0 && MACRO_KEYS.every((k) => prefill.intake[k] === null));
   const [error, setError] = useState<string | null>(null);
 
   const optional = (raw: string): number | null | 'invalid' => {
@@ -892,15 +901,15 @@ function ManualTab({ prefill, onSave, timingProps }: { prefill: ManualFood | nul
   };
   const submit = () => {
     const energy = parseDecimal(kcal);
-    // The three macros are required here: a free entry is the one place where nothing can be looked up,
-    // so leaving them out would silently turn the day's macro totals into floors (B3).
-    const macros = { proteinG: optional(protein), carbsG: optional(carbs), fatG: optional(fat) };
+    // The three macros are required here unless the user says they do not know them (A): a half-filled entry would
+    // silently turn the day's macro totals into floors (B3), an entry without macros is named as such.
+    const macros = noMacros ? { proteinG: null, carbsG: null, fatG: null } : { proteinG: optional(protein), carbsG: optional(carbs), fatG: optional(fat) };
     const g = optional(grams);
     if (energy === null || energy < 0 || energy > 20000) {
       setError('Indique les calories (kcal) de ce que tu as mangé.');
       return;
     }
-    const missing = MACRO_KEYS.filter((k) => macros[k] === null);
+    const missing = noMacros ? [] : MACRO_KEYS.filter((k) => macros[k] === null);
     if (missing.length > 0) {
       setError(JOURNAL_TEXT.manualMacrosRequired(missing.map((k) => JOURNAL_GAUGE_TEXT.macrosLower[k])));
       return;
@@ -922,14 +931,28 @@ function ManualTab({ prefill, onSave, timingProps }: { prefill: ManualFood | nul
       </div>
       <div style={{ height: 12 }} />
       <NumberField label="Calories" value={kcal} onChange={setKcal} unit="kcal" inputMode="decimal" placeholder="450" />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 12 }}>
-        <NumberField label="Protéines" value={protein} onChange={setProtein} unit="g" placeholder="20" />
-        <NumberField label="Glucides" value={carbs} onChange={setCarbs} unit="g" placeholder="50" />
-        <NumberField label="Lipides" value={fat} onChange={setFat} unit="g" placeholder="15" />
-      </div>
-      <p className="small" style={{ margin: '6px 0 0' }}>
-        {JOURNAL_TEXT.manualMacrosNote}
-      </p>
+      <button type="button" role="checkbox" aria-checked={noMacros} className="checkbox" style={{ paddingTop: 12 }} onClick={() => setNoMacros(!noMacros)}>
+        <span className="checkbox__box" aria-hidden="true">
+          {noMacros ? '✓' : ''}
+        </span>
+        <span>{JOURNAL_TEXT.manualNoMacros}</span>
+      </button>
+      {noMacros ? (
+        <p className="small" style={{ margin: '2px 0 0' }}>
+          {JOURNAL_TEXT.manualNoMacrosNote}
+        </p>
+      ) : (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 8 }}>
+            <NumberField label="Protéines" value={protein} onChange={setProtein} unit="g" placeholder="20" />
+            <NumberField label="Glucides" value={carbs} onChange={setCarbs} unit="g" placeholder="50" />
+            <NumberField label="Lipides" value={fat} onChange={setFat} unit="g" placeholder="15" />
+          </div>
+          <p className="small" style={{ margin: '6px 0 0' }}>
+            {JOURNAL_TEXT.manualMacrosNote}
+          </p>
+        </>
+      )}
       <div style={{ height: 12 }} />
       <NumberField label="Poids (facultatif)" value={grams} onChange={setGrams} unit="g" placeholder="250" />
       <ConsumedTimeField {...timingProps} />

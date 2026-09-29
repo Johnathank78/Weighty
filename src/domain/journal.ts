@@ -182,6 +182,16 @@ export function missingMacros(entries: readonly FoodEntry[]): MacrosMissing {
   return { proteinG: entries.some((e) => e.intake.proteinG === null), carbsG: entries.some((e) => e.intake.carbsG === null), fatG: entries.some((e) => e.intake.fatG === null) };
 }
 
+/** An entry with no macronutrient at all: a free entry saved with "Je ne connais pas les macros" (UX pass 1, A). */
+export function hasNoMacros(entry: FoodEntry): boolean {
+  return MACRO_KEYS.every((k) => entry.intake[k] === null);
+}
+
+/** Energy of the entries saved without any macro, so the macro totals are never read as covering the whole day. */
+export function kcalWithoutMacros(entries: readonly FoodEntry[]): number {
+  return round2(entries.reduce((acc, e) => acc + (hasNoMacros(e) ? e.intake.energyKcal : 0), 0));
+}
+
 export type JournalDay = {
   date: string;
   entries: FoodEntry[];
@@ -190,6 +200,8 @@ export type JournalDay = {
   intakeLoggedProteinG: number;
   intakeLoggedCarbsG: number;
   intakeLoggedFatG: number;
+  /** Part of intakeLoggedKcal whose entries give no macro at all (A). */
+  intakeKcalWithoutMacros: number;
   /** Per macro, whether at least one entry of the day leaves it out (B3). */
   macrosMissing: MacrosMissing;
   /** False when at least one entry has no value for a macronutrient (sums then cover the known values only). */
@@ -209,6 +221,7 @@ export function journalDay(store: WheightyStore, date: string): JournalDay {
     intakeLoggedProteinG: totals.proteinG,
     intakeLoggedCarbsG: totals.carbsG,
     intakeLoggedFatG: totals.fatG,
+    intakeKcalWithoutMacros: kcalWithoutMacros(entries),
     macrosMissing,
     macrosComplete: !MACRO_KEYS.some((k) => macrosMissing[k]),
   };

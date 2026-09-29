@@ -228,13 +228,20 @@ export const JOURNAL_TEXT = {
    * the protein without the fat, so one global sentence said too much for a complete macro and not enough
    * for an incomplete one.
    */
-  partialMacros: (macros: readonly string[]) => `Certains aliments n’indiquent pas ${macros.join(' ni ')} : ${macros.length > 1 ? 'ces totaux sont des minimums' : 'ce total est un minimum'}.`,
+  partialMacros: (macros: readonly string[]) =>
+    macros.length === 3
+      ? 'Certains aliments n’ont pas le détail des macros : ces totaux sont des minimums.'
+      : `Certains aliments n’indiquent pas ${macros.join(' ni ')} : ${macros.length > 1 ? 'ces totaux sont des minimums' : 'ce total est un minimum'}.`,
   /**
-   * Free entry: the three macros are required. Nothing can be looked up here, so an entry left incomplete
-   * would turn the whole day's macro totals into floors without the user being able to do anything about it.
+   * Free entry: the three macros are required unless "Je ne connais pas les macros" is ticked (UX pass 1, A). An entry
+   * left half filled would turn the day's totals into floors without saying so; an entry without any macro is named as such.
    */
   manualMacrosNote: 'Les trois macros sont demandées, au besoin une estimation. Mets 0 si l’aliment n’en contient pas.',
   manualMacrosRequired: (macros: readonly string[]) => `Indique ${macros.join(' et ')}. Mets 0 si l’aliment n’en contient pas.`,
+  manualNoMacros: 'Je ne connais pas les macros',
+  manualNoMacrosNote: 'Seules les calories seront enregistrées. Les totaux de macros du jour l’indiqueront.',
+  /** A: the part of the day's kcal whose entries give no macro, next to the kcal total. */
+  kcalWithoutMacros: (kcal: string) => `dont ${kcal} kcal sans détail des macros`,
   add: 'Ajouter un aliment',
   added: 'Ajouté au journal.',
   removed: 'Aliment retiré.',
