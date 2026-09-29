@@ -17,7 +17,9 @@ import { sliderBounds, weeklyRateRange } from '@/science/goals';
 import { bmi, minimumTargetWeightKg } from '@/science/macros';
 import { intakeObservationsFrom } from '@/domain/intakeObservations';
 import { addWeight, completeOnboarding, ensureDailyLogs, setActualSteps } from '@/domain/engine';
-import { historyView, HISTORY_WINDOW_DAYS } from '@/domain/history';
+import { historySummary, historyView, HISTORY_WINDOW_DAYS } from '@/domain/history';
+import { historyBarsScale, historyWeightScale } from '@/domain/historyChart';
+import type { HistoryBar, Pixel } from '@/domain/historyChart';
 import type { HistoryDay } from '@/domain/history';
 import { addDays } from '@/science/dates';
 import { addFoodEntry, deleteFoodEntry, hasNoMacros, hourGroupKcal, hourGroups, intakeTotals, journalDay, kcalWithoutMacros, replaceManualEntry } from '@/domain/journal';
@@ -461,5 +463,63 @@ describe('F. historique', () => {
     expect(HISTORY_TEXT.daysWith(0, 90)).toBe('Aucun jour');
     expect(HISTORY_TEXT.daysWith(1, 90)).toBe('1 jour sur 90');
     expect(HISTORY_TEXT.daysWith(62, 90)).toBe('62 jours sur 90');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 2. Historique: chart geometry and summaries
+// ---------------------------------------------------------------------------
+
+describe('phase 2. historique charts', () => {
+  it('bars: one slot per day, none for a day without data, the target always inside the drawing', () => {
+    const values = [null, 1000, 2000, null, 1500];
+    const s = historyBarsScale({ width: 100, height: 50, values, faded: [false, false, true, false, false], target: 1800 });
+    expect(s.bars.map((b) => b.day)).toEqual([1, 2, 4]);
+    for (const b of s.bars) {
+      expect(b.x).toBeGreaterThanOrEqual(b.day * 20);
+      expect(b.x + b.width).toBeLessThanOrEqual((b.day + 1) * 20 + 1e-9);
+      expect(b.y + b.height).toBeCloseTo(50, 9);
+      expect(b.y).toBeGreaterThan(0);
+    }
+    expect(s.bars.find((b) => b.day === 2)?.faded).toBe(true);
+    // Heights are proportional to the values, and the line sits at the target's height.
+    expect((s.bars[1] as HistoryBar).height / (s.bars[0] as HistoryBar).height).toBeCloseTo(2, 9);
+    expect(s.targetY).toBeCloseTo(50 - (1800 / s.max) * 50, 9);
+    // A target above every value is still drawn inside.
+    expect(historyBarsScale({ width: 100, height: 50, values: [100, 200], target: 5000 }).targetY).toBeGreaterThan(0);
+    expect(historyBarsScale({ width: 100, height: 50, values: [null, null], target: null })).toMatchObject({ bars: [], targetY: null });
+  });
+
+  it('weight: every weigh-in and the trend, on a scale that holds them all', () => {
+    const days = [
+      { weighIns: [], trendKg: null },
+      { weighIns: [80.2, 79.9], trendKg: 80 },
+      { weighIns: [], trendKg: null },
+      { weighIns: [79.1], trendKg: 79.6 },
+    ];
+    const s = historyWeightScale({ width: 120, height: 60, days });
+    expect(s.raw).toHaveLength(3);
+    expect(s.trend.map((p) => p.x)).toEqual([45, 105]);
+    for (const p of [...s.raw, ...s.trend]) {
+      expect(p.y).toBeGreaterThanOrEqual(0);
+      expect(p.y).toBeLessThanOrEqual(60);
+    }
+    // Heavier is higher.
+    expect((s.raw[0] as Pixel).y).toBeLessThan((s.raw[2] as Pixel).y);
+    expect(historyWeightScale({ width: 120, height: 60, days: [{ weighIns: [], trendKg: null }] })).toMatchObject({ raw: [], trend: [] });
+  });
+
+  it('summaries: means over the days that have the data, a floor when a day is incomplete, the trend change', () => {
+    const d = (over: Partial<HistoryDay>): HistoryDay => ({ date: DAY, kcalLogged: null, macros: null, macrosComplete: false, weighIns: [], trendKg: null, stepsWalked: null, adherence: null, ...over });
+    const view = { from: DAY, to: DAY, counts: { kcal: 2, macros: 2, weighIns: 2, steps: 1 }, targets: null, days: [d({ kcalLogged: 1800, macros: { proteinG: 100, carbsG: 200, fatG: 60 }, macrosComplete: true, trendKg: 80 }), d({}), d({ kcalLogged: 2200, macros: { proteinG: 80, carbsG: 150, fatG: 70 }, macrosComplete: false, trendKg: 79.2, stepsWalked: 9000 })] };
+    const s = historySummary(view);
+    expect(s.kcalAverage).toBe(2000);
+    expect(s.macrosAverage).toEqual({ proteinG: 90, carbsG: 175, fatG: 65, floor: true });
+    expect(s.stepsAverage).toBe(9000);
+    expect(s.trendChangeKg).toBeCloseTo(-0.8, 9);
+    expect(historySummary({ ...view, days: [d({})] })).toEqual({ kcalAverage: null, macrosAverage: null, stepsAverage: null, trendChangeKg: null });
+    expect(HISTORY_TEXT.target('1 850 kcal')).toBe('Objectif du moment : 1 850 kcal');
+    // Calories are "saisies", never "mangées", everywhere on the page.
+    expect(Object.values(HISTORY_TEXT).map((v) => (typeof v === 'function' ? (v as (...a: unknown[]) => string)('x', 1) : v)).join(' ')).not.toMatch(/mang/i);
   });
 });

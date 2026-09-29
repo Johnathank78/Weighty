@@ -44,6 +44,39 @@ export type HistoryView = {
   targets: { calorieTargetKcal: number; macros: MacroGrams; stepTarget: number } | null;
 };
 
+export type HistorySummary = {
+  /** Mean of the days with calories logged; null without any. */
+  kcalAverage: number | null;
+  /** Mean known macros of the days that give some; null without any. True when a day of the mean is incomplete. */
+  macrosAverage: (MacroGrams & { floor: boolean }) | null;
+  stepsAverage: number | null;
+  /** Trend change over the window, from its first trend point to its last; null with fewer than two. */
+  trendChangeKg: number | null;
+};
+
+/** What each section says in one line under its chart (phase 2): means over the days that have the data. */
+export function historySummary(v: HistoryView): HistorySummary {
+  const mean = (xs: number[]) => (xs.length === 0 ? null : xs.reduce((a, b) => a + b, 0) / xs.length);
+  const withMacros = v.days.filter((d) => d.macros !== null);
+  const trend = v.days.filter((d) => d.trendKg !== null);
+  const first = trend[0]?.trendKg ?? null;
+  const last = trend[trend.length - 1]?.trendKg ?? null;
+  return {
+    kcalAverage: mean(v.days.flatMap((d) => (d.kcalLogged === null ? [] : [d.kcalLogged]))),
+    macrosAverage:
+      withMacros.length === 0
+        ? null
+        : {
+            proteinG: mean(withMacros.map((d) => (d.macros as MacroGrams).proteinG)) as number,
+            carbsG: mean(withMacros.map((d) => (d.macros as MacroGrams).carbsG)) as number,
+            fatG: mean(withMacros.map((d) => (d.macros as MacroGrams).fatG)) as number,
+            floor: withMacros.some((d) => !d.macrosComplete),
+          },
+    stepsAverage: mean(v.days.flatMap((d) => (d.stepsWalked === null ? [] : [d.stepsWalked]))),
+    trendChangeKg: trend.length >= 2 && first !== null && last !== null ? last - first : null,
+  };
+}
+
 export function historyView(store: WheightyStore, today: string, windowDays = HISTORY_WINDOW_DAYS): HistoryView {
   const from = addDays(today, -(windowDays - 1));
   const trend = new Map(trendOf(store).points.map((p) => [p.date, p.trendKg]));

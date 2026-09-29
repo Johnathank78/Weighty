@@ -186,6 +186,17 @@ export const HISTORY_TEXT = {
   macros: 'Macros saisies',
   steps: 'Pas effectués',
   daysWith: (n: number, days: number) => (n === 0 ? 'Aucun jour' : `${n} jour${n > 1 ? 's' : ''} sur ${days}`),
+  /** Phase 2: the charts and their one-line summaries. The target is the plan in force, drawn as a dashed line. */
+  noData: 'Rien d’enregistré sur ces 90 jours.',
+  axisToday: 'Auj.',
+  target: (value: string) => `Objectif du moment : ${value}`,
+  kcalAverage: (kcal: string) => `${kcal} kcal saisies en moyenne les jours renseignés`,
+  stepsAverage: (steps: string) => `${steps} pas en moyenne les jours renseignés`,
+  macroAverage: (grams: string, floor: boolean) => `moyenne ${floor ? '≥ ' : ''}${grams} g`,
+  macroTarget: (grams: string) => `objectif ${grams} g`,
+  macrosFloor: 'Barres claires : des aliments de ce jour n’ont pas le détail des macros, le total est un minimum.',
+  trendChange: (change: string) => `Tendance sur la période : ${change}`,
+  trendPending: 'Pas encore assez de pesées pour une tendance sur la période.',
 } as const;
 
 /** UX pass 1, G: the message zone of Aujourd'hui and Suivi. */

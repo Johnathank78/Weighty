@@ -299,3 +299,21 @@ Limites : en HTTP sur une adresse du réseau local, la page n'est pas un context
 - non testable ainsi : la sortie de l'app à la racine d'Aujourd'hui en mode installé (dans un onglet, le retour quitte la page).
 
 Pour tester le mode installé sur Android sans rien publier : câble USB, débogage USB activé, puis dans Chrome sur le PC `chrome://inspect`, « Port forwarding » `4173 → localhost:4173`. Sur le téléphone, `http://localhost:4173` est alors un contexte sécurisé : l'installation et le service worker fonctionnent. Sur iOS, le vrai mode app ne sera testable qu'une fois servi en HTTPS (Pages, après fusion).
+
+## 10. Phase 2 : Historique
+
+### 29/09/2026, graphiques de l'Historique
+
+Décisions de John avant F [lu, conversation] : quatre blocs empilés sur une seule page ; graphiques en **canvas JS** comme celui de Suivi, pas en SVG (cela remplace la décision d'architecture « graphiques SVG faits main » pour cette page) ; fenêtre fixe de 90 jours ; comme repère, une ligne horizontale pointillée à l'objectif du plan en cours (« objectif du moment »), autour de laquelle on voit évoluer les données réelles ; pour les pesées, « le centre de l'intervalle de confiance, ou rien » : rien, car il n'existe pas d'intervalle sur les jours passés (la bande n'existe que pour la projection) ; lecture seule, pas de détail au toucher.
+
+Fait :
+- **Pesées** : chaque pesée (points gris) et la tendance lissée (ligne dégradée), échelle ajustée aux données. Ligne de résumé : « Tendance sur la période : −2,2 kg ».
+- **Calories saisies** : une barre par jour saisi, aucune barre les jours sans saisie (jamais un zéro), ligne pointillée à la cible de calories du plan en cours. Résumé : moyenne des jours renseignés, puis « Objectif du moment : 1 850 kcal ».
+- **Macros saisies** : trois petits graphiques (protéines, glucides, lipides) aux couleurs du journal, chacun avec la cible du plan en cours. Barres claires les jours où des aliments n'ont pas le détail des macros (le total est un minimum), moyenne notée « ≥ » dans ce cas.
+- **Pas effectués** : les pas saisis (jamais la cible de pas), ligne pointillée à la cible de pas du plan en cours.
+- Une section sans donnée affiche « Rien d'enregistré sur ces 90 jours. » au lieu du graphique.
+- Géométrie pure et testée (`src/domain/historyChart.ts`), résumés purs (`historySummary`, `src/domain/history.ts`), peinture seule dans `src/components/HistoryChart.tsx`. Le journal reste lu par `history.ts` seul (test de politique).
+
+Vérifications [mesuré] : captures T-03, T-04, golden, R et S, `convergenceJourney` : 0 différence sur 2 522 380 valeurs ; `npm run check` : **587 sur 587** (46 fichiers) ; rendu contrôlé à 360 px dans le navigateur avec le store de démonstration (60 jours de pesées et de pas, 30 jours de journal).
+
+Choix faits sans consigne, à valider : barres pleines à 85 % d'opacité, dans une seule couleur par donnée, sans couleur d'alerte au-dessus de la cible (même neutralité que les jauges du journal) ; libellés d'axe « date du premier jour » et « Auj. ».

@@ -926,6 +926,48 @@ img {
   width: 40px;
   flex: none;
 }
+/* UX pass 1, phase 2: the blocks of "Historique". */
+.history-block {
+  margin-bottom: 30px;
+}
+.history-block__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.history-line {
+  margin: 0;
+}
+.history-macro {
+  margin-bottom: 8px;
+}
+.history-macro__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 4px;
+  font: 500 12px var(--font);
+  color: var(--ink2);
+}
+.history-macro__dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 3px;
+}
+/* The dashed target line of the charts, in front of its value. */
+.history-target-key {
+  display: inline-block;
+  width: 16px;
+  margin-right: 6px;
+  vertical-align: middle;
+  border-top: 1.5px dashed var(--ink2);
+}
+
 /* UX pass 1, G2: the warning ahead of BMI 20 on one line, its sentence unfolded on demand. */
 .note--compact {
   display: block;
