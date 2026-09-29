@@ -29,7 +29,8 @@ export type ScreenId =
   | 'data'
   | 'delete'
   | 'reached'
-  | 'journal';
+  | 'journal'
+  | 'history';
 
 export type SheetId = 'balance' | 'weigh' | 'adherence' | 'steps' | 'why' | 'goal' | 'food' | 'foodEdit' | 'weighOptions' | 'productConsent' | 'productClear';
 

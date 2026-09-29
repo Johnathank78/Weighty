@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNav } from '@/app/navigation';
 import { useWheighty } from '@/store/StoreProvider';
-import { ADHERENCE_LABEL, CHART_BAND_LABEL, CONFIDENCE_LABEL, GATE_CRITERION_LABEL, RECALIBRATION_REFUSED_TITLE } from '@/app/copy';
+import { ADHERENCE_LABEL, CHART_BAND_LABEL, CONFIDENCE_LABEL, GATE_CRITERION_LABEL, HISTORY_TEXT, RECALIBRATION_REFUSED_TITLE } from '@/app/copy';
+import { HISTORY_WINDOW_DAYS } from '@/domain/history';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Mascot } from '@/components/Mascot';
 import { PlanNotices } from '@/components/PlanNotices';
-import { ConfidenceBar, ConfidenceGauge, Segmented } from '@/components/controls';
+import { ConfidenceBar, ConfidenceGauge, NavRow, Segmented } from '@/components/controls';
 import { WeightChart } from '@/components/WeightChart';
 import { applyRecalibration, applyRecalibrationAsMaintenance, buildPlanFromStore, deleteWeight, markRecalibrationSeen, trendOf } from '@/domain/engine';
 import { recalibrationRefusedText } from '@/domain/planMessages';
@@ -22,7 +23,7 @@ type RangeChoice = '1m' | '3m' | 'all';
 const COUNT_UP_MS = 1100;
 
 export function SuiviScreen() {
-  const { openSheet, closeSheet, sheet } = useNav();
+  const { go, openSheet, closeSheet, sheet } = useNav();
   const { store, today, update, calibration } = useWheighty();
   const [range, setRange] = useState<RangeChoice>('3m');
   const [pending, setPending] = useState<string | null>(null);
@@ -109,6 +110,11 @@ export function SuiviScreen() {
         value={range}
         onChange={setRange}
       />
+
+      {/* UX pass 1, F: the 90-day history, a sub-screen of Suivi (back returns here). */}
+      <div className="rows" style={{ marginTop: 22 }}>
+        <NavRow label={HISTORY_TEXT.entry} detail={HISTORY_TEXT.entryDetail(HISTORY_WINDOW_DAYS)} onClick={() => go('history')} />
+      </div>
 
       <div className="eyebrow" style={{ margin: '30px 0 14px' }}>
         Dernières pesées

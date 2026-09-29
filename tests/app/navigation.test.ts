@@ -236,3 +236,13 @@ describe('E6. onboarding', () => {
     expect(backTrail(s)).toEqual(['today']);
   });
 });
+
+describe('F. Historique', () => {
+  it('is a sub-screen of Suivi: back returns to Suivi, and Suivi keeps it open across tabs', () => {
+    let s = navGo(navSelectTab(home(), 'suivi'), 'history');
+    expect(currentScreen(s)).toBe('history');
+    s = navSelectTab(navSelectTab(s, 'plan'), 'suivi');
+    expect(currentScreen(s)).toBe('history');
+    expect(backTrail(s)).toEqual(['suivi', 'today']);
+  });
+});

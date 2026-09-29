@@ -172,6 +172,22 @@ export const LIMITING_RULE_TEXT = {
 } as const;
 
 /** "Pourquoi ce résultat ?" digest (D-30). Copy of the sources and "pourquoi pas" blocks validated with the product owner. */
+/**
+ * UX pass 1, F: "Historique", opened from Suivi. Calories are "saisies", never "mangées": the journal says what was logged.
+ * The four data are all stored, so no section reads "non enregistrée".
+ */
+export const HISTORY_TEXT = {
+  title: 'Historique',
+  entry: 'Historique',
+  entryDetail: (days: number) => `${days} jours`,
+  window: (days: number) => `Tes ${days} derniers jours`,
+  weighIns: 'Pesées',
+  kcal: 'Calories saisies',
+  macros: 'Macros saisies',
+  steps: 'Pas effectués',
+  daysWith: (n: number, days: number) => (n === 0 ? 'Aucun jour' : `${n} jour${n > 1 ? 's' : ''} sur ${days}`),
+} as const;
+
 /** UX pass 1, G: the message zone of Aujourd'hui and Suivi. */
 export const PLAN_NOTICE_TEXT = {
   close: 'OK',

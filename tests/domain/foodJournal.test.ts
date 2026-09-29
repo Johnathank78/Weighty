@@ -215,6 +215,7 @@ describe('journal is kept apart from the plan and the engine', () => {
       'src/adapters/openFoodFacts.ts', // type ResolvedFood only
       'src/domain/foodLibrary.ts',
       'src/domain/foodSearch.ts', // type ResolvedFood only
+      'src/domain/history.ts', // display: "Historique" (UX pass 1, F), the day totals, read only
       BRIDGE,
       'src/domain/views.ts', // display: localTimeOf (clock formatting, reads no entry)
       'src/screens/Journal.tsx',

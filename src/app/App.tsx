@@ -18,11 +18,12 @@ import { AdherenceSheet, StepsSheet, WeighSheet } from '@/screens/DailySheets';
 import { BalanceSheet } from '@/screens/BalanceSheet';
 import { WhySheet } from '@/screens/WhySheet';
 import { JournalScreen } from '@/screens/Journal';
+import { HistoryScreen } from '@/screens/History';
 
 /** Screens shown with the bottom navigation; the others (moments, onboarding, deletion) take the whole screen. */
-const WITH_BOTTOM_NAV: ReadonlySet<ScreenId> = new Set(['today', 'journal', 'plan', 'macros', 'suivi', 'analyse', 'profil', 'params', 'data']);
+const WITH_BOTTOM_NAV: ReadonlySet<ScreenId> = new Set(['today', 'journal', 'plan', 'macros', 'suivi', 'history', 'analyse', 'profil', 'params', 'data']);
 
-const NEEDS_PLAN: ReadonlySet<ScreenId> = new Set(['today', 'plan', 'macros', 'suivi', 'analyse', 'recalibration', 'profil', 'reached', 'journal']);
+const NEEDS_PLAN: ReadonlySet<ScreenId> = new Set(['today', 'plan', 'macros', 'suivi', 'analyse', 'recalibration', 'profil', 'reached', 'journal', 'history']);
 
 function Screens() {
   const { screen, tab: activeTab, screenKey, transition, selectTab, toast, dismissToast } = useNav();
@@ -84,6 +85,9 @@ function Screens() {
       break;
     case 'journal':
       content = <JournalScreen />;
+      break;
+    case 'history':
+      content = <HistoryScreen />;
       break;
   }
 

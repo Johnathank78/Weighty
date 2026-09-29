@@ -4,19 +4,22 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { CHART_BAND_LABEL, JOURNAL_TEXT, PLAN_NOTICE_TEXT, RECALIBRATION_REFUSED_TITLE, WHY_PLAIN_TEXT } from '@/app/copy';
+import { CHART_BAND_LABEL, HISTORY_TEXT, JOURNAL_TEXT, PLAN_NOTICE_TEXT, RECALIBRATION_REFUSED_TITLE, WHY_PLAIN_TEXT } from '@/app/copy';
 import { explanationNotes, MAINTENANCE_GAP_NOTE_MIN_KCAL } from '@/domain/explain';
 import { PLAN_MESSAGE } from '@/domain/planMessages';
 import { PLAN_NOTICE_ORDER, PLAN_NOTICES_VISIBLE, planEventText, planNotices } from '@/domain/planSafety';
 import { canStep, snapToGrid, stepValue, valueAtPosition } from '@/components/rangeMath';
 import type { RangeGrid } from '@/components/rangeMath';
 import { formatRatePercent, KG_PER_LB } from '@/domain/format';
-import { goalGuardrails, snapRate, targetWeightSliderBounds } from '@/domain/views';
+import { displayMacros, goalGuardrails, snapRate, targetWeightSliderBounds } from '@/domain/views';
 import { BODY_FAT_MIN_PERCENT } from '@/science/constants';
 import { sliderBounds, weeklyRateRange } from '@/science/goals';
 import { bmi, minimumTargetWeightKg } from '@/science/macros';
 import { intakeObservationsFrom } from '@/domain/intakeObservations';
-import { completeOnboarding } from '@/domain/engine';
+import { addWeight, completeOnboarding, ensureDailyLogs, setActualSteps } from '@/domain/engine';
+import { historyView, HISTORY_WINDOW_DAYS } from '@/domain/history';
+import type { HistoryDay } from '@/domain/history';
+import { addDays } from '@/science/dates';
 import { addFoodEntry, deleteFoodEntry, hasNoMacros, hourGroupKcal, hourGroups, intakeTotals, journalDay, kcalWithoutMacros, replaceManualEntry } from '@/domain/journal';
 import type { ManualFood } from '@/domain/journal';
 import type { FoodEntry, PlanEvent, PlanSummary, WheightyStore } from '@/domain/types';
@@ -394,5 +397,69 @@ describe('G. messages of pass 5a', () => {
     expect(explanationNotes(x('gain', 2600, 2300))).toEqual({ earlyWater: false, maintenanceNotStable: false });
     expect(MAINTENANCE_GAP_NOTE_MIN_KCAL).toBe(20);
     expect(WHY_PLAIN_TEXT.horizon(4)).toBe('Ton plan vise les 4 prochaines semaines, puis il est recalculé.');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// F. Historique: 90-day window, day counts, read only
+// ---------------------------------------------------------------------------
+
+describe('F. historique', () => {
+  function history90(): WheightyStore {
+    const profile = makeProfile({ ageYears: 34, heightCm: 172, currentWeightKg: 80, averageSteps7d: 8200, occupation: 'mixed', goal: 'loss', targetWeightKg: 72, weeklyRateTarget: 0.005 });
+    const start = addDays(DAY, -120);
+    const r = completeOnboarding(emptyStore(), profile, start, `${start}T08:00:00.000Z`);
+    if (!r.ok) throw new Error(r.reason);
+    let s = ensureDailyLogs(r.store, DAY);
+    // Weigh-ins every 3 days over 120 days (two on one day), steps every other day, meals on some days.
+    for (let d = 0; d <= 120; d += 3) s = addWeight(s, { date: addDays(start, d), weightKg: 80 - d * 0.03 }, `${addDays(start, d)}T07:00:00.000Z`);
+    s = addWeight(s, { date: DAY, weightKg: 76.4 }, `${DAY}T20:00:00.000Z`);
+    for (let d = 0; d <= 120; d += 2) s = setActualSteps(s, addDays(start, d), 7000 + d);
+    s = addManual(s, { name: 'Repas', intake: { energyKcal: 600, proteinG: 30, carbsG: 60, fatG: 20 }, grams: null }, '12:00', addDays(DAY, -1));
+    s = addManual(s, { name: 'Resto', intake: { energyKcal: 900, ...NO_MACROS }, grams: null }, '20:00', addDays(DAY, -2));
+    s = addManual(s, { name: 'Trop ancien', intake: { energyKcal: 500, proteinG: 1, carbsG: 1, fatG: 1 }, grams: null }, '12:00', addDays(DAY, -95));
+    return s;
+  }
+
+  it('covers exactly the 90 calendar days ending today, oldest first', () => {
+    const v = historyView(history90(), DAY);
+    expect(HISTORY_WINDOW_DAYS).toBe(90);
+    expect(v.days).toHaveLength(90);
+    expect(v.from).toBe(addDays(DAY, -89));
+    expect(v.to).toBe(DAY);
+    expect(v.days[0]?.date).toBe(v.from);
+    expect(v.days[89]?.date).toBe(DAY);
+    expect(new Set(v.days.map((d) => d.date)).size).toBe(90);
+  });
+
+  it('counts the days each data exists on, inside the window only', () => {
+    const s = history90();
+    const v = historyView(s, DAY);
+    const inWindow = (date: string) => date >= v.from && date <= DAY;
+    expect(v.counts.weighIns).toBe(new Set(s.weights.map((w) => w.date).filter(inWindow)).size);
+    expect(v.counts.steps).toBe(s.dailyLogs.filter((l) => inWindow(l.date) && l.actualSteps !== undefined).length);
+    expect(v.counts.kcal).toBe(2);
+    // The entry without any macro counts for the calories, not for the macros.
+    expect(v.counts.macros).toBe(1);
+    const today = v.days[89] as HistoryDay;
+    expect(today.weighIns.length).toBeGreaterThanOrEqual(1);
+    expect(v.days.find((d) => d.date === addDays(DAY, -2))).toMatchObject({ kcalLogged: 900, macros: null, macrosComplete: false });
+    expect(v.days.find((d) => d.date === addDays(DAY, -1))).toMatchObject({ kcalLogged: 600, macros: { proteinG: 30, carbsG: 60, fatG: 20 }, macrosComplete: true });
+    // Steps are the steps walked, never the plan's step target.
+    expect(v.days.every((d) => d.stepsWalked === null || d.stepsWalked >= 7000)).toBe(true);
+    expect(v.targets).toEqual({ calorieTargetKcal: s.plan?.calorieTarget, macros: displayMacros(s.plan as NonNullable<WheightyStore['plan']>), stepTarget: s.plan?.stepTarget });
+  });
+
+  it('reads only: the store is unchanged, and an empty store gives empty days', () => {
+    const s = history90();
+    const before = JSON.stringify(s);
+    historyView(s, DAY);
+    expect(JSON.stringify(s)).toBe(before);
+    const empty = historyView(emptyStore(), DAY);
+    expect(empty.counts).toEqual({ kcal: 0, macros: 0, weighIns: 0, steps: 0 });
+    expect(empty.targets).toBeNull();
+    expect(HISTORY_TEXT.daysWith(0, 90)).toBe('Aucun jour');
+    expect(HISTORY_TEXT.daysWith(1, 90)).toBe('1 jour sur 90');
+    expect(HISTORY_TEXT.daysWith(62, 90)).toBe('62 jours sur 90');
   });
 });
