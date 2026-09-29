@@ -14,6 +14,8 @@ body {
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  /* UX pass 1, E8: no pull to refresh nor bounce on the app container (the root scroller is the document). */
+  overscroll-behavior: none;
   /* D1: no pinch zoom and no double tap zoom, scrolling untouched. */
   touch-action: pan-x pan-y;
   /*
@@ -51,7 +53,80 @@ button {
   cursor: pointer;
   -webkit-user-select: none;
   user-select: none;
+  -webkit-touch-callout: none;
   touch-action: manipulation;
+}
+/* UX pass 1, E8: no text selection on the controls, and a visible state under the finger. */
+[role='slider'],
+[role='radiogroup'],
+.bottom-nav {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.link:active:not(:disabled),
+.back:active,
+.nav-row:active,
+.opt-row:active:not(:disabled),
+.opt-card:active:not(:disabled),
+.chip:active,
+.seg__opt:active,
+.tile:active,
+.avatar:active,
+.icon-button:active:not(:disabled),
+.bottom-nav__item:active {
+  opacity: 0.6;
+}
+.tile:active,
+.opt-card:active:not(:disabled),
+.opt-row:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+/*
+ * UX pass 1, E7: screen transitions. A sub-screen slides in shortly from the right when opened, from the left when the one
+ * above it closes; a tab change is a short fade. These replace the screen's own entrance animation (more specific), and
+ * the reduced motion rule below still cuts them.
+ */
+.nav-view[data-transition='push'] > * {
+  animation: wNavPush 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.nav-view[data-transition='pop'] > * {
+  animation: wNavPop 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.nav-view[data-transition='tab'] > * {
+  animation: wNavFade 0.14s ease both;
+}
+.nav-view[data-transition='none'] > * {
+  animation: wFade 0.35s ease both;
+}
+@keyframes wNavPush {
+  from {
+    opacity: 0;
+    transform: translateX(36px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes wNavPop {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes wNavFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 button:disabled {
   cursor: not-allowed;

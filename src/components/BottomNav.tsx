@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
+import type { TabId } from '@/app/navModel';
 
-export type TabId = 'today' | 'plan' | 'suivi' | 'analyse' | 'profil';
+export type { TabId } from '@/app/navModel';
 
 const TABS: Array<{ id: TabId; label: string; icon: ReactElement }> = [
   {

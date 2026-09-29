@@ -22,7 +22,6 @@ import {
   nextStep,
   onboardingActions,
   onboardingProgress,
-  previousStep,
   validateStep,
   weightInputString,
 } from '@/domain/onboarding';
@@ -101,11 +100,10 @@ export function OnboardingScreen() {
     if (Object.values(e).some(Boolean) || scopeMissing) return;
     goTo(target);
   };
+  // The app's back and the system back are the same (UX pass 1, E): previous step, or out of the onboarding.
   const previous = () => {
     setErrors({});
-    const prev = previousStep(draft);
-    if (prev === 'exit') back();
-    else patch({ step: prev });
+    back();
   };
 
   const props = { draft, patch, errors, units };

@@ -22,7 +22,7 @@ type RangeChoice = '1m' | '3m' | 'all';
 const COUNT_UP_MS = 1100;
 
 export function SuiviScreen() {
-  const { openSheet } = useNav();
+  const { openSheet, closeSheet, sheet } = useNav();
   const { store, today, update, calibration } = useWheighty();
   const [range, setRange] = useState<RangeChoice>('3m');
   const [pending, setPending] = useState<string | null>(null);
@@ -37,7 +37,8 @@ export function SuiviScreen() {
   );
   const recent = recentWeights(store, 8);
   const weeks = weeksOfTracking(store, today);
-  const pendingEntry = store.weights.find((w) => w.id === pending) ?? null;
+  // The options of a weigh-in are a sheet of the navigation (UX pass 1, E): back closes it.
+  const pendingEntry = sheet === 'weighOptions' ? (store.weights.find((w) => w.id === pending) ?? null) : null;
 
   return (
     <main className="screen">
@@ -113,7 +114,10 @@ export function SuiviScreen() {
       </div>
       <div className="rows">
         {recent.map((w) => (
-          <button key={w.id} type="button" className="row" style={{ width: '100%', background: 'none', borderLeft: 0, borderRight: 0, borderBottom: 0, textAlign: 'left', color: 'var(--ink)' }} onClick={() => setPending(w.id)} aria-label={`Pesée du ${formatDayMonth(w.date)}${w.time ? ` à ${w.time}` : ''} : ${formatWeight(w.kg, units)} ${weightUnitLabel(units)}. Options`}>
+          <button key={w.id} type="button" className="row" style={{ width: '100%', background: 'none', borderLeft: 0, borderRight: 0, borderBottom: 0, textAlign: 'left', color: 'var(--ink)' }} onClick={() => {
+              setPending(w.id);
+              openSheet('weighOptions');
+            }} aria-label={`Pesée du ${formatDayMonth(w.date)}${w.time ? ` à ${w.time}` : ''} : ${formatWeight(w.kg, units)} ${weightUnitLabel(units)}. Options`}>
             <span style={{ font: '500 14px var(--font)' }}>
               {w.date === today ? 'Aujourd’hui' : w.date === addDays(today, -1) ? 'Hier' : formatDayMonth(w.date)}
               {/* Several weigh-ins the same day: the time tells them apart (A3). */}
@@ -129,19 +133,19 @@ export function SuiviScreen() {
         ))}
       </div>
 
-      <BottomSheet open={pendingEntry !== null} onClose={() => setPending(null)} title="Cette pesée" lead={pendingEntry ? `${formatDayMonth(pendingEntry.date)} : ${formatWeight(pendingEntry.weightKg, units)} ${weightUnitLabel(units)}. Une erreur de saisie ? Tu peux la supprimer.` : ''}>
+      <BottomSheet open={pendingEntry !== null} onClose={closeSheet} title="Cette pesée" lead={pendingEntry ? `${formatDayMonth(pendingEntry.date)} : ${formatWeight(pendingEntry.weightKg, units)} ${weightUnitLabel(units)}. Une erreur de saisie ? Tu peux la supprimer.` : ''}>
         <button
           type="button"
           className="btn btn--outline"
           style={{ color: 'var(--danger)' }}
           onClick={() => {
             if (pendingEntry) update((s) => deleteWeight(s, pendingEntry.id));
-            setPending(null);
+            closeSheet();
           }}
         >
           Supprimer cette pesée
         </button>
-        <button type="button" className="btn btn--ghost" onClick={() => setPending(null)}>
+        <button type="button" className="btn btn--ghost" onClick={closeSheet}>
           Annuler
         </button>
       </BottomSheet>

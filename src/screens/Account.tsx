@@ -199,10 +199,11 @@ export function GoalSheet() {
 }
 
 export function ParamsScreen() {
-  const { back } = useNav();
+  const { back, sheet, openSheet, closeSheet } = useNav();
   const { store, update } = useWheighty();
   const pwa = usePwa();
-  const [consentOpen, setConsentOpen] = useState(false);
+  // A sheet of the navigation (UX pass 1, E): back closes it.
+  const consentOpen = sheet === 'productConsent';
   const prefs = store.preferences;
   const setPrefs = (p: Partial<WheightyStore['preferences']>) => update((s) => ({ ...s, preferences: { ...s.preferences, ...p } }));
 
@@ -253,7 +254,7 @@ export function ParamsScreen() {
           <span style={{ display: 'block', font: '600 14.5px var(--font)' }}>{PRODUCT_SEARCH_TEXT.settingTitle}</span>
           <span style={{ display: 'block', font: '400 12.5px var(--font)', color: 'var(--ink2)', marginTop: 2 }}>{PRODUCT_SEARCH_TEXT.settingHint}</span>
         </span>
-        <Toggle checked={prefs.productSearchEnabled} onChange={(v) => (v ? setConsentOpen(true) : setPrefs({ productSearchEnabled: false }))} label={PRODUCT_SEARCH_TEXT.settingTitle} />
+        <Toggle checked={prefs.productSearchEnabled} onChange={(v) => (v ? openSheet('productConsent') : setPrefs({ productSearchEnabled: false }))} label={PRODUCT_SEARCH_TEXT.settingTitle} />
       </div>
       {/* E2: last preference of the screen. */}
       <div className="row" style={{ alignItems: 'center', padding: '16px 0' }}>
@@ -272,7 +273,7 @@ export function ParamsScreen() {
         {DATA_SOURCES_TEXT.off}
       </p>
 
-      <BottomSheet open={consentOpen} onClose={() => setConsentOpen(false)} title={PRODUCT_SEARCH_TEXT.consentTitle} lead={PRODUCT_SEARCH_TEXT.consentLead}>
+      <BottomSheet open={consentOpen} onClose={closeSheet} title={PRODUCT_SEARCH_TEXT.consentTitle} lead={PRODUCT_SEARCH_TEXT.consentLead}>
         <ul className="small" style={{ margin: '0 0 20px', paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <li>{PRODUCT_SEARCH_TEXT.consentSent}</li>
           <li>{PRODUCT_SEARCH_TEXT.consentNeverSent}</li>
@@ -284,12 +285,12 @@ export function ParamsScreen() {
           className="btn btn--primary"
           onClick={() => {
             setPrefs({ productSearchEnabled: true });
-            setConsentOpen(false);
+            closeSheet();
           }}
         >
           {PRODUCT_SEARCH_TEXT.consentConfirm}
         </button>
-        <button type="button" className="btn btn--ghost" onClick={() => setConsentOpen(false)}>
+        <button type="button" className="btn btn--ghost" onClick={closeSheet}>
           {PRODUCT_SEARCH_TEXT.consentCancel}
         </button>
       </BottomSheet>
@@ -331,13 +332,13 @@ export function useExport() {
 }
 
 export function DataScreen() {
-  const { back, go, showToast } = useNav();
+  const { back, go, showToast, sheet, openSheet, closeSheet } = useNav();
   const { store, commit, update, saveError } = useWheighty();
   const doExport = useExport();
   const fileRef = useRef<HTMLInputElement>(null);
   const [imported, setImported] = useState<ImportResult | null>(null);
   // E1: clearing "Mes aliments" lives with the data, and is confirmed.
-  const [clearOpen, setClearOpen] = useState(false);
+  const clearOpen = sheet === 'productClear';
   const libraryCount = store.foodJournal.library.length;
   const loggedDays = store.dailyLogs.filter((l) => l.adherence).length;
   const recalibrations = appliedWeightCalibrations(store);
@@ -412,7 +413,7 @@ export function DataScreen() {
             <span style={{ display: 'block', font: '600 14.5px var(--font)' }}>{PRODUCT_SEARCH_TEXT.clearCache}</span>
             <span style={{ display: 'block', font: '400 12.5px var(--font)', color: 'var(--ink2)', marginTop: 2 }}>{PRODUCT_SEARCH_TEXT.clearCount(libraryCount)}</span>
           </span>
-          <button type="button" className="btn btn--outline btn--small" onClick={() => setClearOpen(true)}>
+          <button type="button" className="btn btn--outline btn--small" onClick={() => openSheet('productClear')}>
             {PRODUCT_SEARCH_TEXT.clearConfirm}
           </button>
         </div>
@@ -421,19 +422,19 @@ export function DataScreen() {
         Supprimer toutes mes données
       </button>
 
-      <BottomSheet open={clearOpen} onClose={() => setClearOpen(false)} title={PRODUCT_SEARCH_TEXT.clearConfirmTitle} lead={PRODUCT_SEARCH_TEXT.clearConfirmLead}>
+      <BottomSheet open={clearOpen} onClose={closeSheet} title={PRODUCT_SEARCH_TEXT.clearConfirmTitle} lead={PRODUCT_SEARCH_TEXT.clearConfirmLead}>
         <button
           type="button"
           className="btn btn--primary"
           onClick={() => {
             update((s) => clearLibrary(s));
-            setClearOpen(false);
+            closeSheet();
             showToast(PRODUCT_SEARCH_TEXT.cacheCleared);
           }}
         >
           {PRODUCT_SEARCH_TEXT.clearConfirm}
         </button>
-        <button type="button" className="btn btn--ghost" onClick={() => setClearOpen(false)}>
+        <button type="button" className="btn btn--ghost" onClick={closeSheet}>
           {PRODUCT_SEARCH_TEXT.clearCancel}
         </button>
       </BottomSheet>
