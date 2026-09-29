@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNav } from '@/app/navigation';
+import { useBackLabel, useNav } from '@/app/navigation';
 import { useWheighty } from '@/store/StoreProvider';
 import { ACTIVITY_LABEL, BODY_FAT_METHOD_LABEL, DATA_SOURCES_TEXT, GOAL_LABEL, GOAL_SHORT, occupationLabel, PACE_LABEL, PLAN_ERROR_TEXT, PRODUCT_SEARCH_TEXT } from '@/app/copy';
 import { clearLibrary } from '@/domain/foodLibrary';
@@ -200,6 +200,7 @@ export function GoalSheet() {
 
 export function ParamsScreen() {
   const { back, sheet, openSheet, closeSheet } = useNav();
+  const backText = useBackLabel();
   const { store, update } = useWheighty();
   const pwa = usePwa();
   // A sheet of the navigation (UX pass 1, E): back closes it.
@@ -210,7 +211,7 @@ export function ParamsScreen() {
   return (
     <main className="screen">
       <button type="button" className="back" onClick={back}>
-        ‹ Profil
+        {backText}
       </button>
       <h1 className="h-page" style={{ marginBottom: 30 }}>
         Préférences
@@ -333,6 +334,7 @@ export function useExport() {
 
 export function DataScreen() {
   const { back, go, showToast, sheet, openSheet, closeSheet } = useNav();
+  const backText = useBackLabel();
   const { store, commit, update, saveError } = useWheighty();
   const doExport = useExport();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -352,7 +354,7 @@ export function DataScreen() {
   return (
     <main className="screen">
       <button type="button" className="back" onClick={back}>
-        ‹ Profil
+        {backText}
       </button>
       <h1 className="h-page" style={{ marginBottom: 8 }}>
         Mes données

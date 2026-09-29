@@ -84,21 +84,75 @@ button {
 }
 
 /*
- * UX pass 1, E7: screen transitions. A sub-screen slides in shortly from the right when opened, from the left when the one
- * above it closes; a tab change is a short fade. These replace the screen's own entrance animation (more specific), and
- * the reduced motion rule below still cuts them.
+ * UX pass 1, E7 (reworked with John): screen transitions. A stacked page slides in from the right, the page it uncovers
+ * back from the left; a section chosen in the bottom bar slides in from its side. After a swipe, nothing more: the finger
+ * already moved the screens. These replace the screen's own entrance animation (more specific), and the reduced motion
+ * rule below still cuts them.
  */
+.nav-view {
+  /* Vertical scrolling stays with the browser; horizontal drags reach the swipe layer (SwipeView). */
+  touch-action: pan-y;
+}
 .nav-view[data-transition='push'] > * {
   animation: wNavPush 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .nav-view[data-transition='pop'] > * {
   animation: wNavPop 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-.nav-view[data-transition='tab'] > * {
-  animation: wNavFade 0.14s ease both;
+.nav-view[data-transition='tab-next'] > * {
+  animation: wNavTabNext 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.nav-view[data-transition='tab-prev'] > * {
+  animation: wNavTabPrev 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .nav-view[data-transition='none'] > * {
-  animation: wFade 0.35s ease both;
+  animation: none;
+}
+/* During a swipe: the screen under the finger covers the one drawn under it, with a soft edge. */
+.nav-view[data-swiping] {
+  position: relative;
+  z-index: 2;
+  background: var(--bg);
+  box-shadow: -10px 0 30px -12px rgba(32, 32, 30, 0.28);
+  will-change: transform;
+}
+/* The screen uncovered by a swipe: a copy at its own scroll position, under (back) or beside (section) the moving one. */
+.nav-layer {
+  position: fixed;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  z-index: 1;
+  background: var(--bg);
+  pointer-events: none;
+  will-change: transform;
+}
+.nav-layer[data-kind='tab'] {
+  z-index: 2;
+}
+.nav-layer > div > * {
+  animation: none;
+}
+@keyframes wNavTabNext {
+  from {
+    opacity: 0.4;
+    transform: translateX(28%);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes wNavTabPrev {
+  from {
+    opacity: 0.4;
+    transform: translateX(-28%);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 @keyframes wNavPush {
   from {
@@ -118,14 +172,6 @@ button {
   to {
     opacity: 1;
     transform: none;
-  }
-}
-@keyframes wNavFade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
   }
 }
 button:disabled {
@@ -1239,6 +1285,8 @@ img {
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* Vertical scrolling stays with the browser; a swipe to the right closes the sheet (UX pass 1, E). */
+  touch-action: pan-y;
   background: var(--surf);
   border-radius: 28px 28px 0 0;
   padding: 10px 24px calc(28px + var(--safe-bottom));
@@ -2024,7 +2072,8 @@ img {
 .journal-footer {
   position: fixed;
   left: 50%;
-  transform: translateX(-50%);
+  /* --swipe-x: the journal page being swiped away takes its add button with it (SwipeView). */
+  transform: translateX(calc(-50% + var(--swipe-x, 0px)));
   bottom: calc(14px + 66px + 10px + var(--safe-bottom));
   width: calc(min(100vw, var(--shell-max)) - 28px);
   z-index: 9;

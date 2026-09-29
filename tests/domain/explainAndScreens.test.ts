@@ -217,7 +217,8 @@ describe('Analyse and Plan redundancy (s17, s18)', () => {
   it('navigation to Suivi and Analyse still works from the tab bar', () => {
     const html = renderToStaticMarkup(createElement(BottomNav, { active: 'plan', onNavigate: () => undefined }));
     for (const label of ['Plan', 'Suivi', 'Analyse']) expect(html).toContain(`<span>${label}</span>`);
-    expect(app).toMatch(/case 'suivi':\s*content = <SuiviScreen \/>/);
-    expect(app).toMatch(/case 'analyse':\s*content = <AnalyseScreen \/>/);
+    // UX pass 1 (E): screens are built by renderScreen (the live one and the copies drawn during a swipe).
+    expect(app).toMatch(/case 'suivi':\s*return <SuiviScreen \/>/);
+    expect(app).toMatch(/case 'analyse':\s*return <AnalyseScreen \/>/);
   });
 });

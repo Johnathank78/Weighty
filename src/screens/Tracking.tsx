@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNav } from '@/app/navigation';
+import { useNav, useViewActive } from '@/app/navigation';
 import { useWheighty } from '@/store/StoreProvider';
 import { ADHERENCE_LABEL, CHART_BAND_LABEL, CONFIDENCE_LABEL, GATE_CRITERION_LABEL, HISTORY_TEXT, RECALIBRATION_REFUSED_TITLE } from '@/app/copy';
 import { HISTORY_WINDOW_DAYS } from '@/domain/history';
@@ -356,6 +356,8 @@ export function RecalibrationScreen() {
   const state = calibration;
   const [shown, setShown] = useState(plan?.maintenanceKcal ?? 0);
   const marked = useRef(false);
+  // Only the live screen marks the recalibration seen, never a copy drawn during a swipe.
+  const live = useViewActive();
 
   // The rebuild the recalibration would apply. A refusal keeps its reason (pass 5a s5): shown with the maintenance offer.
   const build = useMemo(() => {
@@ -388,12 +390,12 @@ export function RecalibrationScreen() {
   }, [target, plan]);
 
   useEffect(() => {
-    if (!marked.current && !calibrationPending && state?.surfaced && state.candidate) {
+    if (live && !marked.current && !calibrationPending && state?.surfaced && state.candidate) {
       marked.current = true;
       // Seen: surfacing thresholds now compare against this event (05 s12). The plan is unchanged until applied.
       commit(markRecalibrationSeen(store, state, today));
     }
-  }, [state, calibrationPending, store, today, commit]);
+  }, [live, state, calibrationPending, store, today, commit]);
 
   if (!plan || !state?.candidate || target === null) {
     return (

@@ -199,6 +199,21 @@ export const HISTORY_TEXT = {
   trendPending: 'Pas encore assez de pesées pour une tendance sur la période.',
 } as const;
 
+/** UX pass 1, E: the back buttons name the page they restore (a page can be opened from several places). */
+export const BACK_LABEL: Partial<Record<string, string>> = {
+  today: 'Aujourd’hui',
+  plan: 'Plan',
+  suivi: 'Suivi',
+  analyse: 'Analyse',
+  profil: 'Profil',
+  journal: 'Journal',
+  macros: 'Macros',
+  params: 'Préférences',
+  data: 'Mes données',
+  history: 'Historique',
+  recalibration: 'Recalibration',
+};
+
 /** UX pass 1, G: the message zone of Aujourd'hui and Suivi. */
 export const PLAN_NOTICE_TEXT = {
   close: 'OK',

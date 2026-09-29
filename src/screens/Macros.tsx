@@ -1,4 +1,4 @@
-import { useNav } from '@/app/navigation';
+import { useBackLabel, useNav } from '@/app/navigation';
 import { useWheighty } from '@/store/StoreProvider';
 import { PROTEIN_RULE_TEXT } from '@/app/copy';
 import { formatGrams, formatNumber } from '@/domain/format';
@@ -6,6 +6,7 @@ import { displayMacros, macroEnergyShares } from '@/domain/views';
 
 export function MacrosScreen() {
   const { back, openSheet } = useNav();
+  const backText = useBackLabel();
   const { store } = useWheighty();
   const plan = store.plan;
   const profile = store.profile;
@@ -26,7 +27,7 @@ export function MacrosScreen() {
   return (
     <main className="screen">
       <button type="button" className="back" onClick={back}>
-        ‹ Plan
+        {backText}
       </button>
       <h1 className="h-page">Macros</h1>
       <div style={{ display: 'flex', height: 10, borderRadius: 6, overflow: 'hidden', marginBottom: 30 }} role="img" aria-label={`Répartition de l’énergie : protéines ${Math.round(shares.protein * 100)} %, glucides ${Math.round(shares.carbs * 100)} %, lipides ${Math.round(shares.fat * 100)} %`}>

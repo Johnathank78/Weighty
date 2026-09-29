@@ -317,3 +317,31 @@ Fait :
 Vérifications [mesuré] : captures T-03, T-04, golden, R et S, `convergenceJourney` : 0 différence sur 2 522 380 valeurs ; `npm run check` : **587 sur 587** (46 fichiers) ; rendu contrôlé à 360 px dans le navigateur avec le store de démonstration (60 jours de pesées et de pas, 30 jours de journal).
 
 Choix faits sans consigne, à valider : barres pleines à 85 % d'opacité, dans une seule couleur par donnée, sans couleur d'alerte au-dessus de la cible (même neutralité que les jauges du journal) ; libellés d'axe « date du premier jour » et « Auj. ».
+
+### 29/09/2026, navigation reprise avec John (iPhone, app installée)
+
+Retour de John après essai sur iPhone, app installée : « tu as tout cassé ». Ce qu'il a vu venait de l'historique du navigateur. En app installée, iOS fait revenir en arrière par un balayage depuis le bord gauche **dès qu'il existe une entrée d'historique**, et ce geste fait glisser toute la page, barre du bas comprise. Ma navigation E créait ces entrées. La section 6 disait l'inverse (« pas de geste de balayage en mode standalone » [déduit]) : c'était faux.
+
+Comportement demandé par John, qui remplace les points 1, 4 et 5 de E :
+- **Sections côte à côte, en carrousel** : sur la racine d'une section, glisser le doigt vers la gauche ou la droite passe à la section voisine, la page suit le doigt. Rien à gauche d'Aujourd'hui, rien à droite de Profil. Aucun « retour » entre sections : sur une racine, le retour ne fait rien.
+- **Page B ouverte depuis une page A** (Détail depuis Aujourd'hui, Analyse depuis la ligne d'état d'Aujourd'hui, Plan après un changement d'objectif depuis Profil…) : B est empilée au-dessus de A, même si B est une section. Glisser vers la droite, ou le bouton retour, rétablit A, jamais la section à gauche de B. Glisser vers la gauche ne fait rien.
+- **Pendant le geste, seule la vue bouge** : A est dessinée dessous avec un léger décalage, comme sur iOS, et la barre du bas reste fixe. Le bouton « Ajouter un aliment » du journal suit sa page.
+- **Panneau ouvert** : glisser vers la droite le ferme (il suit le doigt et sort par la droite).
+- Un geste qui part d'un bouton ne déclenche pas ce bouton. Les curseurs, les champs et tout ce qui défile horizontalement gardent leur glissement.
+- Un geste relâché aboutit au-delà d'un tiers de la largeur ou sur un geste vif ; sinon la page revient en place.
+- Toucher une section dans la barre la fait glisser depuis son côté et ferme les pages empilées.
+- Les boutons retour nomment la page qu'ils rétablissent (« ‹ Aujourd'hui » sur Macros ouvert depuis Aujourd'hui, « ‹ Plan » depuis Plan).
+
+Réalisation :
+- **Modèle** : `navModel.ts` réécrit. Une section de base et une pile de pages au-dessus ; `swipeActions` dit ce qu'un glissement peut faire, `navSwipe` l'applique, `swipeCompletes` décide au relâchement. Tout est pur et testé.
+- **Geste** : `src/components/SwipeView.tsx`, en événements pointer tactiles (`touch-action: pan-y` sur la vue, le défilement vertical reste au navigateur). La page découverte est une copie dessinée à sa position de défilement ; sans portail ni effet de bord (`useViewActive`).
+- **Panneaux** : `BottomSheet.tsx` gère le glissement vers la droite.
+- **Historique du navigateur** : jamais d'entrée sur iPhone et iPad, pour que le geste système n'ait rien à faire. Sur Android, une entrée tant qu'une page ou un panneau peut être fermé, pour le bouton retour. Sur une racine de section, le bouton retour d'Android quitte l'app.
+- **Abandonné** : chaque section gardait son sous-écran ouvert en changeant d'onglet. Changer de section ferme maintenant les pages empilées ; seules les positions de défilement des racines sont gardées.
+
+Vérifications [mesuré] :
+- captures : 0 différence sur 2 522 380 valeurs ;
+- `npm run check` : **590 sur 590** (46 fichiers). `tests/app/navigation.test.ts` a été réécrit (16 tests). Le test de `explainAndScreens.test.ts` qui lisait `App.tsx` a été adapté à `renderScreen`, même intention ;
+- dans le navigateur, en 375 px avec des gestes tactiles simulés : glissement vers la droite sur Aujourd'hui sans effet ; carrousel Aujourd'hui → Plan → Suivi → Plan ; Détail rétabli sur Aujourd'hui, avec Aujourd'hui visible dessous pendant le geste et la barre du bas immobile (capture d'écran) ; Analyse ouverte depuis Aujourd'hui rétablie sur Aujourd'hui ; panneau des pas fermé par glissement ; glissement parti du bouton « Détail » sans ouvrir Détail.
+
+Non vérifié : un vrai iPhone. Les gestes ont été simulés par des événements pointer, pas par un doigt sur Safari iOS.

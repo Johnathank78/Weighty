@@ -1,12 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { OnboardingDraft } from '@/domain/onboarding';
-import { canGoBack, currentKey, currentScreen, initialNav, liveKeys, navBack, navCloseSheet, navGo, navOpenSheet, navSelectTab } from './navModel';
-import type { NavState, NavTransition, ScreenId, SheetId, TabId } from './navModel';
+import { activeTab, canGoBack, currentKey, currentScreen, initialNav, liveKeys, navBack, navCloseSheet, navGo, navOpenSheet, navSelectTab, navSwipe, screenUnder, swipeActions } from './navModel';
+import { BACK_LABEL } from './copy';
+import type { NavState, NavTransition, ScreenId, SheetId, SwipeAction, TabId } from './navModel';
 import { createHistorySync } from './navHistory';
 import type { HistorySync } from './navHistory';
 
-export type { ScreenId, SheetId, TabId } from './navModel';
+export type { ScreenId, SheetId, SwipeAction, TabId } from './navModel';
 
 export type WhyTopic = 'estimate' | 'macros' | 'recalibration' | 'nodata';
 
@@ -15,14 +16,22 @@ type Toast = { id: number; text: string; action?: { label: string; run: () => vo
 type NavValue = {
   screen: ScreenId;
   sheet: SheetId | null;
-  /** Tab on display, null outside the tabs (UX pass 1, E). */
+  /** Section lit in the bottom bar, null outside the sections. */
   tab: TabId | null;
-  /** Identity of the screen on display (its place in the stacks) and how it was reached, for its entrance animation. */
+  /** Identity of the screen on display and how it was reached, for its entrance animation. */
   screenKey: string;
   transition: NavTransition;
+  /** What a horizontal swipe may do from the screen on display (SwipeView). */
+  swipe: { right: SwipeAction | null; left: SwipeAction | null };
+  /** A swipe carried through by the gesture layer. */
+  completeSwipe: (action: SwipeAction) => void;
+  /** Last scroll position of a screen, for drawing it in advance under a swipe. */
+  scrollOf: (key: string) => number;
+  /** Text of the back button of a stacked page: the page it restores ("‹ Aujourd’hui"). */
+  backLabel: string;
   whyTopic: WhyTopic;
   go: (screen: ScreenId, options?: { replace?: boolean }) => void;
-  /** Bottom navigation: no history entry, each tab keeps its sub-screen and scroll position. */
+  /** Bottom bar: that section, at its root. */
   selectTab: (tab: TabId) => void;
   back: () => void;
   openSheet: (sheet: SheetId, topic?: WhyTopic) => void;
@@ -37,9 +46,18 @@ type NavValue = {
 const NavContext = createContext<NavValue | null>(null);
 
 /**
- * Navigation on the browser history, without a router (UX pass 1, E): the state and its transitions live in navModel.ts,
- * the history holds at most one entry above the base (navHistory.ts), and each screen gets its scroll position back when
- * shown again.
+ * iPhone and iPad: the installed app goes back through its own history with the system edge swipe, moving the whole page,
+ * bottom bar included. The app therefore never adds a history entry there: the swipes are the app's own (SwipeView).
+ * Elsewhere (Android), one history entry above the base catches the system back button while something can be closed.
+ */
+function systemSwipesHistory(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+/**
+ * Navigation without a router (UX pass 1, E): the state and its transitions live in navModel.ts; each screen gets its
+ * scroll position back when shown again; the history is used on Android only, for its back button (navHistory.ts).
  */
 export function NavigationProvider({ initialScreen, children }: { initialScreen: ScreenId; children: ReactNode }) {
   const [state, setState] = useState<NavState>(() => initialNav(initialScreen));
@@ -58,6 +76,11 @@ export function NavigationProvider({ initialScreen, children }: { initialScreen:
 
   useEffect(() => {
     if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual';
+    if (systemSwipesHistory()) {
+      // The entry the app opens on stays alone: nothing for the system swipe to go back to.
+      window.history.replaceState({ wheighty: 'base' }, '');
+      return;
+    }
     const sync = createHistorySync(window.history, () => navigate(navBack));
     history.current = sync;
     sync.init();
@@ -85,20 +108,19 @@ export function NavigationProvider({ initialScreen, children }: { initialScreen:
   const selectTab = useCallback(
     (tab: TabId) => {
       const s = stateRef.current;
-      // The active tab, already at its root: back to the top of the page, as in a native app.
-      if (s.mode === 'tabs' && s.tab === tab && s.stacks[tab].length === 0 && s.sheet === null) window.scrollTo({ top: 0, behavior: 'smooth' });
+      // The section on display, at its root: back to the top of the page, as in a native app.
+      if (s.mode === 'tabs' && s.tab === tab && s.stack.length === 0 && s.sheet === null) window.scrollTo({ top: 0, behavior: 'smooth' });
       else navigate((cur) => navSelectTab(cur, tab));
     },
     [navigate],
   );
   const back = useCallback(() => navigate(navBack), [navigate]);
-  const openSheet = useCallback(
-    (next: SheetId, topic?: WhyTopic) => {
-      if (topic) setWhyTopic(topic);
-      setState((s) => navOpenSheet(s, next));
-    },
-    [],
-  );
+  const completeSwipe = useCallback((action: SwipeAction) => navigate((s) => navSwipe(s, action)), [navigate]);
+  const scrollOf = useCallback((k: string) => scrolls.current.get(k) ?? 0, []);
+  const openSheet = useCallback((next: SheetId, topic?: WhyTopic) => {
+    if (topic) setWhyTopic(topic);
+    setState((s) => navOpenSheet(s, next));
+  }, []);
   const closeSheet = useCallback(() => setState(navCloseSheet), []);
 
   const dismissToast = useCallback(() => setToast(null), []);
@@ -114,9 +136,13 @@ export function NavigationProvider({ initialScreen, children }: { initialScreen:
     () => ({
       screen: currentScreen(state),
       sheet: state.sheet,
-      tab: state.mode === 'tabs' ? state.tab : null,
+      tab: activeTab(state),
       screenKey: key,
       transition: state.transition,
+      swipe: swipeActions(state),
+      completeSwipe,
+      scrollOf,
+      backLabel: backLabelFor(screenUnder(state)),
       whyTopic,
       go,
       selectTab,
@@ -129,7 +155,7 @@ export function NavigationProvider({ initialScreen, children }: { initialScreen:
       draft: state.draft,
       setDraft,
     }),
-    [state, key, whyTopic, go, selectTab, back, openSheet, closeSheet, toast, showToast, dismissToast, setDraft],
+    [state, key, completeSwipe, scrollOf, whyTopic, go, selectTab, back, openSheet, closeSheet, toast, showToast, dismissToast, setDraft],
   );
   return <NavContext.Provider value={value}>{children}</NavContext.Provider>;
 }
@@ -138,4 +164,28 @@ export function useNav(): NavValue {
   const ctx = useContext(NavContext);
   if (!ctx) throw new Error('useNav must be used inside NavigationProvider');
   return ctx;
+}
+
+/**
+ * Whether the screen being rendered is the live one, or a copy drawn under or beside it during a swipe (SwipeView). A copy
+ * must not open portals (fixed footers) or have side effects.
+ */
+export const ViewActiveContext = createContext(true);
+
+export function useViewActive(): boolean {
+  return useContext(ViewActiveContext);
+}
+
+/** Back label of a copy drawn during a swipe (the page under it), in place of the live screen's. */
+export const BackLabelContext = createContext<string | null>(null);
+
+export function backLabelFor(under: ScreenId | null | undefined): string {
+  return `‹ ${BACK_LABEL[under ?? ''] ?? 'Retour'}`;
+}
+
+/** The text of the back button of the screen being rendered. */
+export function useBackLabel(): string {
+  const copy = useContext(BackLabelContext);
+  const { backLabel } = useNav();
+  return copy ?? backLabel;
 }

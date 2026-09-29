@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useNav } from '@/app/navigation';
+import { useBackLabel, useNav, useViewActive } from '@/app/navigation';
 import { useWheighty } from '@/store/StoreProvider';
 import { BARCODE_TEXT, FOOD_SEARCH_TEXT, FOOD_SOURCE_LABEL, JOURNAL_GAUGE_TEXT, JOURNAL_MASK_TEXT, JOURNAL_TEXT, JOURNAL_TIME_TEXT, OFF_RESULT_TEXT, PORTION_TEXT, PRODUCT_SEARCH_TEXT } from '@/app/copy';
 import { BottomSheet } from '@/components/BottomSheet';
@@ -36,7 +36,10 @@ type TimingSession = { justAte: boolean; time: string };
 
 export function JournalScreen() {
   const { back, openSheet, sheet, showToast } = useNav();
+  const backText = useBackLabel();
   const { store, today, update } = useWheighty();
+  // A copy drawn under a swipe has no fixed footer and no sheet of its own.
+  const live = useViewActive();
   const [day, setDay] = useState<DayChoice>('today');
   const [timing, setTiming] = useState<TimingSession>(() => ({ justAte: true, time: localTimeOf(new Date()) }));
   useEffect(() => setTiming({ justAte: true, time: localTimeOf(new Date()) }), [today]);
@@ -75,7 +78,7 @@ export function JournalScreen() {
   return (
     <main className="screen screen--journal">
       <button type="button" className="back" onClick={back}>
-        ‹ Aujourd’hui
+        {backText}
       </button>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <h1 className="h-page" style={{ marginBottom: 4 }}>
@@ -242,7 +245,7 @@ export function JournalScreen() {
       )}
 
       {/* Portal: the animated screen container would otherwise anchor this fixed footer to the page end. */}
-      {createPortal(
+      {live && createPortal(
         <div className="journal-footer">
           <button type="button" className="btn btn--primary" onClick={() => openSheet('food')}>
             {JOURNAL_TEXT.add}
@@ -250,8 +253,8 @@ export function JournalScreen() {
         </div>,
         document.body,
       )}
-      {sheet === 'food' ? <FoodSheet selectedDate={date} today={today} timing={timing} setTiming={setTiming} /> : null}
-      {sheet === 'foodEdit' && editing ? <EditFoodSheet key={editing.id} entry={editing} today={today} /> : null}
+      {live && sheet === 'food' ? <FoodSheet selectedDate={date} today={today} timing={timing} setTiming={setTiming} /> : null}
+      {live && sheet === 'foodEdit' && editing ? <EditFoodSheet key={editing.id} entry={editing} today={today} /> : null}
     </main>
   );
 }

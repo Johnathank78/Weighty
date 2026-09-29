@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
-import { useNav } from '@/app/navigation';
+import { useBackLabel, useNav } from '@/app/navigation';
 import { HISTORY_TEXT, JOURNAL_GAUGE_TEXT } from '@/app/copy';
 import { HistoryChart } from '@/components/HistoryChart';
 import { formatDayMonth, formatGrams, formatInteger, formatKcal, formatSignedWeight, formatSteps, weightUnitLabel } from '@/domain/format';
@@ -19,6 +19,7 @@ const MACRO_KEYS = ['proteinG', 'carbsG', 'fatG'] as const;
  */
 export function HistoryScreen() {
   const { back } = useNav();
+  const backText = useBackLabel();
   const { store, today } = useWheighty();
   const units = store.preferences.units;
   const view = useMemo(() => historyView(store, today), [store, today]);
@@ -39,7 +40,7 @@ export function HistoryScreen() {
   return (
     <main className="screen">
       <button type="button" className="back" onClick={back}>
-        ‹ Suivi
+        {backText}
       </button>
       <h1 className="h-page" style={{ marginBottom: 4 }}>
         {HISTORY_TEXT.title}
