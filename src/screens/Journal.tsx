@@ -6,7 +6,7 @@ import { BARCODE_TEXT, FOOD_SEARCH_TEXT, FOOD_SOURCE_LABEL, JOURNAL_GAUGE_TEXT, 
 import { BottomSheet } from '@/components/BottomSheet';
 import { NumberField, parseDecimal, Segmented } from '@/components/controls';
 import { formatDayMonth, formatGrams, formatInteger, formatKcal, formatNumber } from '@/domain/format';
-import { addFoodEntry, addPortion, consumptionDate, deleteFoodEntry, foodKey, hourGroups, intakeGauge, intakeTotals, journalDay, kcalWithoutMacros, MACRO_KEYS, MANUAL_DEFAULT_NAME, maskedGaugeParts, missingMacros, localTimeOf, nutrientsForGrams, portionsFor, replaceManualEntry, restoreFoodEntry } from '@/domain/journal';
+import { addFoodEntry, addPortion, consumptionDate, deleteFoodEntry, foodKey, hourGroupKcal, hourGroups, intakeGauge, intakeTotals, journalDay, kcalWithoutMacros, MACRO_KEYS, MANUAL_DEFAULT_NAME, maskedGaugeParts, missingMacros, localTimeOf, nutrientsForGrams, portionsFor, replaceManualEntry, restoreFoodEntry } from '@/domain/journal';
 import type { ManualFood, NewEntryInput, RecentFood, ResolvedFood } from '@/domain/journal';
 import { buildSearchIndex, loadCiqual, resolveCiqualFood, searchIndex } from '@/domain/foodSearch';
 import { libraryFoodToManual, libraryFoodToResolved, previousFoods, productLibraryKey, rememberManualFood, rememberProduct, touchLibraryFood } from '@/domain/foodLibrary';
@@ -62,6 +62,8 @@ export function JournalScreen() {
   // A: the kcal of entries without any macro are named next to the total, so the macro gauges never pass for complete.
   const withoutMacros = kcalWithoutMacros(visibleEntries);
   const maskedKcal = Math.max(0, summary.intakeLoggedKcal - visible.energyKcal);
+  const groups = hourGroups(summary.entries);
+  const groupKcal = hourGroupKcal(groups, (e) => !isMasked(mask, e.id));
   const kcal = intakeGauge(visible.energyKcal, targetKcal);
   const guidance = JOURNAL_TEXT.completenessGuidance;
 
@@ -179,7 +181,7 @@ export function JournalScreen() {
             </p>
           ) : null}
           <ol className="timeline" aria-label="Aliments du jour, par heure">
-            {hourGroups(summary.entries).map((group) => (
+            {groups.map((group, i) => (
               <li key={group.hour} className="timeline__item">
                 <div className="timeline__head">
                   <span className="timeline__dot" aria-hidden="true" />
@@ -187,6 +189,8 @@ export function JournalScreen() {
                     {Number(group.hour)} h
                   </time>
                   <span className="timeline__rule" aria-hidden="true" />
+                  {/* C: the hour's total, visible entries only, adding up to the day total shown above. */}
+                  <span className="timeline__kcal tabular">{kcalText(groupKcal[i] ?? 0)}</span>
                 </div>
                 <ul className="timeline__entries">
                   {group.entries.map((e) => {

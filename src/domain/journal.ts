@@ -263,6 +263,26 @@ export function hourGroups(entries: readonly FoodEntry[]): Array<{ hour: string;
 }
 
 /**
+ * Displayed kcal of each hour group (UX pass 1, C), for the entries `counted` (the visible ones when some are masked).
+ * Same rounding as the day total, whole kcal, and the groups always add up to the day total as displayed
+ * (`Math.round(intakeTotals(counted).energyKcal)`): each group gets the whole part of its sum, then the kcal left by the
+ * rounding go to the groups with the largest remainders (in day order on ties). A group with nothing counted shows 0.
+ */
+export function hourGroupKcal(groups: ReadonlyArray<{ entries: readonly FoodEntry[] }>, counted: (e: FoodEntry) => boolean = () => true): number[] {
+  const exact = groups.map((g) => intakeTotals(g.entries.filter(counted)).energyKcal);
+  const target = Math.round(intakeTotals(groups.flatMap((g) => g.entries.filter(counted))).energyKcal);
+  const out = exact.map((v) => Math.floor(v));
+  let left = target - out.reduce((a, b) => a + b, 0);
+  const order = exact.map((v, i) => ({ i, r: v - Math.floor(v) })).sort((a, b) => b.r - a.r || a.i - b.i);
+  for (const { i } of order) {
+    if (left <= 0) break;
+    out[i] = (out[i] as number) + 1;
+    left--;
+  }
+  return out;
+}
+
+/**
  * Gauge split when some entries are masked on screen (J-11, display only): the coloured part is the visible
  * entries, the striped part the masked ones, both as shares of the bar and never beyond it together.
  */

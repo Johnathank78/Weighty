@@ -1729,6 +1729,12 @@ img {
   height: 1px;
   background: var(--line);
 }
+/* C: the hour's kcal at the end of its header line. */
+.timeline__kcal {
+  flex: none;
+  font: 600 12.5px/20px var(--font);
+  color: var(--ink2);
+}
 .timeline__content {
   min-width: 0;
 }

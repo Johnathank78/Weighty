@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { JOURNAL_TEXT } from '@/app/copy';
 import { intakeObservationsFrom } from '@/domain/intakeObservations';
 import { completeOnboarding } from '@/domain/engine';
-import { addFoodEntry, deleteFoodEntry, hasNoMacros, journalDay, kcalWithoutMacros, replaceManualEntry } from '@/domain/journal';
+import { addFoodEntry, deleteFoodEntry, hasNoMacros, hourGroupKcal, hourGroups, intakeTotals, journalDay, kcalWithoutMacros, replaceManualEntry } from '@/domain/journal';
 import type { ManualFood } from '@/domain/journal';
 import type { FoodEntry, WheightyStore } from '@/domain/types';
 import { emptyStore, isFoodEntry } from '@/persistence/schema';
@@ -167,5 +167,49 @@ describe('B. edit of a free entry', () => {
     const withProduct = addFoodEntry(s, { kind: 'resolved', date: DAY, localTime: '10:00', food: { source: 'ciqual', sourceId: '13050', sourceVersion: 'Ciqual 2025', resolvedAt: NOW, name: 'Pomme', per100g: { energyKcal: 53.6, proteinG: 0.25, carbsG: 11.6, fatG: 0.25 } }, grams: 150 }, NOW);
     if (!withProduct.ok) throw new Error('add');
     expect(replaceManualEntry(withProduct.store, withProduct.id, { date: DAY, consumedTime: '10:00', food: EDITED }, NOW)).toEqual({ ok: false, reason: 'invalid_entry' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// C. Kcal of each hour group
+// ---------------------------------------------------------------------------
+
+describe('C. kcal of each hour group', () => {
+  const food = (kcal: number, p: number | null = 1): ManualFood => ({ name: 'x', intake: { energyKcal: kcal, proteinG: p, carbsG: p, fatG: p }, grams: null });
+  const displayedDayTotal = (s: WheightyStore, counted: (e: FoodEntry) => boolean = () => true) => Math.round(journalDay(s, DAY).entries.filter(counted).reduce((a, e) => a + e.intake.energyKcal, 0) * 100) / 100;
+
+  it('the groups add up to the day total as displayed, rounding included, with entries without macros', () => {
+    let s = emptyStore();
+    s = addManual(s, food(100.4), '08:05');
+    s = addManual(s, food(100.4, null), '08:40');
+    s = addManual(s, food(100.4), '12:00');
+    s = addManual(s, food(0.6, null), '16:30');
+    s = addManual(s, food(250.2), '20:15');
+    const groups = hourGroups(journalDay(s, DAY).entries);
+    const kcal = hourGroupKcal(groups);
+    expect(groups.map((g) => g.hour)).toEqual(['08', '12', '16', '20']);
+    expect(kcal).toEqual([201, 100, 1, 250]);
+    expect(kcal.reduce((a, b) => a + b, 0)).toBe(Math.round(journalDay(s, DAY).intakeLoggedKcal));
+    expect(Math.round(journalDay(s, DAY).intakeLoggedKcal)).toBe(Math.round(displayedDayTotal(s)));
+  });
+
+  it('holds on random days, with masked (not counted) entries and empty groups', () => {
+    let seed = 7;
+    const rand = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+    for (let run = 0; run < 300; run++) {
+      let s = emptyStore();
+      const n = Math.floor(rand() * 9);
+      for (let k = 0; k < n; k++) {
+        const t = `${String(Math.floor(rand() * 24)).padStart(2, '0')}:${String(Math.floor(rand() * 60)).padStart(2, '0')}`;
+        s = addManual(s, food(Math.round(rand() * 90000) / 100, rand() < 0.3 ? null : 2), t);
+      }
+      const entries = journalDay(s, DAY).entries;
+      const masked = new Set(entries.filter(() => rand() < 0.25).map((e) => e.id));
+      const counted = (e: FoodEntry) => !masked.has(e.id);
+      const kcal = hourGroupKcal(hourGroups(entries), counted);
+      expect(kcal.every((v) => Number.isInteger(v) && v >= 0)).toBe(true);
+      expect(kcal.reduce((a, b) => a + b, 0)).toBe(Math.round(intakeTotals(entries.filter(counted)).energyKcal));
+    }
+    expect(hourGroupKcal([])).toEqual([]);
   });
 });
