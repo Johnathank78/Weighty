@@ -245,6 +245,11 @@ export const JOURNAL_TEXT = {
   add: 'Ajouter un aliment',
   added: 'Ajouté au journal.',
   removed: 'Aliment retiré.',
+  /** B: edit of a free entry. */
+  edit: 'Modifier',
+  editTitle: 'Modifier la saisie',
+  editSave: 'Enregistrer',
+  edited: 'Saisie modifiée.',
   undo: 'Annuler',
   todayLink: 'Journal alimentaire',
   todayEmpty: 'Facultatif',

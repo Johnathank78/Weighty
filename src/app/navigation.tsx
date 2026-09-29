@@ -21,7 +21,7 @@ export type ScreenId =
   | 'reached'
   | 'journal';
 
-export type SheetId = 'balance' | 'weigh' | 'adherence' | 'steps' | 'why' | 'goal' | 'food';
+export type SheetId = 'balance' | 'weigh' | 'adherence' | 'steps' | 'why' | 'goal' | 'food' | 'foodEdit';
 
 export type WhyTopic = 'estimate' | 'macros' | 'recalibration' | 'nodata';
 

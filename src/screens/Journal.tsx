@@ -6,7 +6,7 @@ import { BARCODE_TEXT, FOOD_SEARCH_TEXT, FOOD_SOURCE_LABEL, JOURNAL_GAUGE_TEXT, 
 import { BottomSheet } from '@/components/BottomSheet';
 import { NumberField, parseDecimal, Segmented } from '@/components/controls';
 import { formatDayMonth, formatGrams, formatInteger, formatKcal, formatNumber } from '@/domain/format';
-import { addFoodEntry, addPortion, consumptionDate, deleteFoodEntry, foodKey, hourGroups, intakeGauge, intakeTotals, journalDay, kcalWithoutMacros, MACRO_KEYS, maskedGaugeParts, missingMacros, localTimeOf, nutrientsForGrams, portionsFor, restoreFoodEntry } from '@/domain/journal';
+import { addFoodEntry, addPortion, consumptionDate, deleteFoodEntry, foodKey, hourGroups, intakeGauge, intakeTotals, journalDay, kcalWithoutMacros, MACRO_KEYS, MANUAL_DEFAULT_NAME, maskedGaugeParts, missingMacros, localTimeOf, nutrientsForGrams, portionsFor, replaceManualEntry, restoreFoodEntry } from '@/domain/journal';
 import type { ManualFood, NewEntryInput, RecentFood, ResolvedFood } from '@/domain/journal';
 import { buildSearchIndex, loadCiqual, resolveCiqualFood, searchIndex } from '@/domain/foodSearch';
 import { libraryFoodToManual, libraryFoodToResolved, previousFoods, productLibraryKey, rememberManualFood, rememberProduct, touchLibraryFood } from '@/domain/foodLibrary';
@@ -41,6 +41,8 @@ export function JournalScreen() {
   const [timing, setTiming] = useState<TimingSession>(() => ({ justAte: true, time: localTimeOf(new Date()) }));
   useEffect(() => setTiming({ justAte: true, time: localTimeOf(new Date()) }), [today]);
   const [mask, setMask] = useState<MaskState>(MASK_OFF);
+  // B: the free entry being edited, while the edit sheet is open.
+  const [editing, setEditing] = useState<FoodEntry | null>(null);
   // Changing day leaves the masking mode: its ids belong to the day they were chosen on (A2).
   useEffect(() => setMask(resetMask()), [day, today]);
   const plan = store.plan;
@@ -204,9 +206,25 @@ export function JournalScreen() {
                               <EyeIcon off={isHidden} />
                             </button>
                           ) : (
-                            <button type="button" className="link" style={{ fontSize: 12.5, minHeight: 32 }} onClick={() => remove(e)} aria-label={`Retirer ${e.name}`}>
-                              Retirer
-                            </button>
+                            <>
+                              {e.source === 'manual' ? (
+                                <button
+                                  type="button"
+                                  className="link"
+                                  style={{ fontSize: 12.5, minHeight: 32 }}
+                                  onClick={() => {
+                                    setEditing(e);
+                                    openSheet('foodEdit');
+                                  }}
+                                  aria-label={`${JOURNAL_TEXT.edit} ${e.name}`}
+                                >
+                                  {JOURNAL_TEXT.edit}
+                                </button>
+                              ) : null}
+                              <button type="button" className="link" style={{ fontSize: 12.5, minHeight: 32 }} onClick={() => remove(e)} aria-label={`Retirer ${e.name}`}>
+                                Retirer
+                              </button>
+                            </>
                           )}
                         </div>
                       </li>
@@ -229,6 +247,7 @@ export function JournalScreen() {
         document.body,
       )}
       {sheet === 'food' ? <FoodSheet selectedDate={date} today={today} timing={timing} setTiming={setTiming} /> : null}
+      {sheet === 'foodEdit' && editing ? <EditFoodSheet key={editing.id} entry={editing} today={today} /> : null}
     </main>
   );
 }
@@ -337,6 +356,36 @@ function FoodSheet(props: TimingProps) {
           )}
         </>
       )}
+    </BottomSheet>
+  );
+}
+
+/**
+ * Edit of a free entry (B): every field of the creation form, the "Je ne connais pas les macros" option and the time of
+ * consumption, saved through `replaceManualEntry` (a deletion followed by an addition), with the side effects of an
+ * addition ("Mes aliments").
+ */
+function EditFoodSheet({ entry, today }: { entry: FoodEntry; today: string }) {
+  const { closeSheet, showToast } = useNav();
+  const { store, commit, nowIso } = useWheighty();
+  const [timing, setTiming] = useState<TimingSession>({ justAte: false, time: entry.consumedTime });
+  const prefill: ManualFood = { name: entry.name === MANUAL_DEFAULT_NAME ? '' : entry.name, intake: { ...entry.intake }, grams: entry.quantity?.grams ?? null };
+  const timingProps: TimingProps = { selectedDate: entry.date, today, timing, setTiming };
+  const save = (food: ManualFood): boolean => {
+    const t = entryTiming(timingProps);
+    const now = nowIso();
+    const r = replaceManualEntry(store, entry.id, { date: t.date, consumedTime: t.consumedTime ?? t.localTime, food }, now);
+    if (!r.ok) return false;
+    commit(rememberManualFood(r.store, food, now));
+    closeSheet();
+    showToast(t.date < entry.date ? JOURNAL_TIME_TEXT.savedYesterday : JOURNAL_TEXT.edited);
+    return true;
+  };
+  return (
+    <BottomSheet open onClose={closeSheet} title={JOURNAL_TEXT.editTitle} size="fixed">
+      <div className="sheet__scroll">
+        <ManualTab prefill={prefill} onSave={save} timingProps={timingProps} submitLabel={JOURNAL_TEXT.editSave} />
+      </div>
     </BottomSheet>
   );
 }
@@ -883,7 +932,7 @@ function QuantityStep({ food, onBack, onSave, timingProps }: { food: ResolvedFoo
   );
 }
 
-function ManualTab({ prefill, onSave, timingProps }: { prefill: ManualFood | null; onSave: (food: ManualFood) => boolean; timingProps: TimingProps }) {
+function ManualTab({ prefill, onSave, timingProps, submitLabel = 'Ajouter au journal' }: { prefill: ManualFood | null; onSave: (food: ManualFood) => boolean; timingProps: TimingProps; submitLabel?: string }) {
   const [name, setName] = useState(prefill?.name ?? '');
   const [kcal, setKcal] = useState(prefill && prefill.intake.energyKcal > 0 ? String(prefill.intake.energyKcal) : '');
   const [protein, setProtein] = useState(prefill?.intake.proteinG != null ? String(prefill.intake.proteinG) : '');
@@ -961,7 +1010,7 @@ function ManualTab({ prefill, onSave, timingProps }: { prefill: ManualFood | nul
         {error ?? ''}
       </p>
       <button type="button" className="btn btn--primary" style={{ marginTop: 18 }} onClick={submit}>
-        Ajouter au journal
+        {submitLabel}
       </button>
     </>
   );

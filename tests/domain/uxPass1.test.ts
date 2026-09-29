@@ -5,11 +5,14 @@
 import { describe, expect, it } from 'vitest';
 import { JOURNAL_TEXT } from '@/app/copy';
 import { intakeObservationsFrom } from '@/domain/intakeObservations';
-import { addFoodEntry, hasNoMacros, journalDay, kcalWithoutMacros } from '@/domain/journal';
+import { completeOnboarding } from '@/domain/engine';
+import { addFoodEntry, deleteFoodEntry, hasNoMacros, journalDay, kcalWithoutMacros, replaceManualEntry } from '@/domain/journal';
 import type { ManualFood } from '@/domain/journal';
 import type { FoodEntry, WheightyStore } from '@/domain/types';
 import { emptyStore, isFoodEntry } from '@/persistence/schema';
 import { loadStore, MemoryStorage, saveStore, STORE_KEY } from '@/persistence/storage';
+import { calibrationFingerprint } from '@/store/calibrationClient';
+import { makeProfile } from '../helpers/profiles';
 
 const NOW = '2026-09-29T09:00:00.000Z';
 const DAY = '2026-09-29';
@@ -96,5 +99,73 @@ describe('A. free entry without macros', () => {
     for (const rule of [{ kind: 'R0' } as const, { kind: 'R1', x: 0.5 } as const, { kind: 'R2', x: 0.5 } as const]) {
       expect(intakeObservationsFrom(without, '2026-09-20', DAY, rule)).toEqual(intakeObservationsFrom(withMacros, '2026-09-20', DAY, rule));
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B. Edit of a free entry
+// ---------------------------------------------------------------------------
+
+function onboardedWithJournal(): WheightyStore {
+  const profile = makeProfile({ ageYears: 34, heightCm: 172, currentWeightKg: 80, averageSteps7d: 8200, occupation: 'mixed', goal: 'loss', targetWeightKg: 72, weeklyRateTarget: 0.005 });
+  const r = completeOnboarding(emptyStore(), profile, '2026-09-01', '2026-09-01T08:00:00.000Z');
+  if (!r.ok) throw new Error(r.reason);
+  let s = addManual(r.store, { name: 'Petit déjeuner', intake: { energyKcal: 420, proteinG: 18, carbsG: 50, fatG: 14 }, grams: 300 }, '08:00', '2026-09-28');
+  s = addManual(s, { name: 'Déjeuner', intake: { energyKcal: 700, proteinG: 35, carbsG: 70, fatG: 25 }, grams: null }, '12:30', '2026-09-28');
+  s = addManual(s, { name: 'Dîner', intake: { energyKcal: 650, proteinG: 30, carbsG: 60, fatG: 20 }, grams: null }, '19:30', '2026-09-28');
+  return s;
+}
+
+/** The entry fields that are neither identifiers nor timestamps. */
+const content = (e: FoodEntry) => {
+  const { id: _id, loggedAt: _logged, localTime: _local, resolvedAt: _resolved, ...rest } = e;
+  return rest;
+};
+
+describe('B. edit of a free entry', () => {
+  const EDITED: ManualFood = { name: 'Déjeuner au resto', intake: { energyKcal: 910, ...NO_MACROS }, grams: null };
+
+  it('gives the same state as a deletion followed by an addition, identifiers and timestamps aside', () => {
+    const s = onboardedWithJournal();
+    const target = s.foodJournal.entries[1] as FoodEntry;
+    const later = '2026-09-29T10:00:00.000Z';
+    const edited = replaceManualEntry(s, target.id, { date: '2026-09-28', consumedTime: '13:15', food: EDITED }, later);
+    const viaDeleteAdd = addFoodEntry(deleteFoodEntry(s, target.id), { kind: 'manual', date: '2026-09-28', localTime: '10:00', consumedTime: '13:15', food: EDITED }, later);
+    if (!edited.ok || !viaDeleteAdd.ok) throw new Error('edit');
+    const { foodJournal: jA, ...restA } = edited.store;
+    const { foodJournal: jB, ...restB } = viaDeleteAdd.store;
+    expect(restA).toEqual(restB);
+    expect(restA).toEqual((({ foodJournal: _j, ...rest }) => rest)(s));
+    expect({ ...jA, entries: jA.entries.map(content) }).toEqual({ ...jB, entries: jB.entries.map(content) });
+    // Same position as an addition (end of the list), same identity as before.
+    const last = jA.entries[jA.entries.length - 1] as FoodEntry;
+    expect(last.id).toBe(target.id);
+    expect(last.loggedAt).toBe(target.loggedAt);
+    expect(last.localTime).toBe(target.localTime);
+    expect(last.intake).toEqual({ energyKcal: 910, proteinG: null, carbsG: null, fatG: null });
+    expect(journalDay(edited.store, '2026-09-28').intakeLoggedKcal).toBe(420 + 910 + 650);
+  });
+
+  it('can move the entry to another time and day, and leaves the plan, the past targets and the calibration input alone', () => {
+    const s = onboardedWithJournal();
+    const target = s.foodJournal.entries[2] as FoodEntry;
+    const r = replaceManualEntry(s, target.id, { date: '2026-09-27', consumedTime: '23:10', food: { name: 'Dîner', intake: { energyKcal: 650, proteinG: 30, carbsG: 60, fatG: 20 }, grams: 400 } }, NOW);
+    if (!r.ok) throw new Error(r.reason);
+    expect(journalDay(r.store, '2026-09-27').entries.map((e) => e.id)).toEqual([target.id]);
+    expect(journalDay(r.store, '2026-09-28').entries).toHaveLength(2);
+    expect(r.store.plan).toBe(s.plan);
+    expect(r.store.dailyLogs).toBe(s.dailyLogs);
+    expect(r.store.meta).toBe(s.meta);
+    expect(calibrationFingerprint(r.store, DAY)).toBe(calibrationFingerprint(s, DAY));
+  });
+
+  it('refuses what an addition refuses, and never edits a product entry', () => {
+    const s = onboardedWithJournal();
+    const target = s.foodJournal.entries[0] as FoodEntry;
+    expect(replaceManualEntry(s, target.id, { date: '2026-09-28', consumedTime: '08:00', food: { name: 'x', intake: { energyKcal: -5, ...NO_MACROS }, grams: null } }, NOW)).toEqual({ ok: false, reason: 'invalid_entry' });
+    expect(replaceManualEntry(s, 'unknown', { date: '2026-09-28', consumedTime: '08:00', food: EDITED }, NOW)).toEqual({ ok: false, reason: 'invalid_entry' });
+    const withProduct = addFoodEntry(s, { kind: 'resolved', date: DAY, localTime: '10:00', food: { source: 'ciqual', sourceId: '13050', sourceVersion: 'Ciqual 2025', resolvedAt: NOW, name: 'Pomme', per100g: { energyKcal: 53.6, proteinG: 0.25, carbsG: 11.6, fatG: 0.25 } }, grams: 150 }, NOW);
+    if (!withProduct.ok) throw new Error('add');
+    expect(replaceManualEntry(withProduct.store, withProduct.id, { date: DAY, consumedTime: '10:00', food: EDITED }, NOW)).toEqual({ ok: false, reason: 'invalid_entry' });
   });
 });

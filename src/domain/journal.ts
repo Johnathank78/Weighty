@@ -143,6 +143,23 @@ export function deleteFoodEntry(store: WheightyStore, id: string): WheightyStore
   return withJournal(store, { ...journal, entries: journal.entries.filter((e) => e.id !== id) });
 }
 
+/**
+ * Edit of a free entry (UX pass 1, B). There is no other edit path in the journal: this is exactly a deletion followed by
+ * an addition of the new values (`deleteFoodEntry` then `addFoodEntry`, same validation, entry moved to the end of the
+ * list, `startedOn` as an addition leaves it), except that the entry keeps its identity: id, creation time (`loggedAt`)
+ * and save time (`localTime`). The journal is display only: nothing in the engine, the calibration or the past targets
+ * reads it, so an edit triggers nothing else.
+ */
+export function replaceManualEntry(store: WheightyStore, id: string, input: { date: string; consumedTime: string; food: ManualFood }, nowIso: string): JournalResult {
+  const old = store.foodJournal.entries.find((e) => e.id === id);
+  if (!old || old.source !== 'manual') return { ok: false, reason: 'invalid_entry' };
+  const added = addFoodEntry(deleteFoodEntry(store, id), { kind: 'manual', date: input.date, localTime: old.localTime, consumedTime: input.consumedTime, food: input.food }, nowIso);
+  if (!added.ok) return added;
+  const journal = added.store.foodJournal;
+  const entries = journal.entries.map((e) => (e.id === added.id ? { ...e, id, loggedAt: old.loggedAt } : e));
+  return { ok: true, id, store: withJournal(added.store, { ...journal, entries }) };
+}
+
 /** Puts back an entry removed by mistake, unchanged (same id, same snapshot). */
 export function restoreFoodEntry(store: WheightyStore, entry: FoodEntry): WheightyStore {
   const journal = store.foodJournal;
