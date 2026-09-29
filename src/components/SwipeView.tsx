@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import type { MouseEvent, PointerEvent, ReactNode } from 'react';
-import { BackLabelContext, backLabelFor, useNav, ViewActiveContext } from '@/app/navigation';
+import { flushSync } from 'react-dom';
+import { BackLabelContext, backLabelFor, DraftStepContext, useNav, ViewActiveContext } from '@/app/navigation';
 import type { ScreenId, SwipeAction } from '@/app/navigation';
 import type { NavTransition } from '@/app/navModel';
 import { swipeCompletes } from '@/app/navModel';
@@ -77,15 +78,22 @@ export function SwipeView({ viewKey, content, transition, render }: { viewKey: s
     if (layer && g) place(g.d, g.width, g.side, g.action, false);
   }, [layer, place]);
 
-  const reset = () => {
+  /**
+   * End of a swipe. Carried through, the new screen is committed synchronously first (flushSync), and only then is the
+   * view put back in place, in the same frame: the old screen never shows again at its origin, no blank frame.
+   */
+  const finish = (action: SwipeAction | null) => {
     gesture.current = null;
+    flushSync(() => {
+      if (action) completeSwipe(action);
+      setLayer(null);
+    });
     document.documentElement.style.removeProperty('--swipe-x');
     const view = viewRef.current;
     if (view) {
       view.style.transition = '';
       view.style.transform = '';
     }
-    setLayer(null);
   };
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
@@ -138,16 +146,12 @@ export function SwipeView({ viewKey, content, transition, render }: { viewKey: s
     const action = g.action;
     const through = !cancelled && swipeCompletes(sign * g.d, sign * g.velocity, g.width);
     if (reducedMotion()) {
-      if (through) completeSwipe(action);
-      reset();
+      finish(through ? action : null);
       return;
     }
     place(through ? sign * g.width : 0, g.width, g.side, action, true);
-    window.setTimeout(() => {
-      // Same render: the new screen replaces the drawn copy exactly where it stands.
-      if (through) completeSwipe(action);
-      reset();
-    }, SETTLE_MS);
+    // The new screen replaces the drawn copy exactly where it stands.
+    window.setTimeout(() => finish(through ? action : null), SETTLE_MS);
   };
 
   // A swipe that started on a button is not a tap on it.
@@ -164,7 +168,9 @@ export function SwipeView({ viewKey, content, transition, render }: { viewKey: s
         <div ref={layerRef} className="nav-layer" data-kind={layer.action.kind} style={{ left: layer.left, width: layer.width }} aria-hidden="true" inert>
           <div style={{ transform: `translateY(${-scrollOf(layer.action.revealKey ?? '')}px)` }}>
             <ViewActiveContext.Provider value={false}>
-              <BackLabelContext.Provider value={layer.action.kind === 'back' ? backLabelFor(layer.action.under) : null}>{render(layer.action.reveal)}</BackLabelContext.Provider>
+              <BackLabelContext.Provider value={layer.action.kind === 'back' ? backLabelFor(layer.action.under) : null}>
+                <DraftStepContext.Provider value={layer.action.kind === 'back' ? (layer.action.step ?? null) : null}>{render(layer.action.reveal)}</DraftStepContext.Provider>
+              </BackLabelContext.Provider>
             </ViewActiveContext.Provider>
           </div>
         </div>

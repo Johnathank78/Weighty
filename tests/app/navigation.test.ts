@@ -9,7 +9,7 @@ import { activeTab, canGoBack, currentKey, currentScreen, initialNav, navBack, n
 import type { NavState, ScreenId, SwipeAction } from '@/app/navModel';
 import { createHistorySync } from '@/app/navHistory';
 import type { HistoryLike } from '@/app/navHistory';
-import { nextStep, visibleScreens } from '@/domain/onboarding';
+import { nextStep, previousStep, visibleScreens } from '@/domain/onboarding';
 
 /** A signed-in user on Today (after the splash). */
 const home = (): NavState => navGo(initialNav('splash'), 'today', { replace: true });
@@ -206,10 +206,11 @@ describe('onboarding', () => {
     const trail: string[] = [];
     let cur: NavState = s;
     for (let a = swipeActions(cur).right; a; a = swipeActions(cur).right) {
-      expect(a).toEqual({ kind: 'back', reveal: null, revealKey: null });
+      // The screen uncovered is drawn under the one leaving (no blank frame): the previous step, then the intro.
+      const shown = currentScreen(cur) === 'onboarding' ? previousStep(cur.draft) : 'exit';
+      expect(a).toMatchObject(shown !== 'exit' ? { kind: 'back', reveal: 'onboarding', step: shown } : { kind: 'back', reveal: 'intro' });
       cur = navSwipe(cur, a);
-      // Nothing drawn in advance there: the previous step comes in from the left.
-      expect(cur.transition).toBe('pop');
+      expect(cur.transition).toBe('none');
       trail.push(currentScreen(cur) === 'onboarding' ? cur.draft.step : currentScreen(cur));
     }
     expect(trail).toEqual([...steps.slice(0, -1).reverse(), 'intro']);

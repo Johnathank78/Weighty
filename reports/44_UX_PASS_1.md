@@ -345,3 +345,20 @@ Vérifications [mesuré] :
 - dans le navigateur, en 375 px avec des gestes tactiles simulés : glissement vers la droite sur Aujourd'hui sans effet ; carrousel Aujourd'hui → Plan → Suivi → Plan ; Détail rétabli sur Aujourd'hui, avec Aujourd'hui visible dessous pendant le geste et la barre du bas immobile (capture d'écran) ; Analyse ouverte depuis Aujourd'hui rétablie sur Aujourd'hui ; panneau des pas fermé par glissement ; glissement parti du bouton « Détail » sans ouvrir Détail.
 
 Non vérifié : un vrai iPhone. Les gestes ont été simulés par des événements pointer, pas par un doigt sur Safari iOS.
+
+### 29/09/2026, retouches des gestes après essai sur iPhone
+
+Retour de John (capture d'un glissement Plan → Suivi) et corrections :
+- **Ombre bizarre pendant le glissement** : supprimée. Les deux pages glissent côte à côte sans bord ombré.
+- **Le panneau partait sur le côté** : glisser vers la droite sur un panneau le fait maintenant **descendre** avec le doigt ; relâché au-delà du seuil (110 px) ou sur un geste vif, il sort par le bas, comme le geste vers le bas existant.
+- **Cadre blanc au retour dans l'onboarding** : l'étape précédente n'était pas dessinée sous la page qui partait (écran vide), puis arrivait avec une animation. Deux corrections :
+  - l'étape précédente, ou l'écran précédent du flux, est maintenant dessinée dessous comme pour les autres pages (`swipeActions` fournit l'étape, `DraftStepContext` la donne à la copie) ;
+  - à la fin de tout glissement, le nouvel écran est affiché de façon synchrone (`flushSync`) avant de remettre la vue en place, dans la même image : l'ancien écran ne réapparaît plus un instant.
+- **Défaut trouvé en vérifiant** : une page plus courte que l'écran (étapes d'onboarding) ne couvrait pas toute la hauteur pendant le geste ; la copie dessous apparaissait sous elle. La vue qui glisse couvre désormais toute la hauteur.
+
+Vérifications [mesuré] : captures 0 différence sur 2 522 380 valeurs ; `npm run check` : 590 sur 590 ; dans le navigateur en 375 px avec des gestes tactiles simulés :
+- onboarding : l'étape « prénom » est visible sous l'étape « âge » pendant le geste (capture), puis s'affiche sans animation ni calque résiduel ;
+- panneau des pas : descend avec le doigt (`translateY(144px)`), sort par le bas ;
+- carrousel Plan → Suivi : aucune ombre (capture).
+
+Non vérifié : un vrai iPhone.

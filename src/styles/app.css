@@ -108,12 +108,16 @@ button {
 .nav-view[data-transition='none'] > * {
   animation: none;
 }
-/* During a swipe: the screen under the finger covers the one drawn under it, with a soft edge. */
+/*
+ * During a swipe: the screen under the finger covers the one drawn under it, over the whole height even when its content
+ * is short (onboarding steps), with no shadow (John's call).
+ */
 .nav-view[data-swiping] {
   position: relative;
   z-index: 2;
+  min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg);
-  box-shadow: -10px 0 30px -12px rgba(32, 32, 30, 0.28);
   will-change: transform;
 }
 /* The screen uncovered by a swipe: a copy at its own scroll position, under (back) or beside (section) the moving one. */

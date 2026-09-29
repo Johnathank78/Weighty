@@ -30,10 +30,9 @@ export function BottomSheet({ open, onClose, title, lead, children, hideTitle, s
   const sheetRef = useRef<HTMLDivElement>(null);
   /** `grabbed` follows the finger with no transition; released, the same transform animates back or out. */
   const [drag, setDrag] = useState<{ y: number; grabbed: boolean }>({ y: 0, grabbed: false });
-  /** Horizontal swipe to the right (UX pass 1, E): the sheet follows the finger and leaves by the right. */
-  const [side, setSide] = useState<{ x: number; grabbed: boolean }>({ x: 0, grabbed: false });
+  /** Swipe to the right (UX pass 1, E): the sheet goes down as the finger travels, and leaves by the bottom. */
   const sideStart = useRef<{ id: number; x: number; y: number; locked: boolean; lastX: number; lastT: number; v: number } | null>(null);
-  const [closing, setClosing] = useState<false | 'down' | 'right'>(false);
+  const [closing, setClosing] = useState(false);
   const dragStart = useRef<number | null>(null);
   const layerRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<number | null>(null);
@@ -42,7 +41,6 @@ export function BottomSheet({ open, onClose, title, lead, children, hideTitle, s
     if (open) {
       setClosing(false);
       setDrag({ y: 0, grabbed: false });
-      setSide({ x: 0, grabbed: false });
     }
     return () => {
       if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
@@ -50,18 +48,14 @@ export function BottomSheet({ open, onClose, title, lead, children, hideTitle, s
   }, [open]);
 
   /** Slides the sheet out, then closes it, so a dismissed panel never disappears on the spot. */
-  const closeWithSlide = useCallback(
-    (way: 'down' | 'right' = 'down') => {
-      setClosing((already) => {
-        if (already) return already;
-        closeTimer.current = window.setTimeout(onClose, slideOutMs());
-        return way;
-      });
-      setDrag((d) => ({ ...d, grabbed: false }));
-      setSide((d) => ({ ...d, grabbed: false }));
-    },
-    [onClose],
-  );
+  const closeWithSlide = useCallback(() => {
+    setClosing((already) => {
+      if (already) return already;
+      closeTimer.current = window.setTimeout(onClose, slideOutMs());
+      return true;
+    });
+    setDrag((d) => ({ ...d, grabbed: false }));
+  }, [onClose]);
 
   useEffect(() => {
     if (!open || size !== 'fixed') return;
@@ -104,7 +98,7 @@ export function BottomSheet({ open, onClose, title, lead, children, hideTitle, s
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        closeWithSlide('down');
+        closeWithSlide();
       } else if (e.key === 'Tab' && sheetRef.current) {
         const nodes = Array.from(sheetRef.current.querySelectorAll<HTMLElement>(FOCUSABLE));
         if (nodes.length === 0) return;
@@ -183,27 +177,24 @@ export function BottomSheet({ open, onClose, title, lead, children, hideTitle, s
     g.v = 0.8 * ((e.clientX - g.lastX) / Math.max(1, e.timeStamp - g.lastT)) + 0.2 * g.v;
     g.lastX = e.clientX;
     g.lastT = e.timeStamp;
-    setSide({ x: Math.max(0, dx), grabbed: true });
+    setDrag({ y: Math.max(0, dx), grabbed: true });
   };
   const onSideUp = (e: PointerEvent<HTMLDivElement>) => {
     const g = sideStart.current;
     if (!g || g.id !== e.pointerId) return;
     sideStart.current = null;
     if (!g.locked) return;
-    const width = sheetRef.current?.getBoundingClientRect().width ?? window.innerWidth;
-    if (side.x > width / 3 || (g.v > 0.45 && side.x > 24)) closeWithSlide('right');
-    else setSide({ x: 0, grabbed: false });
+    if (drag.y > DISMISS_AFTER_PX || (g.v > 0.45 && drag.y > 24)) closeWithSlide();
+    else setDrag({ y: 0, grabbed: false });
   };
 
-  const offsetY = closing === 'down' ? '100%' : `${Math.round(drag.y)}px`;
-  const offsetX = closing === 'right' ? '100%' : `${Math.round(side.x)}px`;
+  const offset = closing ? '100%' : `${Math.round(drag.y)}px`;
   // The scrim thins out as the sheet is pulled away, and is gone by the time it leaves.
-  const pulled = Math.max(drag.y, side.x);
-  const scrimOpacity = closing ? 0 : pulled > 0 ? Math.max(0, 1 - pulled / (DISMISS_AFTER_PX * 3)) : 1;
+  const scrimOpacity = closing ? 0 : drag.y > 0 ? Math.max(0, 1 - drag.y / (DISMISS_AFTER_PX * 3)) : 1;
 
   return createPortal(
     <div className="sheet-layer" ref={layerRef} data-closing={closing}>
-      <button type="button" className="sheet-scrim" aria-label="Fermer" tabIndex={-1} style={{ opacity: scrimOpacity }} onClick={() => closeWithSlide('down')} />
+      <button type="button" className="sheet-scrim" aria-label="Fermer" tabIndex={-1} style={{ opacity: scrimOpacity }} onClick={closeWithSlide} />
       <div
         ref={sheetRef}
         className={size === 'fixed' ? 'sheet sheet--fixed' : 'sheet'}
@@ -211,14 +202,14 @@ export function BottomSheet({ open, onClose, title, lead, children, hideTitle, s
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        data-grabbed={drag.grabbed || side.grabbed}
-        style={{ transform: `translate(${offsetX}, ${offsetY})` }}
+        data-grabbed={drag.grabbed}
+        style={{ transform: `translateY(${offset})` }}
         onPointerDown={onSideDown}
         onPointerMove={onSideMove}
         onPointerUp={onSideUp}
         onPointerCancel={onSideUp}
       >
-        <button type="button" className="sheet__handle" aria-label="Fermer la fenêtre" {...dragHandlers} onClick={() => drag.y === 0 && closeWithSlide('down')} />
+        <button type="button" className="sheet__handle" aria-label="Fermer la fenêtre" {...dragHandlers} onClick={() => drag.y === 0 && closeWithSlide()} />
         <h3 id={titleId} className={hideTitle ? 'sr-only' : 'sheet__title'} {...dragHandlers}>
           {title}
         </h3>

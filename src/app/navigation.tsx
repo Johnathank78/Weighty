@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { OnboardingDraft } from '@/domain/onboarding';
+import type { OnboardingDraft, OnboardingScreenId } from '@/domain/onboarding';
 import { activeTab, canGoBack, currentKey, currentScreen, initialNav, liveKeys, navBack, navCloseSheet, navGo, navOpenSheet, navSelectTab, navSwipe, screenUnder, swipeActions } from './navModel';
 import { BACK_LABEL } from './copy';
 import type { NavState, NavTransition, ScreenId, SheetId, SwipeAction, TabId } from './navModel';
@@ -160,10 +160,14 @@ export function NavigationProvider({ initialScreen, children }: { initialScreen:
   return <NavContext.Provider value={value}>{children}</NavContext.Provider>;
 }
 
+/** Onboarding step shown by a copy drawn under a swipe (the previous step), in place of the live one. */
+export const DraftStepContext = createContext<OnboardingScreenId | null>(null);
+
 export function useNav(): NavValue {
   const ctx = useContext(NavContext);
+  const step = useContext(DraftStepContext);
   if (!ctx) throw new Error('useNav must be used inside NavigationProvider');
-  return ctx;
+  return step === null ? ctx : { ...ctx, draft: { ...ctx.draft, step } };
 }
 
 /**

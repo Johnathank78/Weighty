@@ -11,7 +11,7 @@
  *   previous step. Once the onboarding is done the flow is dropped, so back never leads to it again.
  */
 import { emptyDraft, previousStep } from '@/domain/onboarding';
-import type { OnboardingDraft } from '@/domain/onboarding';
+import type { OnboardingDraft, OnboardingScreenId } from '@/domain/onboarding';
 
 export type ScreenId =
   | 'splash'
@@ -175,12 +175,28 @@ export function canGoBack(s: NavState): boolean {
  * (an onboarding step, the flow outside the sections); `revealKey`: its identity, for its scroll position.
  */
 export type SwipeAction =
-  | { kind: 'back'; reveal: ScreenId | null; revealKey: string | null; /** The page under the revealed one (its back label). */ under?: ScreenId | null }
+  | {
+      kind: 'back';
+      reveal: ScreenId | null;
+      revealKey: string | null;
+      /** The page under the revealed one (its back label). */
+      under?: ScreenId | null;
+      /** Onboarding: the step the revealed copy shows. */
+      step?: OnboardingScreenId;
+    }
   | { kind: 'tab'; tab: TabId; reveal: ScreenId; revealKey: string };
 
 export function swipeActions(s: NavState): { right: SwipeAction | null; left: SwipeAction | null } {
   if (s.sheet !== null) return { right: null, left: null };
-  if (s.mode === 'flow' || currentScreen(s) === 'onboarding') return { right: canGoBack(s) ? { kind: 'back', reveal: null, revealKey: null } : null, left: null };
+  // Onboarding: the previous step is drawn under the one leaving (no blank frame), then the previous screen of the flow.
+  if (currentScreen(s) === 'onboarding') {
+    const prev = previousStep(s.draft);
+    if (prev !== 'exit') return { right: { kind: 'back', reveal: 'onboarding', revealKey: null, step: prev }, left: null };
+  }
+  if (s.mode === 'flow') {
+    const i = s.flow.length - 2;
+    return { right: i >= 0 ? { kind: 'back', reveal: s.flow[i] as ScreenId, revealKey: keyAt(s, i) } : null, left: null };
+  }
   if (s.stack.length > 0) {
     const reveal = s.stack[s.stack.length - 2] ?? s.tab;
     const under = s.stack.length >= 2 ? (s.stack[s.stack.length - 3] ?? s.tab) : null;
@@ -195,9 +211,7 @@ export function swipeActions(s: NavState): { right: SwipeAction | null; left: Sw
 export function navSwipe(s: NavState, action: SwipeAction): NavState {
   if (action.kind === 'tab') return { ...s, sheet: null, tab: action.tab, stack: [], transition: 'none' };
   const back = navBack(s);
-  if (!back) return s;
-  // Without a screen drawn in advance (onboarding, flow), the previous one comes in from the left.
-  return { ...back, transition: action.reveal === null ? 'pop' : 'none' };
+  return back ? { ...back, transition: 'none' } : s;
 }
 
 /**
