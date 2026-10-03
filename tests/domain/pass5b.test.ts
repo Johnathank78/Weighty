@@ -391,7 +391,8 @@ describe('suggested adherence (decision 12)', () => {
     expect([at2000(1810), at2000(2190)]).toEqual(['on_plan', 'on_plan']);
     expect([at2000(1800), at2000(2200), at2000(1500), at2000(2500)]).toEqual(['minor_deviation', 'minor_deviation', 'minor_deviation', 'minor_deviation']);
     expect([at2000(1490), at2000(2510)]).toEqual(['major_deviation', 'major_deviation']);
-    expect(JOURNAL_MESSAGE.suggestedAdherence('minor_deviation')).toBe('D’après ton journal : écart léger. C’est bien ça ?');
+    // Report 46, point 4: no question any more, the category read in the journal (the annex text).
+    expect(JOURNAL_MESSAGE.deducedAdherence('minor_deviation')).toBe('Écart léger, d’après ton journal');
     // No journal that day: nothing is suggested.
     expect(suggestedAdherence(onboard(), D0)).toBeNull();
   });
@@ -399,8 +400,10 @@ describe('suggested adherence (decision 12)', () => {
 
 describe('interface of the journal path', () => {
   it('"ta dépense" is absent once the journal is read; the measured habit has its own explanation (report 46, point 7)', () => {
-    for (const v of Object.values(JOURNAL_MESSAGE)) {
-      const text = typeof v === 'function' ? (v as (...a: never[]) => string)(...([1.1, 1800] as never[])) : v;
+    for (const [k, v] of Object.entries(JOURNAL_MESSAGE)) {
+      // Report 46: the adherence read in the journal takes a category.
+      const args = k === 'deducedAdherence' ? ['minor_deviation'] : [1.1, 1800];
+      const text = typeof v === 'function' ? (v as (...a: never[]) => string)(...(args as never[])) : v;
       expect(text).not.toMatch(/dépense/);
     }
     const plan = readFileSync('src/screens/Plan.tsx', 'utf8');

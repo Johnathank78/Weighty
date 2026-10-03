@@ -111,3 +111,15 @@ export function incompleteDayProfile(today: string): WheightyStore {
   const target = store.plan?.calorieTarget as number;
   return runDailyChecks(eat(addWeight(store, { date: today, weightKg: 74.5 }, at(today)), today, Math.round(target * 1.15)), today, at(today));
 }
+
+/**
+ * 6. Adherence deduced from the journal (fixes, point 4): 10 days on the assumed target, a weigh-in and the journal every day,
+ * nothing declared; the day before yesterday 30 % over the target, yesterday 15 % over, today 5 % over. The day change after
+ * the import records the past days (not done here, so that the check sees it happen).
+ */
+export function deducedAdherenceProfile(today: string): WheightyStore {
+  const { store, start } = history(verificationProfile('Test adhérence'), today, 10);
+  const target = store.plan?.calorieTarget as number;
+  const s = live(store, start, 0, 9, (i) => ({ kg: 75 - 0.02 * i, kcal: Math.round(target * (i === 8 ? 1.3 : i === 9 ? 1.15 : 1)) }));
+  return eat(addWeight(s, { date: today, weightKg: 74.8 }, at(today)), today, Math.round(target * 1.05));
+}

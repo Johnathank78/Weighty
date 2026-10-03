@@ -4,14 +4,16 @@
  * short messages, personal target, small points of report 45, schema 9.
  */
 import { describe, expect, it } from 'vitest';
-import { addWeight, applyRecalibration, completeOnboarding, computeCalibrationState, setAdherence } from '@/domain/engine';
+import { addWeight, applyRecalibration, completeOnboarding, computeCalibrationState, ensureDailyLogs, setAdherence } from '@/domain/engine';
 import { addFoodEntry } from '@/domain/journal';
 import {
   acceptMeasuredOffer,
   alignedStatusLine,
   alignButton,
   checkWeighDaily,
+  deduceAdherenceFromJournal,
   measuredWhyText,
+  suggestedAdherence,
   alignedLockLine,
   applyPathSliderSteps,
   balanceSliderAvailable,
@@ -399,5 +401,63 @@ describe('point 8: versions, schema 9', () => {
     if ('error' in w) throw new Error(w.error);
     expect(w.clean).toBe(true);
     expect(w.store.plan?.personalTarget).toEqual({ kcal: 1700, predictedRate: 0.004 });
+  });
+});
+
+describe('point 4: adherence deduced from the journal', () => {
+  /** Maintenance profile, a target of 2 000 kcal every day up to day 12, logged totals `kcal(i)` (null: not logged). */
+  const logged = (kcal: (i: number) => number | null, to = 11): WheightyStore => {
+    const s = ensureDailyLogs(onboard(makeProfile({ goal: 'maintenance' })), day(to + 1));
+    let out: WheightyStore = { ...s, dailyLogs: s.dailyLogs.map((l) => ({ ...l, calorieTargetForDay: 2000 })) };
+    for (let i = 0; i <= to; i++) {
+      const k = kcal(i);
+      if (k !== null) out = logFood(out, day(i), k);
+    }
+    return out;
+  };
+  const adherenceOf = (s: WheightyStore, i: number) => s.dailyLogs.find((l) => l.date === day(i));
+
+  it('a past day logged in full, not declared: recorded at the day change, at 10 % and 25 %, both ways, with its source', () => {
+    const totals = [1810, 2190, 1800, 2200, 1500, 2500, 1490, 2510];
+    const s = logged((i) => totals[i] ?? null, totals.length - 1);
+    const after = runDailyChecks(s, day(totals.length), at(day(totals.length)));
+    expect(totals.map((_, i) => adherenceOf(after, i)?.adherence)).toEqual(['on_plan', 'on_plan', 'minor_deviation', 'minor_deviation', 'minor_deviation', 'minor_deviation', 'major_deviation', 'major_deviation']);
+    expect(totals.every((_, i) => adherenceOf(after, i)?.adherenceSource === 'journal')).toBe(true);
+    // Nothing else changes, and a second run changes nothing.
+    expect(deduceAdherenceFromJournal(after, day(totals.length))).toBe(after);
+  });
+
+  it('never over an existing declaration (manual, imported or already deduced); a manual choice always wins', () => {
+    let s = logged(() => 2600, 3);
+    s = setAdherence(s, day(1), 'on_plan');
+    // An imported declaration: through the migration of schema 8, a declaration from the user.
+    const raw = JSON.parse(JSON.stringify({ ...s, schemaVersion: 8, dailyLogs: s.dailyLogs.map((l) => (l.date === day(2) ? { date: l.date, calorieTargetForDay: l.calorieTargetForDay, stepTargetForDay: l.stepTargetForDay, adherence: 'on_plan' } : l)) }));
+    const migrated = migrateToCurrent(raw);
+    if (!migrated.ok) throw new Error(migrated.error);
+    const v = validateStore(migrated.value);
+    if ('error' in v) throw new Error(v.error);
+    const after = deduceAdherenceFromJournal(v.store, day(4));
+    expect(adherenceOf(after, 0)).toMatchObject({ adherence: 'major_deviation', adherenceSource: 'journal' });
+    expect(adherenceOf(after, 1)).toMatchObject({ adherence: 'on_plan', adherenceSource: 'user' });
+    expect(adherenceOf(after, 2)).toMatchObject({ adherence: 'on_plan', adherenceSource: 'user' });
+    // The user changes a deduced day: their choice is kept by every later day change.
+    const changed = setAdherence(after, day(0), 'minor_deviation');
+    expect(adherenceOf(changed, 0)).toMatchObject({ adherence: 'minor_deviation', adherenceSource: 'user' });
+    expect(adherenceOf(runDailyChecks(changed, day(5), at(day(5))), 0)).toMatchObject({ adherence: 'minor_deviation', adherenceSource: 'user' });
+  });
+
+  it('days not logged or incomplete, today and the measured habit: nothing recorded (manual declaration)', () => {
+    // Day 5 is under half of the usual total (incomplete), day 6 is not logged; day 8 is today.
+    const s = logged((i) => (i === 5 ? 900 : i === 6 ? null : 2000), 8);
+    const after = deduceAdherenceFromJournal(s, day(8));
+    expect(adherenceOf(after, 5)?.adherence).toBeUndefined();
+    expect(adherenceOf(after, 6)?.adherence).toBeUndefined();
+    expect(adherenceOf(after, 8)?.adherence).toBeUndefined();
+    expect(adherenceOf(after, 7)).toMatchObject({ adherence: 'on_plan', adherenceSource: 'journal' });
+    // Today: the provisional category, shown on the tile.
+    expect(suggestedAdherence(after, day(8))).toEqual({ value: 'on_plan', text: 'Plan respecté, d’après ton journal' });
+    // The measured habit reads the journal itself: no declaration is written.
+    const m = live(measured(), 29, 31, (i) => ({ kcal: 1980, kg: 75 - 0.03 * i }));
+    expect(deduceAdherenceFromJournal(m, day(32))).toBe(m);
   });
 });

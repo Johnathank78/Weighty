@@ -8,7 +8,7 @@ import { formatDayMonth, formatGrams, formatInteger, formatKcal, formatLongDate,
 import { displayMacros, gateProgress, goalStatus, nextWeighInDate, reminderDue, todayLog } from '@/domain/views';
 import { trendOf } from '@/domain/engine';
 import { profileInitials } from '@/domain/onboarding';
-import { adherenceAsked, alignedStatusLine, journalRead } from '@/domain/journalPath';
+import { adherenceAsked, alignedStatusLine, journalRead, suggestedAdherence } from '@/domain/journalPath';
 import { JOURNAL_MESSAGE } from '@/domain/planMessages';
 
 export function TodayScreen() {
@@ -33,6 +33,7 @@ export function TodayScreen() {
   const recalibrationReady = calibration?.surfaced === true && !calibrationPending;
 
   const alignedLine = alignedStatusLine(store, today);
+  const deduced = log?.adherence ? null : suggestedAdherence(store, today);
   let statusTitle: string;
   // Measured habit (pass 5b): the plan follows the journal; the gate of the current method does not apply.
   if (journalRead(store)) statusTitle = JOURNAL_MESSAGE.statusMeasured;
@@ -170,8 +171,15 @@ export function TodayScreen() {
         {adherenceAsked(store) ? (
           <button type="button" className="tile" onClick={() => openSheet('adherence')}>
             <div style={{ font: '500 11.5px var(--font)', color: 'var(--ink2)', marginBottom: 6 }}>Adhérence</div>
-            <div style={{ font: '600 16px/1.25 var(--font)' }}>{log?.adherence ? ADHERENCE_LABEL[log.adherence] : 'À noter'}</div>
-            <div style={{ font: '500 12px var(--font)', color: 'var(--ink2)', marginTop: 5 }}>Toucher pour noter</div>
+            {/* Pass 5b fixes, point 4: without a declaration, the category its journal gives today, provisional. */}
+            {log?.adherence ? (
+              <div style={{ font: '600 16px/1.25 var(--font)' }}>{ADHERENCE_LABEL[log.adherence]}</div>
+            ) : deduced ? (
+              <div style={{ font: '600 14px/1.3 var(--font)' }}>{deduced.text}</div>
+            ) : (
+              <div style={{ font: '600 16px/1.25 var(--font)' }}>À noter</div>
+            )}
+            <div style={{ font: '500 12px var(--font)', color: 'var(--ink2)', marginTop: 5 }}>{!log?.adherence && deduced ? JOURNAL_MESSAGE.deducedAdherenceHint : 'Toucher pour noter'}</div>
           </button>
         ) : null}
       </div>

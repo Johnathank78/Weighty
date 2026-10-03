@@ -68,6 +68,7 @@ import {
   PRODUCTION_SOLVER,
   rebuildContextFromStore,
   recordPlanEvent,
+  setAdherence,
   speedSliderModelFor,
   storeSpeedSliderModel,
   switchToMaintenance,
@@ -1045,9 +1046,19 @@ function stepsKept(store: WheightyStore): JournalPlanOverrides | undefined {
 export type SuggestedAdherence = { value: NonNullable<DailyLog['adherence']>; text: string };
 
 /**
- * Adherence suggested by the journal (decision 12), not in the measured habit: for a usable journal day, the relative gap
- * of the logged total to the day's target: under 10 %: plan respected; 10 to 25 %: minor deviation; beyond 25 %, either way:
- * major deviation. The user confirms or corrects; the science reads the confirmed declaration only.
+ * Category of a logged day from the relative gap of its total to the day's target, |logged - target| / target (in kcal over
+ * the target, so that 10 and 25 percent fall exactly on their thresholds): under 10 %: plan respected; 10 to 25 %: minor
+ * deviation; beyond 25 %, either way: major deviation.
+ */
+export function adherenceFromJournal(loggedKcal: number, targetKcal: number): NonNullable<DailyLog['adherence']> {
+  const gap = Math.abs(loggedKcal - targetKcal) / targetKcal;
+  return gap < SUGGESTED_ADHERENCE_ON_PLAN_BELOW ? 'on_plan' : gap <= SUGGESTED_ADHERENCE_MINOR_UP_TO ? 'minor_deviation' : 'major_deviation';
+}
+
+/**
+ * Adherence read in the journal for a day (pass 5b fixes, point 4; decision 12 before), not in the measured habit: for a
+ * usable journal day (not an incomplete one), the category of `adherenceFromJournal`. For today it is provisional (shown on
+ * the tile, a manual choice wins); a past day is recorded at the day change (`deduceAdherenceFromJournal`).
  */
 export function suggestedAdherence(store: WheightyStore, date: string): SuggestedAdherence | null {
   if (!adherenceAsked(store) || !store.plan) return null;
@@ -1055,10 +1066,29 @@ export function suggestedAdherence(store: WheightyStore, date: string): Suggeste
   if (!day || !day.usable) return null;
   const target = store.dailyLogs.find((l) => l.date === date)?.calorieTargetForDay ?? store.plan.calorieTarget;
   if (!(target > 0)) return null;
-  // Gap in kcal over the target, so that 10 and 25 percent fall exactly on their thresholds.
-  const gap = Math.abs(day.loggedKcal - target) / target;
-  const value = gap < SUGGESTED_ADHERENCE_ON_PLAN_BELOW ? 'on_plan' : gap <= SUGGESTED_ADHERENCE_MINOR_UP_TO ? 'minor_deviation' : 'major_deviation';
-  return { value, text: JOURNAL_MESSAGE.suggestedAdherence(value) };
+  const value = adherenceFromJournal(day.loggedKcal, target);
+  return { value, text: JOURNAL_MESSAGE.deducedAdherence(value) };
+}
+
+/**
+ * Pass 5b fixes, point 4 (replaces the prefilled declaration of decision 12): at the day change, outside the measured habit,
+ * every past day logged in full (usable: not an incomplete day) and without a declaration gets the category its journal
+ * gives, recorded with the source 'journal'. A declaration that exists (the user's, imported, or already deduced) is never
+ * replaced. Days not logged or incomplete keep the manual declaration. Returns the same store when nothing changes.
+ */
+export function deduceAdherenceFromJournal(store: WheightyStore, today: string): WheightyStore {
+  if (!store.plan || pathOf(store).method === 'measured') return store;
+  const logged = new Set(store.foodJournal.entries.map((e) => e.date));
+  const candidates = store.dailyLogs.filter((l) => l.date < today && l.adherence === undefined && logged.has(l.date) && l.calorieTargetForDay > 0);
+  if (candidates.length === 0) return store;
+  const from = candidates.reduce((a, l) => (l.date < a ? l.date : a), today);
+  const usable = new Map(journalObservations(store, from, addDays(today, -1)).map((o) => [o.date, o]));
+  let s = store;
+  for (const l of candidates) {
+    const o = usable.get(l.date);
+    if (o?.usable) s = setAdherence(s, l.date, adherenceFromJournal(o.loggedKcal, l.calorieTargetForDay), 'journal');
+  }
+  return s;
 }
 
 /**

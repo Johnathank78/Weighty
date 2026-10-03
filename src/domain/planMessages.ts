@@ -131,7 +131,9 @@ export const JOURNAL_MESSAGE = {
   exitWeighIns: 'Il manque plusieurs pesées ces dernières semaines : ton plan repasse sur ta cible alignée. Il sera à nouveau calculé à partir de ton journal quand tu auras repris tes pesées quotidiennes.',
   exitLogging: 'Il y a plusieurs journées non saisies ces dernières semaines : ton plan repasse sur ta cible alignée. Il sera à nouveau calculé à partir de ton journal quand tu auras repris tes saisies.',
   incompleteDay: 'Journée incomplète ? Elle ne sera pas prise en compte dans ton plan.',
-  suggestedAdherence: (value: NonNullable<DailyLog['adherence']>) => `D’après ton journal : ${ADHERENCE_WORDS[value]}. C’est bien ça ?`,
+  /** Pass 5b fixes, point 4 (annex): the adherence read in the journal, on the tile of Aujourd'hui and in its sheet. */
+  deducedAdherence: (value: NonNullable<DailyLog['adherence']>) => `${capitalize(ADHERENCE_WORDS[value])}, d’après ton journal`,
+  deducedAdherenceHint: 'Toucher pour changer',
   /** No annex text: short lines of the screens (choices of pass 5b). */
   switchedToast: 'Nouvelle cible appliquée.',
   offerAcceptedToast: 'Nouveau plan appliqué.',

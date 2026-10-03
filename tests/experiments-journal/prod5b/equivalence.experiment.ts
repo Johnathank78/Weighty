@@ -21,6 +21,8 @@
  * Compared: status, rule and reason; every field of the plan (and of the profile for G1), numbers bit for bit, except
  * `source` (own sources of the production paths) and `scientificModelVersion`. Also checked: the tolerances of decisions 6
  * to 8 never trigger (every simulated user weighs in and logs every day in full).
+ * Report 46 (fixes of 5b): also checked, the adherence deduced from the journal writes nothing on these stores (every
+ * simulated user declares every day); stores now loaded through the migrations up to schema 9.
  * Run (8 parts, then the merge that checks everything):
  *   REPLAY_PART=<k> REPLAY_PARTS=8 npx vitest run -c vitest.journal.config.ts prod5b/equivalence -t part
  *   REPLAY_PARTS=8 npx vitest run -c vitest.journal.config.ts prod5b/equivalence -t merge
@@ -34,6 +36,7 @@ import {
   acceptMeasuredOffer,
   checkAlignProposal,
   continuousLoggingStart,
+  deduceAdherenceFromJournal,
   enforceMeasuredGuardrails,
   evaluateJournalWeek,
   jstarPlanOf,
@@ -123,7 +126,7 @@ it('part: replay of one part of the fixture files', () => {
   const files = readdirSync(dir).filter((f) => f.endsWith('.jsonl.gz')).sort().filter((_f, i) => i % PARTS === part);
   const counts: Record<string, number> = {};
   const failures: string[] = [];
-  const tolerance = { jstarGates: 0, missedWeighIns: 0, unusableDays: 0, flaggedDays: 0, startNotOnboarding: 0 };
+  const tolerance = { jstarGates: 0, missedWeighIns: 0, unusableDays: 0, flaggedDays: 0, startNotOnboarding: 0, adherenceDeduced: 0 };
   let users = 0;
   let switched = 0;
   let controls = 0;
@@ -144,6 +147,9 @@ it('part: replay of one part of the fixture files', () => {
         const raw = e.reduced ? restore(e.store, e.date, final) : e.store;
         const base = load(raw, nowIsoOf(e.date));
         const nowIso = nowIsoOf(e.date);
+        // Report 46, point 4: every simulated user declares every day, so the adherence deduced from the journal writes nothing.
+        const deduced = deduceAdherenceFromJournal(base, e.date);
+        if (deduced !== base) tolerance.adherenceDeduced += deduced.dailyLogs.filter((l, i) => l !== base.dailyLogs[i]).length;
         const fail = (msg: string) => failures.push(`${where}: ${msg}`);
 
         if (e.kind === 'proposal') {
@@ -316,6 +322,7 @@ it('merge: production journal path = validated prototype (iteration 2d, arms C a
     `users ${sum('users')}, switched ${sum('switched')}`,
     `events ${Object.values(counts).reduce((a, b) => a + b, 0)} ${JSON.stringify(byKey, null, 1)}`,
     `tolerances (J* evaluations with a gate: ${tol('jstarGates')}): missed weigh-ins ${tol('missedWeighIns')}, non-usable days ${tol('unusableDays')}, days flagged in the windows ${tol('flaggedDays')}, window not from the onboarding day ${tol('startNotOnboarding')}`,
+    `adherence deduced from the journal (report 46, point 4) over every replayed store: ${tol('adherenceDeduced')} days`,
     `negative controls ${sum('controlDiffers')} / ${sum('controls')} differ`,
     `failures ${failures.length}`,
     ...failures.slice(0, 80),
@@ -324,6 +331,7 @@ it('merge: production journal path = validated prototype (iteration 2d, arms C a
   writeFileSync(`${DIR}/equivalence.txt`, `${summary}\n`);
   expect(sum('users')).toBe(400);
   expect(tol('missedWeighIns') + tol('unusableDays') + tol('flaggedDays') + tol('startNotOnboarding')).toBe(0);
+  expect(tol('adherenceDeduced')).toBe(0);
   expect(sum('controlDiffers')).toBe(sum('controls'));
   expect(failures).toEqual([]);
 });

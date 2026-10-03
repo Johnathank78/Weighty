@@ -13,7 +13,7 @@ import { runDailyChecks } from '@/domain/planSafety';
 import type { WheightyStore } from '@/domain/types';
 import { exportStore, parseImport } from '@/persistence/exportImport';
 import { addDays, localIsoDate } from '@/science/dates';
-import { at, buttonProfile, eat, firstPlanProfile, incompleteDayProfile, proposalProfile, returnProfile } from '../../helpers/verificationProfiles';
+import { at, buttonProfile, deducedAdherenceProfile, eat, firstPlanProfile, incompleteDayProfile, proposalProfile, returnProfile } from '../../helpers/verificationProfiles';
 
 const TODAY = process.env.MANUAL_TODAY ?? localIsoDate(new Date());
 const OUT = 'docs/verification-5b';
@@ -52,4 +52,15 @@ it(`pass 5b manual check profiles, for ${TODAY}`, () => {
   expect(incompleteDayLine(incomplete, addDays(TODAY, -1), TODAY)).toBe('Journée incomplète ? Elle ne sera pas prise en compte dans ton plan.');
   expect(suggestedAdherence(incomplete, TODAY)?.value).toBe('minor_deviation');
   write('5-journee-incomplete.json', incomplete);
+
+  // Report 46, point 4: nothing declared in the file; the day change after the import records the past days.
+  const deduced = deducedAdherenceProfile(TODAY);
+  expect(deduced.dailyLogs.some((l) => l.adherence !== undefined)).toBe(false);
+  const loaded = runDailyChecks(deduced, TODAY, at(TODAY));
+  const on = (d: string) => loaded.dailyLogs.find((l) => l.date === d);
+  expect(on(addDays(TODAY, -1))).toMatchObject({ adherence: 'minor_deviation', adherenceSource: 'journal' });
+  expect(on(addDays(TODAY, -2))).toMatchObject({ adherence: 'major_deviation', adherenceSource: 'journal' });
+  expect(on(TODAY)?.adherence).toBeUndefined();
+  expect(suggestedAdherence(loaded, TODAY)?.text).toBe('Plan respecté, d’après ton journal');
+  write('6-adherence-deduite.json', deduced);
 });

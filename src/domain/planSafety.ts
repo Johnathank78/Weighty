@@ -17,7 +17,7 @@ import type { GoalPlan, PlanContext } from '@/science/goals';
 import { bmi, weightAtBmi } from '@/science/macros';
 import type { CalibrationState, PlanBuildResult } from './engine';
 import { enforcePlanGuardrails, ensureDailyLogs, journalMethodOf, periodicReplan, recordPlanEvent, trendOf } from './engine';
-import { enforceMeasuredGuardrails, measuredPeriodicReplan, runJournalDailyChecks } from './journalPath';
+import { deduceAdherenceFromJournal, enforceMeasuredGuardrails, measuredPeriodicReplan, runJournalDailyChecks } from './journalPath';
 import { PLAN_MESSAGE, SHORT_MESSAGE } from './planMessages';
 import type { ShortText } from './planMessages';
 import type { PlanEvent, PlanEventRule, WheightyStore } from './types';
@@ -94,12 +94,16 @@ export type DailyCheckOptions = {
 
 /**
  * What runs when the day changes (opening of the app, return to the foreground; StoreProvider): the logs up to today, the
- * guardrails (G1, G2), the periodic replan when due, the underweight alert. Evaluated once on the day's state: after days
+ * adherence of the past days deduced from the journal (fixes of pass 5b), the guardrails (G1, G2), the periodic replan when
+ * due, the underweight alert. Evaluated once on the day's state: after days
  * without opening nothing is replayed. Returns the same store when nothing changes.
  */
 export function runDailyChecks(store: WheightyStore, today: string, nowIso: string, options: DailyCheckOptions = {}): WheightyStore {
   if (!store.plan || !store.profile) return store;
   let s = ensureDailyLogs(store, today);
+  // Pass 5b fixes, point 4: the past days logged in full and not declared get the category of their journal, first, so that
+  // every check of the day reads them.
+  s = deduceAdherenceFromJournal(s, today);
   if (options.guardrails !== false) s = guardrailsOnPath(s, today, nowIso);
   // Journal path (pass 5b): proposal, weigh-in encouragement, weekly evaluation (after the guardrails, as the prototype).
   s = runJournalDailyChecks(s, today, nowIso, { week: options.journalWeek !== false });

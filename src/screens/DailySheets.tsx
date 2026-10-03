@@ -10,6 +10,7 @@ import { formatInteger, formatWeight, lbToKg, weightUnitLabel } from '@/domain/f
 import { latestRawWeight } from '@/domain/engine';
 import { todayLog } from '@/domain/views';
 import { suggestedAdherence } from '@/domain/journalPath';
+import { JOURNAL_MESSAGE } from '@/domain/planMessages';
 import { addDays } from '@/science/dates';
 import { STEPS_MAX_PER_DAY, WEIGHT_MAX_KG, WEIGHT_MIN_KG } from '@/science/constants';
 import type { DailyLog } from '@/science/types';
@@ -129,9 +130,12 @@ export function AdherenceSheet() {
   const open = sheet === 'adherence';
   const [day, setDay] = useState<DayChoice>('today');
   const date = day === 'today' ? today : addDays(today, -1);
-  const current = store.dailyLogs.find((l) => l.date === date)?.adherence ?? null;
-  // Decision 12 (pass 5b): with a logged day, the declaration is prefilled from the journal; the user confirms or corrects.
+  const log = store.dailyLogs.find((l) => l.date === date);
+  const current = log?.adherence ?? null;
+  // Pass 5b fixes, point 4: the category read in the journal (today, provisional; a past day, recorded at the day change);
+  // the choice made here is the user's and always wins.
   const suggestion = current === null ? suggestedAdherence(store, date) : null;
+  const deducedLine = current !== null && log?.adherenceSource === 'journal' ? JOURNAL_MESSAGE.deducedAdherence(current) : (suggestion?.text ?? null);
   const [choice, setChoice] = useState<NonNullable<DailyLog['adherence']> | null>(current);
 
   useEffect(() => {
@@ -154,9 +158,9 @@ export function AdherenceSheet() {
           <DayPicker value={day} onChange={setDay} />
         </div>
       ) : null}
-      {suggestion ? (
+      {deducedLine ? (
         <p className="small" style={{ margin: '0 0 12px' }}>
-          {suggestion.text}
+          {deducedLine}
         </p>
       ) : null}
       <div role="radiogroup" aria-label="Adhérence" style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
