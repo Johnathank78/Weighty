@@ -6,7 +6,8 @@ import { CONFIDENCE_LABEL, PLAN_ERROR_TEXT, WARM_START_TEXT } from '@/app/copy';
 import { Mascot } from '@/components/Mascot';
 import { ConfidenceBar } from '@/components/controls';
 import { completeOnboarding, previewInitialPlan } from '@/domain/engine';
-import { updateProfileOnPath } from '@/domain/journalPath';
+import { journalRead, updateProfileOnPath } from '@/domain/journalPath';
+import { JOURNAL_MESSAGE } from '@/domain/planMessages';
 import { formatGrams, formatKcal, formatKcalRange, formatRatePercent, formatSteps } from '@/domain/format';
 import { draftToEvidence, draftToProfile } from '@/domain/onboarding';
 import { floorAdviceOf } from '@/domain/planSafety';
@@ -20,6 +21,12 @@ export function ResultScreen() {
   const preview = useMemo(() => (profile ? previewInitialPlan(profile, today, evidence) : null), [profile, today, evidence]);
   // Pass 5a s6: when the floor limits the speed, the floor and the steps that would hold the requested speed.
   const advice = useMemo(() => (preview && profile ? floorAdviceOf(preview, profile.averageSteps7d) : null), [preview, profile]);
+  // Pass 5b fixes, point 1: editing the profile on the journal path, the preview is the plan that will be applied (the
+  // measured habit rebuilds with its own method, the aligned target itself stays in force), not the population estimate.
+  const pathPreview = useMemo(
+    () => (draft.mode === 'edit' && profile && store.plan && store.meta.journalPath.method !== 'assumed' ? updateProfileOnPath(store, today, profile) : null),
+    [draft.mode, profile, store, today],
+  );
 
   if (!profile || !preview) {
     return (
@@ -39,7 +46,8 @@ export function ResultScreen() {
     );
   }
 
-  if (!preview.ok) {
+  const pathError = pathPreview && !pathPreview.ok ? pathPreview.reason : null;
+  if (!preview.ok || pathError !== null) {
     return (
       <main className="screen--moment">
         <div style={{ display: 'grid', placeItems: 'center', marginTop: 40 }}>
@@ -49,9 +57,9 @@ export function ResultScreen() {
           Ajustons ton objectif
         </h2>
         <p className="body" style={{ textAlign: 'center', marginTop: 10 }}>
-          {PLAN_ERROR_TEXT[preview.reason] ?? PLAN_ERROR_TEXT.no_feasible_speed}
+          {PLAN_ERROR_TEXT[pathError ?? (preview.ok ? '' : preview.reason)] ?? PLAN_ERROR_TEXT.no_feasible_speed}
         </p>
-        {advice ? (
+        {advice && pathError === null ? (
           <p className="body" style={{ textAlign: 'center', marginTop: 10 }}>
             {advice.lines.join(' ')}
           </p>
@@ -64,7 +72,9 @@ export function ResultScreen() {
     );
   }
 
-  const { plan, goalPlan } = preview;
+  const { goalPlan } = preview;
+  const onPath = pathPreview?.ok ? pathPreview.store : null;
+  const plan = onPath?.plan ?? preview.plan;
   const macros = displayMacros(plan);
   const warm = warmStartView(preview.warmStart);
 
@@ -121,7 +131,7 @@ export function ResultScreen() {
           <div style={{ textAlign: 'center' }}>
             <div className="tabular" style={{ font: '600 26px/1 var(--font)', letterSpacing: '-0.03em' }}>{formatKcal(plan.maintenanceKcal)}</div>
             <div className="eyebrow" style={{ fontSize: 11.5, marginTop: 4 }}>
-              maintien estimé
+              {onPath && journalRead(onPath) ? JOURNAL_MESSAGE.balanceLabel.toLocaleLowerCase('fr-FR') : 'maintien estimé'}
             </div>
           </div>
         </div>
@@ -145,33 +155,35 @@ export function ResultScreen() {
           ))}
         </div>
 
-        <div className="card" style={{ marginBottom: 12, padding: 14 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <span style={{ font: '500 12.5px var(--font)', color: 'var(--ink2)' }}>Confiance du modèle</span>
-            <span style={{ font: '600 12.5px var(--font)' }}>{CONFIDENCE_LABEL[preview.confidence]}</span>
+        {onPath ? null : (
+          <div className="card" style={{ marginBottom: 12, padding: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <span style={{ font: '500 12.5px var(--font)', color: 'var(--ink2)' }}>Confiance du modèle</span>
+              <span style={{ font: '600 12.5px var(--font)' }}>{CONFIDENCE_LABEL[preview.confidence]}</span>
+            </div>
+            <ConfidenceBar level={preview.confidence} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)' }}>
+              <span style={{ font: '500 12.5px var(--font)', color: 'var(--ink2)' }}>Fourchette actuelle</span>
+              <span className="tabular" style={{ font: '600 13px var(--font)', whiteSpace: 'nowrap' }}>
+                {formatKcalRange(plan.maintenanceInterval80)} kcal
+              </span>
+            </div>
+            <p style={{ margin: '8px 0 0', font: '400 12px/1.45 var(--font)', color: 'var(--ink2)' }}>
+              Ton maintien réel a 8 chances sur 10 d’être dans cette fourchette. Tes pesées l’affineront.
+              {warm.given ? ` ${warm.reason === 'used' ? WARM_START_TEXT.used : WARM_START_TEXT[warm.reason ?? 'invalid']}` : ''}
+            </p>
           </div>
-          <ConfidenceBar level={preview.confidence} />
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)' }}>
-            <span style={{ font: '500 12.5px var(--font)', color: 'var(--ink2)' }}>Fourchette actuelle</span>
-            <span className="tabular" style={{ font: '600 13px var(--font)', whiteSpace: 'nowrap' }}>
-              {formatKcalRange(plan.maintenanceInterval80)} kcal
-            </span>
-          </div>
-          <p style={{ margin: '8px 0 0', font: '400 12px/1.45 var(--font)', color: 'var(--ink2)' }}>
-            Ton maintien réel a 8 chances sur 10 d’être dans cette fourchette. Tes pesées l’affineront.
-            {warm.given ? ` ${warm.reason === 'used' ? WARM_START_TEXT.used : WARM_START_TEXT[warm.reason ?? 'invalid']}` : ''}
-          </p>
-        </div>
+        )}
 
-        {warm.conflict ? <ResultNote>{WARM_START_TEXT.conflict}</ResultNote> : null}
-        {goalPlan.rateAdjusted ? (
+        {warm.conflict && !onPath ? <ResultNote>{WARM_START_TEXT.conflict}</ResultNote> : null}
+        {goalPlan.rateAdjusted && !onPath ? (
           <ResultNote warn>
             Vitesse ajustée à {formatRatePercent(goalPlan.weeklyRateTarget)} par semaine pour respecter les limites de sécurité.{advice ? ` ${advice.lines.join(' ')}` : ''}
           </ResultNote>
         ) : null}
-        {goalPlan.warnings.belowRee ? <ResultNote>Cet apport est inférieur à ton métabolisme au repos estimé. Ce n’est pas dangereux en soi, mais c’est un rythme exigeant.</ResultNote> : null}
-        {goalPlan.warnings.lowEnergyAvailability ? <ResultNote warn>Avec ton volume d’entraînement, l’énergie disponible serait basse. Préfère une vitesse plus douce et surveille ta fatigue.</ResultNote> : null}
-        {goalPlan.warnings.gainWithoutResistance ? <ResultNote>Une prise de poids rapide sans entraînement de résistance favorise moins la prise de masse maigre.</ResultNote> : null}
+        {(onPath ? plan.warnings?.belowRee : goalPlan.warnings.belowRee) ? <ResultNote>Cet apport est inférieur à ton métabolisme au repos estimé. Ce n’est pas dangereux en soi, mais c’est un rythme exigeant.</ResultNote> : null}
+        {(onPath ? plan.warnings?.lowEnergyAvailability : goalPlan.warnings.lowEnergyAvailability) ? <ResultNote warn>Avec ton volume d’entraînement, l’énergie disponible serait basse. Préfère une vitesse plus douce et surveille ta fatigue.</ResultNote> : null}
+        {(onPath ? plan.warnings?.gainWithoutResistance : goalPlan.warnings.gainWithoutResistance) ? <ResultNote>Une prise de poids rapide sans entraînement de résistance favorise moins la prise de masse maigre.</ResultNote> : null}
 
         <button type="button" className="link" style={{ width: '100%', textAlign: 'center' }} onClick={() => openSheet('why', 'estimate')}>
           Pourquoi ce résultat ?

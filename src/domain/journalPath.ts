@@ -21,12 +21,16 @@ import { assessBaseline, planContextFrom } from '@/science/assessment';
 import { buildSnapshot, evaluateGate, fitCalibration, reconstructDays, shouldSurfaceRecalibration, validWeights } from '@/science/calibration';
 import type { CalibrationInput, GateStatus, IntakeObservation, SurfacingReference } from '@/science/calibration';
 import {
+  GATE_MIN_CLEAN_WEIGHINS,
+  GATE_MIN_SPAN_DAYS,
+  GATE_MIN_WEIGHINS,
   HABIT_MAX,
   HABIT_MIN,
   HABIT_WINDOW_DAYS,
   JOURNAL_ALIGN_MIN_LOGGED_DAYS,
   JOURNAL_ALIGN_ROUNDING_KCAL,
   JOURNAL_ALIGN_WINDOW_DAYS,
+  JOURNAL_ALIGNED_FIRST_RECAL_DAYS,
   JOURNAL_EVALUATION_EVERY_DAYS,
   JOURNAL_FLOOR_FACTOR,
   JOURNAL_MESSAGE_MIN_INTERVAL_DAYS,
@@ -62,11 +66,13 @@ import {
   PRODUCTION_SOLVER,
   rebuildContextFromStore,
   recordPlanEvent,
+  speedSliderModelFor,
+  storeSpeedSliderModel,
   switchToMaintenance,
   syncTodayLog,
   updateProfile,
 } from './engine';
-import type { SolverRequest } from './engine';
+import type { SolverRequest, SpeedSliderModel } from './engine';
 import { intakeObservationsFrom } from './intakeObservations';
 import type { UsabilityRule } from './intakeObservations';
 import { evaluateJournalGate, journalCalibrationInputFromStore } from './journalCalibration';
@@ -351,18 +357,11 @@ export function journalSolverOptions(request: SolverRequest, input: CalibrationI
   return out;
 }
 
-/** Prototype (prompt 40 s3.13): goal, target weight and step target of a journal plan rebuilt by a guardrail or a goal change. */
-export type JournalPlanOverrides = { goal?: Goal; targetWeightKg?: number; stepTarget?: number };
-
-export type JournalGoalPlan = { goalPlan: GoalPlan; assessment: BaselineAssessment; ctx: PlanContext; weight: number; maintenance: number };
-
 /**
- * Prototype `journalGoalPlan`: production goal solver on the journal maintenance (population TDEE of the day + journal
- * offset), with the floor multiplier and the production solver options with the journal calibration input of the day.
- * `overrides`: goal and target weight of the rebuilt plan and the step target kept; absent: those of the plan in force,
- * baseline steps.
+ * Context of `journalGoalPlan` (the prototype's, unchanged): population TDEE of the day at the app weight + journal offset,
+ * floor multiplier, production solver options with the journal calibration input of the day.
  */
-export function journalGoalPlan(store: WheightyStore, date: string, offsetKcal: number, floorMultiplier: number | undefined, solver?: { request: SolverRequest; input: CalibrationInput }, overrides?: JournalPlanOverrides): JournalGoalPlan {
+export function journalPlanContext(store: WheightyStore, date: string, offsetKcal: number, floorMultiplier: number | undefined, solver?: { request: SolverRequest; input: CalibrationInput }): Omit<JournalGoalPlan, 'goalPlan'> {
   const profile = store.profile;
   const plan = store.plan;
   if (!profile || !plan) throw new Error('no plan');
@@ -375,6 +374,24 @@ export function journalGoalPlan(store: WheightyStore, date: string, offsetKcal: 
     ...(floorMultiplier !== undefined ? { hardFloorMultiplier: floorMultiplier } : {}),
     ...(solver ? { solver: journalSolverOptions(solver.request, solver.input, offsetKcal, date) } : {}),
   };
+  return { ctx, assessment, weight, maintenance };
+}
+
+/** Prototype (prompt 40 s3.13): goal, target weight and step target of a journal plan rebuilt by a guardrail or a goal change. */
+export type JournalPlanOverrides = { goal?: Goal; targetWeightKg?: number; stepTarget?: number };
+
+export type JournalGoalPlan = { goalPlan: GoalPlan; assessment: BaselineAssessment; ctx: PlanContext; weight: number; maintenance: number };
+
+/**
+ * Prototype `journalGoalPlan`: production goal solver on the journal maintenance (population TDEE of the day + journal
+ * offset), with the floor multiplier and the production solver options with the journal calibration input of the day.
+ * `overrides`: goal and target weight of the rebuilt plan and the step target kept; absent: those of the plan in force,
+ * baseline steps.
+ */
+export function journalGoalPlan(store: WheightyStore, date: string, offsetKcal: number, floorMultiplier: number | undefined, solver?: { request: SolverRequest; input: CalibrationInput }, overrides?: JournalPlanOverrides): JournalGoalPlan {
+  const profile = store.profile as UserProfile;
+  const plan = store.plan as CurrentPlan;
+  const { ctx, assessment, weight, maintenance } = journalPlanContext(store, date, offsetKcal, floorMultiplier, solver);
   const goalPlan = buildGoalPlan(ctx, {
     goal: overrides?.goal ?? plan.goal,
     weeklyRate: profile.weeklyRateTarget,
@@ -786,18 +803,83 @@ function measuredRebuild(store: WheightyStore, today: string, profile: UserProfi
   return { ok: true, store: withPath(syncTodayLog({ ...withLogs, plan }, today), { habit: b.habit, offer: null }) };
 }
 
-/** Goal change on the journal path: the measured habit rebuilds with its own method; else the engine (floor x 1.10 when aligned). */
+/**
+ * Pass 5b fixes, point 1a: the plan in force is the aligned target itself (until the first recalibration replaces it). Its
+ * speed cannot change: no new estimate exists yet, so a rebuild would start again from the estimate before the switch and
+ * give back about the old target. A goal change stays possible.
+ */
+export function alignedTargetLocked(store: WheightyStore): boolean {
+  const path = pathOf(store);
+  return path.method === 'aligned' && path.chosenTargetActive;
+}
+
+/**
+ * Days before the next recalibration of the current method can come on the aligned target (point 1a lock, point 7 of report
+ * 45): the first one not before JOURNAL_ALIGNED_FIRST_RECAL_DAYS after the switch, and not before the recalibration gate can
+ * be met with a weigh-in a day (days of span, weigh-ins and clean weigh-ins still missing). 0: it may come any day.
+ */
+export function alignedRecalibrationDays(store: WheightyStore, today: string): number {
+  const path = pathOf(store);
+  const first = path.switchedOn === null ? 0 : JOURNAL_ALIGNED_FIRST_RECAL_DAYS - daysBetween(path.switchedOn, today);
+  const gate = evaluateGate(store.weights, store.dailyLogs);
+  const missing = gate.met ? 0 : Math.max(GATE_MIN_SPAN_DAYS - gate.spanDays, GATE_MIN_WEIGHINS - gate.weighInCount, GATE_MIN_CLEAN_WEIGHINS - gate.cleanWeighInCount);
+  return Math.max(0, first, missing);
+}
+
+/** The line shown instead of the speed and of the steps / calories slider on the aligned target itself, null otherwise. */
+export function alignedLockLine(store: WheightyStore, today: string): string | null {
+  return alignedTargetLocked(store) ? JOURNAL_MESSAGE.alignedLock(alignedRecalibrationDays(store, today)) : null;
+}
+
+/**
+ * Point 1a: a change that keeps the goal on the aligned target itself (target weight, profile) rebuilds the plan, then puts
+ * the aligned target back (`withChosenTarget`, floor of the new profile), still in force: the speed stays that of the
+ * profile. A goal change ends the aligned target, as before.
+ */
+function keepAlignedTarget(before: WheightyStore, after: WheightyStore, today: string): WheightyStore {
+  const t = pathOf(before).alignedTarget;
+  if (!t) return after;
+  const r = withChosenTarget(after, today, t.roundedKcal);
+  return withPath(r.store, { chosenTargetActive: true, alignedTarget: { ...t, finalKcal: r.final, floorKcal: r.floor, raised: r.replaced } });
+}
+
+/**
+ * Goal change on the journal path: the measured habit rebuilds with its own method; else the engine (floor x 1.10 when
+ * aligned). On the aligned target itself, the speed is locked (point 1a): same goal, the aligned target stays in force.
+ */
 export function changeGoalOnPath(store: WheightyStore, today: string, input: { goal: Goal; targetWeightKg: number; weeklyRate: number }, options?: { stepTarget?: number }): ChangeResult {
+  if (alignedTargetLocked(store) && store.profile && store.plan && input.goal === store.plan.goal) {
+    const r = changeGoal(store, today, { ...input, weeklyRate: store.profile.weeklyRateTarget }, options);
+    return r.ok ? { ok: true, store: keepAlignedTarget(store, r.store, today) } : r;
+  }
   if (pathOf(store).method !== 'measured' || !store.profile) return changeGoal(store, today, input, options);
   const profile: UserProfile = { ...store.profile, goal: input.goal, targetWeightKg: input.targetWeightKg, weeklyRateTarget: input.goal === 'maintenance' ? 0 : input.weeklyRate };
   const r = measuredRebuild(store, today, profile, { goal: input.goal, targetWeightKg: input.targetWeightKg, ...(options?.stepTarget !== undefined ? { stepTarget: options.stepTarget } : {}) });
   return r.ok ? { ok: true, store: { ...r.store, meta: { ...r.store.meta, guardrailMaintenanceSince: null } } } : r;
 }
 
-/** Profile change on the journal path (same rule as `changeGoalOnPath`). */
+/** Profile change on the journal path (same rules as `changeGoalOnPath`, the aligned target lock included). */
 export function updateProfileOnPath(store: WheightyStore, today: string, profile: UserProfile): ChangeResult {
+  if (alignedTargetLocked(store) && store.profile && store.plan && profile.goal === store.plan.goal) {
+    const r = updateProfile(store, today, { ...profile, weeklyRateTarget: store.profile.weeklyRateTarget });
+    return r.ok ? { ok: true, store: keepAlignedTarget(store, r.store, today) } : r;
+  }
   if (pathOf(store).method !== 'measured') return updateProfile(store, today, profile);
   return measuredRebuild(store, today, profile, { goal: profile.goal, targetWeightKg: profile.targetWeightKg });
+}
+
+/**
+ * Speed slider of a goal change on the journal path (point 1b): in the measured habit, on the context of the plans of the
+ * habit (journal maintenance M, floor x 1.10 x h, modeled body of the journal), so that its limits are those of the plan
+ * that `changeGoalOnPath` applies; the floor is shown in displayed kcal (/ h). Otherwise the slider of the current method.
+ */
+export function pathSpeedSliderModel(store: WheightyStore, today: string, goal: Goal): SpeedSliderModel | null {
+  if (pathOf(store).method !== 'measured') return storeSpeedSliderModel(store, today, goal);
+  const b = measuredRebuildBase(ensureDailyLogs(store, today), today);
+  if (!b) return null;
+  const { ctx } = journalPlanContext(store, today, b.base.offsetKcal, JOURNAL_FLOOR_FACTOR * b.habit.h, { request: PRODUCTION_SOLVER, input: b.prepared.input });
+  const model = speedSliderModelFor(ctx, goal);
+  return model ? { ...model, floorKcal: model.floorKcal / b.habit.h } : null;
 }
 
 /** Maintenance at the current weight chosen by the user ("objectif atteint"), on the journal path. */

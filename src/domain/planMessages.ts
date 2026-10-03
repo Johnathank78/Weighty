@@ -78,6 +78,14 @@ export const JOURNAL_MESSAGE = {
   statusMeasured: 'Ton plan suit ton journal et tes pesées.',
   balanceLabel: 'Équilibre d’après ton journal',
   sliderUnavailable: 'Ce réglage n’est pas disponible pendant que ton plan suit ta cible alignée ou ton journal.',
+  /**
+   * Pass 5b fixes, point 1a: on the aligned target itself, the speed (and the steps / calories slider) waits for the first
+   * recalibration. `days`: days before it can come (0: it may come any day, the count is left out).
+   */
+  alignedLock: (days: number) =>
+    days > 0
+      ? `Ta cible suit ce que tu manges. Vitesse modifiable après la première recalibration, dans ${days} jour${days > 1 ? 's' : ''}.`
+      : 'Ta cible suit ce que tu manges. Vitesse modifiable après la première recalibration.',
 } as const;
 
 /**

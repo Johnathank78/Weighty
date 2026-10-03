@@ -8,7 +8,7 @@ import { currentWeightKg } from '@/domain/engine';
 import { displayMacros, goalStatus, maintenanceZoneFor, planEnergyBalanceKcal, speedZone } from '@/domain/views';
 import { sliderBoundsFor } from '@/domain/sliderView';
 import { AlignProposalCard } from '@/components/JournalCards';
-import { alignButton, alignedTargetPreview, balanceSliderAvailable, habitLine, journalBalanceLine, journalRead } from '@/domain/journalPath';
+import { alignButton, alignedLockLine, alignedTargetPreview, balanceSliderAvailable, habitLine, journalBalanceLine, journalRead } from '@/domain/journalPath';
 
 function BalancePreview() {
   const { openSheet } = useNav();
@@ -57,6 +57,7 @@ export function PlanScreen() {
   const balanceLine = journalBalanceLine(store);
   const habit = habitLine(store);
   const align = alignButton(store, today);
+  const lockLine = alignedLockLine(store, today);
   const asked = asking && align?.enabled ? alignedTargetPreview(store, today) : null;
 
   return (
@@ -85,7 +86,16 @@ export function PlanScreen() {
         </div>
       </div>
 
-      {balanceSliderAvailable(store) ? <BalancePreview /> : <div style={{ height: 16 }} />}
+      {balanceSliderAvailable(store) ? (
+        <BalancePreview />
+      ) : lockLine ? (
+        // Pass 5b fixes, point 1a: the steps / calories slider waits for the first recalibration, as the speed does.
+        <p className="small" style={{ margin: '14px 0 22px' }}>
+          {lockLine}
+        </p>
+      ) : (
+        <div style={{ height: 16 }} />
+      )}
 
       <div className="rows">
         {balanceLine ? (

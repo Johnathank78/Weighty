@@ -7,8 +7,8 @@ import { BottomSheet } from '@/components/BottomSheet';
 import { Mascot } from '@/components/Mascot';
 import { NavRow, Range, Row, Segmented, Toggle } from '@/components/controls';
 import { SpeedSlider } from '@/components/SpeedSlider';
-import { currentWeightKg, storeSpeedSliderModel } from '@/domain/engine';
-import { changeGoalOnPath, switchToMaintenanceOnPath } from '@/domain/journalPath';
+import { currentWeightKg } from '@/domain/engine';
+import { alignedLockLine, changeGoalOnPath, pathSpeedSliderModel, switchToMaintenanceOnPath } from '@/domain/journalPath';
 import { exportFileName, exportStore, parseImport } from '@/persistence/exportImport';
 import type { ImportResult } from '@/persistence/exportImport';
 import { formatFullDate, formatHeight, formatInteger, formatKcal, formatNumber, formatSignedWeight, formatWeight, KG_PER_LB, weightUnitLabel } from '@/domain/format';
@@ -111,7 +111,10 @@ export function GoalSheet() {
   const [target, setTarget] = useState<number>(plan?.targetWeightKg ?? weight);
   const [rate, setRate] = useState<number | null>(plan && plan.goal !== 'maintenance' ? (plan.requestedWeeklyRate ?? plan.weeklyRateTarget) : null);
   const [error, setError] = useState<string | null>(null);
-  const model = useMemo(() => (open && goal !== 'maintenance' ? storeSpeedSliderModel(store, today, goal) : null), [open, goal, store, today]);
+  // Pass 5b fixes, point 1: the slider of the method in force (the measured habit has its own limits); on the aligned target
+  // itself, the speed of the goal in force is locked until the first recalibration.
+  const lockLine = open && plan && goal === plan.goal ? alignedLockLine(store, today) : null;
+  const model = useMemo(() => (open && goal !== 'maintenance' && lockLine === null ? pathSpeedSliderModel(store, today, goal) : null), [open, goal, store, today, lockLine]);
 
   useEffect(() => {
     if (!open || !plan) return;
@@ -127,7 +130,7 @@ export function GoalSheet() {
   const pick = (g: Goal) => {
     setGoal(g);
     setTarget(g === 'maintenance' ? Math.round(weight * 10) / 10 : g === 'loss' ? Math.max(Math.round(weight * 0.95 * 2) / 2, Math.ceil(guard.minTargetKg * 2) / 2) : Math.round(weight * 1.04 * 2) / 2);
-    setRate(g === 'maintenance' ? null : g === plan.goal ? (plan.requestedWeeklyRate ?? plan.weeklyRateTarget) : defaultWeeklyRate(g, storeSpeedSliderModel(store, today, g)?.maxSelectableRate ?? null));
+    setRate(g === 'maintenance' ? null : g === plan.goal ? (plan.requestedWeeklyRate ?? plan.weeklyRateTarget) : defaultWeeklyRate(g, pathSpeedSliderModel(store, today, g)?.maxSelectableRate ?? null));
     setError(null);
   };
   // Same bounds as onboarding (UX pass 1, D): the lowest loss target is the BMI-20 weight rounded up to the half kilo.
@@ -182,6 +185,12 @@ export function GoalSheet() {
         </>
       )}
       {model && shownRate !== null ? <SpeedSlider model={model} value={shownRate} onChange={setRate} units={units} /> : null}
+      {lockLine ? (
+        <div className="note">
+          <Mascot variant="search" width={36} />
+          <span>{lockLine}</span>
+        </div>
+      ) : null}
       {goal !== 'maintenance' && model && model.maxSelectableRate === null ? (
         <p className="small" style={{ margin: 0 }}>
           Aucune vitesse ne respecte les limites de sécurité pour ce profil. Le maintien reste disponible.

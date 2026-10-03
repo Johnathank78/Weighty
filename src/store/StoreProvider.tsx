@@ -121,6 +121,8 @@ export function StoreProvider({ children, storage: injected }: { children: React
 
   // Weekly evaluation of the journal path (pass 5b), off the main thread: when it is due, the store (journal included) is
   // sent to its worker; the result is written if the evaluation is still due and the method has not changed meanwhile.
+  // The plan and the goal of the profile are part of the request key (pass 5b fixes, point 1): a speed or goal change while
+  // the worker computes sends a new request, and the answer computed for the previous plan is ignored.
   const journalRunner = useRef<JournalWeekRunner | null>(null);
   const journalRequest = useRef(0);
   const journalAsked = useRef<string | null>(null);
@@ -134,7 +136,10 @@ export function StoreProvider({ children, storage: injected }: { children: React
     };
   }, []);
   const path = store.meta.journalPath;
-  const journalKey = store.plan && journalWeekDue(store, today) ? `${today}|${path.method}|${path.lastEvaluatedOn ?? ''}` : null;
+  const journalKey =
+    store.plan && store.profile && journalWeekDue(store, today)
+      ? `${today}|${path.method}|${path.lastEvaluatedOn ?? ''}|${store.plan.createdAt}|${store.plan.calorieTarget}|${store.profile.goal}|${store.profile.weeklyRateTarget}|${store.profile.targetWeightKg}`
+      : null;
   useEffect(() => {
     if (journalKey === null || journalAsked.current === journalKey || !journalRunner.current) return;
     journalAsked.current = journalKey;
