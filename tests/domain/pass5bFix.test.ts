@@ -8,6 +8,7 @@ import { addWeight, applyRecalibration, completeOnboarding, computeCalibrationSt
 import { addFoodEntry } from '@/domain/journal';
 import {
   acceptMeasuredOffer,
+  alignButton,
   alignedLockLine,
   applyPathSliderSteps,
   balanceSliderAvailable,
@@ -30,7 +31,9 @@ import { PRODUCTION_SOLVER } from '@/domain/engine';
 import { addDays } from '@/science/dates';
 import { hardFloorKcal } from '@/science/goals';
 import type { UserProfile } from '@/science/types';
+import { localIsoDate } from '@/science/dates';
 import { makeProfile } from '../helpers/profiles';
+import { at as atProfile, buttonProfile, eat } from '../helpers/verificationProfiles';
 
 const D0 = '2026-06-01';
 const day = (i: number) => addDays(D0, i);
@@ -232,5 +235,22 @@ describe('point 2: steps / calories slider in the measured habit', () => {
     expect(balanceSliderAvailable(s)).toBe(false);
     expect(applyPathSliderSteps(s, day(16), 9000)).toEqual({ ok: false, reason: 'journal_path' });
     expect(alignedLockLine(s, day(16))).toMatch(/^Ta cible suit ce que tu manges/);
+  });
+});
+
+describe('point 3: button of the Plan tab on the profile of the day', () => {
+  it('a profile built for today: the button turns on once yesterday is logged', () => {
+    for (const today of [localIsoDate(new Date()), '2026-09-29', '2026-10-03']) {
+      const s = buttonProfile(today);
+      expect(alignButton(s, today)).toMatchObject({ enabled: false, hint: 'Disponible quand 10 des 14 derniers jours sont saisis (encore 1).' });
+      expect(alignButton(eat(s, addDays(today, -1), 1850), today)?.enabled).toBe(true);
+    }
+  });
+
+  it('the cause seen by John: the same file opened on a later day, the 14-day window slid and one entry is no longer enough', () => {
+    const s = buttonProfile('2026-09-29');
+    const later = runDailyChecks(s, '2026-10-01', atProfile('2026-10-01'));
+    expect(alignButton(later, '2026-10-01')?.hint).toBe('Disponible quand 10 des 14 derniers jours sont saisis (encore 2).');
+    expect(alignButton(eat(later, '2026-09-30', 1850), '2026-10-01')?.enabled).toBe(false);
   });
 });
