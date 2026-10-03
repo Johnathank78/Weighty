@@ -49,7 +49,7 @@ import { intervalWidth } from '@/science/uncertainty';
 import { buildWarmStartSnapshot, validateHistoricalEvidence, warmStartPosterior } from '@/science/warmStart';
 import type { WarmStartResult } from '@/science/warmStart';
 import { PLAN_MESSAGE } from './planMessages';
-import type { CurrentPlan, JournalMethod, PlanEvent, PlanSummary, StoredWeight, WheightyStore } from './types';
+import type { AdherenceSource, CurrentPlan, JournalMethod, PlanEvent, PlanSummary, StoredWeight, WheightyStore } from './types';
 
 export const MAINTENANCE_PROJECTION_DAYS = 84;
 
@@ -598,14 +598,18 @@ function syncTodayLogTargets(store: WheightyStore, today: string): WheightyStore
   };
 }
 
-export function setAdherence(store: WheightyStore, date: string, adherence: DailyLog['adherence'] | null): WheightyStore {
+/**
+ * Declared adherence of a day, with its source (schema 9): 'user' by default (a declaration, always kept), 'journal' when
+ * deduced from the journal (fixes of pass 5b, point 4). Clearing removes both.
+ */
+export function setAdherence(store: WheightyStore, date: string, adherence: DailyLog['adherence'] | null, source: AdherenceSource = 'user'): WheightyStore {
   const withLogs = ensureDailyLogs(store, date);
   return {
     ...withLogs,
     dailyLogs: withLogs.dailyLogs.map((l) => {
       if (l.date !== date) return l;
-      const { adherence: _previous, ...rest } = l;
-      return adherence ? { ...rest, adherence } : rest;
+      const { adherence: _previous, adherenceSource: _source, ...rest } = l;
+      return adherence ? { ...rest, adherence, adherenceSource: source } : rest;
     }),
   };
 }

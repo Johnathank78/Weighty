@@ -33,7 +33,8 @@ import { JOURNAL_MESSAGE, PLAN_MESSAGE, SHORT_MESSAGE, shortRefusalReason } from
 import type { ShortText } from '@/domain/planMessages';
 import type { PlanEvent, PlanSummary } from '@/domain/types';
 import type { WheightyStore } from '@/domain/types';
-import { emptyStore } from '@/persistence/schema';
+import { migrateToCurrent } from '@/persistence/migrations';
+import { emptyStore, validateStore } from '@/persistence/schema';
 import { PRODUCTION_SOLVER } from '@/domain/engine';
 import { addDays } from '@/science/dates';
 import { hardFloorKcal } from '@/science/goals';
@@ -366,5 +367,37 @@ describe('point 7: small points of report 45 (section 5)', () => {
     expect(alignedStatusLine(s, day(20))).toBe('Prochaine recalibration dans 1 jour.');
     expect(alignedStatusLine(live(s, 17, 24, (i) => ({ kcal: 1800, kg: 75 - 0.03 * i })), day(24))).toBeNull();
     expect(alignedStatusLine(onboard(), D0)).toBeNull();
+  });
+});
+
+describe('point 8: versions, schema 9', () => {
+  it('a schema-8 store loads without loss: every existing declaration from the user, the journal path kept', () => {
+    const current = measured();
+    // The same store as written by schema 8: no source on the declarations.
+    const raw = JSON.parse(JSON.stringify({ ...current, schemaVersion: 8, scientificModelVersion: '1.5.0', dailyLogs: current.dailyLogs.map(({ adherenceSource: _s, ...l }) => l) })) as Record<string, unknown>;
+    const migrated = migrateToCurrent(raw);
+    if (!migrated.ok) throw new Error(migrated.error);
+    expect(migrated.fromVersion).toBe(8);
+    const v = validateStore(migrated.value);
+    if ('error' in v) throw new Error(v.error);
+    expect(v.dropped).toEqual([]);
+    expect(v.store.schemaVersion).toBe(9);
+    expect(v.store.dailyLogs).toEqual(current.dailyLogs.map((l) => (l.adherence !== undefined ? { ...l, adherenceSource: 'user' } : l)));
+    expect(v.store.dailyLogs.filter((l) => l.adherence !== undefined).every((l) => l.adherenceSource === 'user')).toBe(true);
+    for (const key of ['profile', 'plan', 'weights', 'calibrationSnapshots', 'foodJournal', 'preferences', 'meta', 'historicalEvidence'] as const) expect(v.store[key]).toEqual(JSON.parse(JSON.stringify(current[key])));
+    expect(v.store.scientificModelVersion).toBe('1.5.0');
+  });
+
+  it('a source without a declaration, or an unknown source, is reported; the personal target of a plan is read', () => {
+    const s = onboard();
+    const bad = { ...s, dailyLogs: [{ ...(s.dailyLogs[0] as object), adherenceSource: 'journal' }, { ...(s.dailyLogs[0] as object), date: day(1), adherence: 'on_plan', adherenceSource: 'robot' }] };
+    const v = validateStore(JSON.parse(JSON.stringify(bad)));
+    if ('error' in v) throw new Error(v.error);
+    expect(v.dropped.map((d) => d.path)).toEqual(['dailyLogs.0', 'dailyLogs.1']);
+    const plan = { ...(s.plan as object), source: 'personal_target', personalTarget: { kcal: 1700, predictedRate: 0.004 } };
+    const w = validateStore(JSON.parse(JSON.stringify({ ...s, plan })));
+    if ('error' in w) throw new Error(w.error);
+    expect(w.clean).toBe(true);
+    expect(w.store.plan?.personalTarget).toEqual({ kcal: 1700, predictedRate: 0.004 });
   });
 });

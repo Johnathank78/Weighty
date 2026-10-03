@@ -199,7 +199,8 @@ describe('migrations', () => {
     expect(s.plan).not.toHaveProperty('appliedSpeed');
     expect(s.historicalEvidence).toBeNull();
     expect(s.weights).toEqual(v1.weights);
-    expect(s.dailyLogs).toEqual(v1.dailyLogs);
+    // Schema 9 (report 46): an existing declaration is marked as given by the user; nothing else changes in the logs.
+    expect(s.dailyLogs).toEqual((v1.dailyLogs as Array<Record<string, unknown>>).map((l) => (l.adherence !== undefined ? { ...l, adherenceSource: 'user' } : l)));
     expect(s.calibrationSnapshots).toEqual(v1.calibrationSnapshots);
     expect(s.preferences).toEqual(v1.preferences);
     expect(s.scientificModelVersion).toBe('1.0.0');

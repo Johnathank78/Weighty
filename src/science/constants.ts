@@ -9,7 +9,11 @@
  * statistical_robustness_parameter requires a SCIENTIFIC_MODEL_VERSION bump.
  */
 
-export const SCIENTIFIC_MODEL_VERSION = '1.5.0';
+/**
+ * 1.6.0 (fixes of pass 5b, report 46): the adherence of a past day logged in full is deduced from the journal when the user
+ * did not declare it (the declarations read by the current method change for those who log); the personal target.
+ */
+export const SCIENTIFIC_MODEL_VERSION = '1.6.0';
 
 export type ConstantCategory =
   | 'published_constant'

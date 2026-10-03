@@ -4,9 +4,9 @@
  */
 import { isIsoDate } from '@/science/dates';
 import { SCIENTIFIC_MODEL_VERSION } from '@/science/constants';
-import type { CalibrationSnapshot, DailyLog, HistoricalIntakeEvidence, StructuredActivity, UserProfile } from '@/science/types';
-import type { AppMeta, CurrentPlan, FoodEntry, FoodJournal, FoodNutrients, JournalPathState, LibraryFood, PersonalPortion, PlanEvent, PlanSummary, Preferences, StoredWeight, WheightyStore } from '@/domain/types';
-import { DEFAULT_META, DEFAULT_PREFERENCES, defaultJournalPath, emptyFoodJournal, JOURNAL_METHODS, PLAN_EVENT_RULES, PLAN_SOURCES, SCHEMA_VERSION } from '@/domain/types';
+import type { CalibrationSnapshot, HistoricalIntakeEvidence, StructuredActivity, UserProfile } from '@/science/types';
+import type { AppMeta, CurrentPlan, FoodEntry, FoodJournal, FoodNutrients, JournalPathState, LibraryFood, PersonalPortion, PlanEvent, PlanSummary, Preferences, StoredDailyLog, StoredWeight, WheightyStore } from '@/domain/types';
+import { ADHERENCE_SOURCES, DEFAULT_META, DEFAULT_PREFERENCES, defaultJournalPath, emptyFoodJournal, JOURNAL_METHODS, PLAN_EVENT_RULES, PLAN_SOURCES, SCHEMA_VERSION } from '@/domain/types';
 
 type Obj = Record<string, unknown>;
 
@@ -82,10 +82,12 @@ export function isWeightEntry(v: unknown): v is StoredWeight {
 
 const isMacroGrams = (v: unknown): boolean => isObject(v) && isNum(v.proteinG) && isNum(v.carbsG) && isNum(v.fatG);
 
-export function isDailyLog(v: unknown): v is DailyLog {
+export function isDailyLog(v: unknown): v is StoredDailyLog {
   if (!(isObject(v) && isStr(v.date) && isIsoDate(v.date) && isNum(v.calorieTargetForDay) && isNum(v.stepTargetForDay))) return false;
   if (v.actualSteps !== undefined && !(isNum(v.actualSteps) && v.actualSteps >= 0)) return false;
   if (v.adherence !== undefined && !oneOf(v.adherence, ADHERENCE)) return false;
+  // Schema 9: the source of a declaration, only with a declaration.
+  if (v.adherenceSource !== undefined && !(v.adherence !== undefined && oneOf(v.adherenceSource, ADHERENCE_SOURCES))) return false;
   if (v.macrosForDay !== undefined && !isMacroGrams(v.macrosForDay)) return false;
   return true;
 }
@@ -136,7 +138,8 @@ export function isCurrentPlan(v: unknown): v is CurrentPlan {
     isTrajectory(proj.upper80) &&
     isStr(v.scientificModelVersion) &&
     (v.macrosDisplay === undefined || isMacroGrams(v.macrosDisplay)) &&
-    (v.requestedWeeklyRate === undefined || isNum(v.requestedWeeklyRate))
+    (v.requestedWeeklyRate === undefined || isNum(v.requestedWeeklyRate)) &&
+    (v.personalTarget === undefined || (isObject(v.personalTarget) && isNum(v.personalTarget.kcal) && isNum(v.personalTarget.predictedRate)))
   );
 }
 

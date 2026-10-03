@@ -71,9 +71,12 @@ function storeWithJournal(): WheightyStore {
 const product = (barcode: string, kcal: number | null): OffProduct => ({ barcode, name: `Produit ${barcode}`, lastModified: '1785948506', per100g: kcal === null ? null : { energyKcal: kcal, proteinG: 1, carbsG: 2, fatG: 3 }, servingGrams: null, packageGrams: null });
 
 describe('schema 2 -> current migration (food journal)', () => {
-  it('schema version is 8 (3: journal, 4: time of consumption, 5: Mes aliments, 6: weigh-in note, 7: plan checks of pass 5a, 8: journal path of pass 5b)', () => {
-    expect(SCHEMA_VERSION).toBe(8);
+  it('schema version is 9 (3: journal, 4: time of consumption, 5: Mes aliments, 6: weigh-in note, 7: plan checks of pass 5a, 8: journal path of pass 5b, 9: fixes of 5b)', () => {
+    expect(SCHEMA_VERSION).toBe(9);
   });
+
+  /** Schema 9 (report 46): an existing declaration is marked as given by the user; nothing else changes in the logs. */
+  const fromUser = (logs: unknown) => (logs as Array<Record<string, unknown>>).map((l) => (l.adherence !== undefined ? { ...l, adherenceSource: 'user' } : l));
 
   it('migrates a stored schema 2 store: empty journal, opt-in off, everything else untouched', () => {
     const raw = schema2Raw();
@@ -86,7 +89,7 @@ describe('schema 2 -> current migration (food journal)', () => {
     expect(loaded.store.foodJournal).toEqual(emptyFoodJournal());
     expect(loaded.store.preferences).toEqual({ ...(raw.preferences as object), productSearchEnabled: false });
     expect(loaded.store.weights).toEqual(raw.weights);
-    expect(loaded.store.dailyLogs).toEqual(raw.dailyLogs);
+    expect(loaded.store.dailyLogs).toEqual(fromUser(raw.dailyLogs));
     expect(loaded.store.profile).toEqual(raw.profile);
     // Saved again, it now loads as a current store.
     expect(saveStore(storage, loaded.store)).toEqual({ ok: true });
@@ -97,7 +100,7 @@ describe('schema 2 -> current migration (food journal)', () => {
     const migrated = migrateToCurrent(schema2Raw());
     expect(migrated.ok).toBe(true);
     if (!migrated.ok) return;
-    expect(migrated.value.dailyLogs).toEqual(baseStore().dailyLogs);
+    expect(migrated.value.dailyLogs).toEqual(fromUser(baseStore().dailyLogs));
   });
 
   it('imports a schema 2 export file through the same migration', () => {

@@ -122,6 +122,7 @@ export const PLAN_SOURCE_LABEL = {
   user_adjusted_slider: 'ajusté',
   guardrail: 'ajusté par un garde-fou',
   periodic_replan: 'recalculé',
+  personal_target: 'personnel',
 } as const;
 
 export const PLAN_ERROR_TEXT: Record<string, string> = {

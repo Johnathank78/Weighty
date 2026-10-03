@@ -28,8 +28,12 @@ import type {
  * Version 8 (model 1.5.0, pass 5b): `AppMeta.journalPath`, the journal path of the user (method in force, switch date,
  * refusals, gate and habit of the measured habit, offer awaiting confirmation, last return to the aligned target), and the
  * trace rules of the journal path. Loaded from schema 7 with the method 'assumed' (the target is assumed to be followed).
+ * Version 9 (model 1.6.0, fixes of pass 5b): `StoredDailyLog.adherenceSource` (who gave the declaration: the user, or the
+ * journal), plan source 'personal_target' and `CurrentPlan.personalTarget` (the target chosen by the user). The lock of the
+ * aligned target is not stored: it is the plan in force being the aligned target itself (`chosenTargetActive`). Loaded from
+ * schema 8 with every existing declaration from the user.
  */
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 /**
  * A weigh-in as this app stores it: the engine contract (`WeightEntry`, science) plus fields that are
@@ -38,6 +42,18 @@ export const SCHEMA_VERSION = 8;
 export type StoredWeight = WeightEntry & {
   /** Noted by the user on the weigh-in (C-01). Absent means not noted; only ever written when true. */
   menstruating?: boolean;
+};
+
+/**
+ * Who gave the declared adherence of a day (schema 9): 'user' (declared, or imported), 'journal' (deduced from a day logged
+ * in full, fixes of pass 5b, point 4). A declaration from the user is never replaced by the journal.
+ */
+export type AdherenceSource = 'user' | 'journal';
+export const ADHERENCE_SOURCES: readonly AdherenceSource[] = ['user', 'journal'];
+
+/** A daily log as this app stores it: the engine contract (`DailyLog`) plus the source of its declaration (schema 9). */
+export type StoredDailyLog = DailyLog & {
+  adherenceSource?: AdherenceSource;
 };
 
 export type ThemePreference = 'light' | 'dark' | 'system';
@@ -148,10 +164,11 @@ export type FoodJournal = {
 
 /**
  * Source of a plan. 'guardrail': rebuilt by a guardrail of the plan in force (BMI 20 or rate cap, pass 5a);
- * 'periodic_replan': rebuilt every 28 days from the day's state, without a new calibration (pass 5a).
+ * 'periodic_replan': rebuilt every 28 days from the day's state, without a new calibration (pass 5a); 'personal_target': the
+ * target chosen by the user (schema 9, fixes of pass 5b, point 6).
  */
-export type PlanSource = 'initial' | 'recalibrated' | 'user_adjusted_slider' | 'guardrail' | 'periodic_replan';
-export const PLAN_SOURCES: readonly PlanSource[] = ['initial', 'recalibrated', 'user_adjusted_slider', 'guardrail', 'periodic_replan'];
+export type PlanSource = 'initial' | 'recalibrated' | 'user_adjusted_slider' | 'guardrail' | 'periodic_replan' | 'personal_target';
+export const PLAN_SOURCES: readonly PlanSource[] = ['initial', 'recalibrated', 'user_adjusted_slider', 'guardrail', 'periodic_replan', 'personal_target'];
 
 export type CurrentPlan = {
   createdAt: string;
@@ -212,6 +229,11 @@ export type CurrentPlan = {
     lowCarbForResistance: boolean;
   };
   proteinRule?: string;
+  /**
+   * The target chosen by the user (schema 9, source 'personal_target'): kcal/day, and the weekly rate the model predicts with
+   * it (fraction of body weight per week; signed for a maintenance goal: negative, a loss).
+   */
+  personalTarget?: { kcal: number; predictedRate: number };
 };
 
 /** What the trace keeps of a plan (pass 5a): enough to say what changed, without the projection. */
@@ -413,7 +435,7 @@ export type WheightyStore = {
   profile: UserProfile | null;
   plan: CurrentPlan | null;
   weights: StoredWeight[];
-  dailyLogs: DailyLog[];
+  dailyLogs: StoredDailyLog[];
   calibrationSnapshots: CalibrationSnapshot[];
   /** Historical intake evidence given at onboarding (warm start), null when none (D-23). */
   historicalEvidence: HistoricalIntakeEvidence | null;

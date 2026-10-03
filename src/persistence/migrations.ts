@@ -136,6 +136,14 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
     const meta = isObject(input.meta) ? input.meta : {};
     return { ...input, schemaVersion: 8, meta: { ...meta, journalPath: meta.journalPath ?? defaultJournalPath() } };
   },
+  // 8 -> 9 (model 1.6.0, fixes of pass 5b): every existing declaration of a day was given by the user (declared, confirmed
+  // or imported): its source is 'user', so the journal never replaces it. The plan sources and the personal target are new
+  // values only. Every other field, every log without a declaration and every unknown field is carried over as it is.
+  8: (input) => {
+    const logs = input.dailyLogs;
+    const dailyLogs = Array.isArray(logs) ? logs.map((l) => (isObject(l) && l.adherence !== undefined && l.adherenceSource === undefined ? { ...l, adherenceSource: 'user' } : l)) : logs;
+    return { ...input, schemaVersion: 9, ...(Array.isArray(logs) ? { dailyLogs } : {}) };
+  },
 };
 
 export type MigrationResult = { ok: true; value: Record<string, unknown>; fromVersion: number } | { ok: false; error: 'not_an_object' | 'future_schema_version' | 'missing_migration' };
