@@ -8,7 +8,10 @@ import { addWeight, applyRecalibration, completeOnboarding, computeCalibrationSt
 import { addFoodEntry } from '@/domain/journal';
 import {
   acceptMeasuredOffer,
+  alignedStatusLine,
   alignButton,
+  checkWeighDaily,
+  measuredWhyText,
   alignedLockLine,
   applyPathSliderSteps,
   balanceSliderAvailable,
@@ -36,7 +39,7 @@ import { addDays } from '@/science/dates';
 import { hardFloorKcal } from '@/science/goals';
 import type { UserProfile } from '@/science/types';
 import { localIsoDate } from '@/science/dates';
-import { THIN_SPACE } from '@/domain/format';
+import { formatKcal, THIN_SPACE } from '@/domain/format';
 import { makeProfile } from '../helpers/profiles';
 import { at as atProfile, buttonProfile, eat } from '../helpers/verificationProfiles';
 
@@ -328,5 +331,40 @@ describe('point 5: short messages', () => {
     expect(short(view.short).title).toBe('Plan calé sur ton journal');
     expect(view.short.line).toMatch(/^Tu manges 10 % de plus que ta cible\. Nouvelle cible : /);
     expect(view.text).toMatch(/^Tu te pèses chaque jour et tu notes ce que tu manges/);
+  });
+});
+
+describe('point 7: small points of report 45 (section 5)', () => {
+  it('point 2: on the aligned target itself, the deadline waits for the first recalibration', () => {
+    const s = aligned(16);
+    expect(alignedLockLine(s, day(16))).not.toBeNull();
+    expect(JOURNAL_MESSAGE.deadlineLabel).toBe('Échéance');
+    expect(JOURNAL_MESSAGE.deadlineAfterRecalibration).toBe('Après la première recalibration');
+  });
+
+  it('point 3: no weigh-in encouragement within 7 days of a return to the aligned target', () => {
+    const s = live(measured(), 29, 35, (i) => ({ kcal: 1980, kg: i >= 31 && i <= 33 ? null : 75 - 0.03 * i }));
+    const out = runJournalWeek(s, day(35), at(day(35)));
+    expect(out.meta.journalPath.lastExit?.date).toBe(day(35));
+    const weigh = (x: WheightyStore) => x.meta.planEvents.filter((e) => e.rule === 'journal_weigh_daily');
+    const missed = live(out, 36, 42, (i) => ({ kcal: 1980, kg: i === 37 ? null : 75 - 0.03 * i }));
+    expect(weigh(checkWeighDaily(missed, day(36), at(day(36))))).toHaveLength(weigh(out).length);
+    expect(weigh(checkWeighDaily(missed, day(41), at(day(41))))).toHaveLength(weigh(out).length);
+    expect(weigh(checkWeighDaily(missed, day(42), at(day(42))))).toHaveLength(weigh(out).length + 1);
+  });
+
+  it('point 5: "Pourquoi ce résultat ?" in the measured habit, a short explanation', () => {
+    const s = measured();
+    expect(measuredWhyText(s)).toBe(`Équilibre d’après ton journal : ${formatKcal(s.plan?.maintenanceKcal as number)} kcal par jour. Habitude : +10 %. Ta cible = apport à viser ÷ habitude.`);
+    expect(JOURNAL_MESSAGE.whyMeasured(2470, 0.88)).toMatch(/Habitude : −12 %\. Ta cible = apport à viser ÷ habitude\.$/);
+    expect(measuredWhyText(aligned(16))).toBeNull();
+  });
+
+  it('point 7: on the aligned target, "Prochaine recalibration dans {n} jours" rather than the deviation days', () => {
+    const s = aligned(16);
+    expect(alignedStatusLine(s, day(16))).toBe('Prochaine recalibration dans 5 jours.');
+    expect(alignedStatusLine(s, day(20))).toBe('Prochaine recalibration dans 1 jour.');
+    expect(alignedStatusLine(live(s, 17, 24, (i) => ({ kcal: 1800, kg: 75 - 0.03 * i })), day(24))).toBeNull();
+    expect(alignedStatusLine(onboard(), D0)).toBeNull();
   });
 });

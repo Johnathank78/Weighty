@@ -261,6 +261,8 @@ function missedWeighInDays(store: WheightyStore, from: string, to: string): numb
 export function checkWeighDaily(store: WheightyStore, today: string, nowIso: string): WheightyStore {
   const path = pathOf(store);
   if (path.method !== 'aligned' || path.switchedOn === null) return store;
+  // Pass 5b fixes, point 7 (report 45 s5, point 3): not within a week of the message of a return to the aligned target.
+  if (path.lastExit !== null && withinDays(path.lastExit.date, today, JOURNAL_MESSAGE_MIN_INTERVAL_DAYS)) return store;
   const from = maxDate(path.switchedOn, addDays(today, -JOURNAL_MESSAGE_MIN_INTERVAL_DAYS));
   if (missedWeighInDays(store, from, addDays(today, -1)) === 0) return store;
   if (withinDays(lastEventDate(store, 'journal_weigh_daily'), today, JOURNAL_MESSAGE_MIN_INTERVAL_DAYS)) return store;
@@ -832,6 +834,22 @@ export function alignedRecalibrationDays(store: WheightyStore, today: string): n
   const gate = evaluateGate(store.weights, store.dailyLogs);
   const missing = gate.met ? 0 : Math.max(GATE_MIN_SPAN_DAYS - gate.spanDays, GATE_MIN_WEIGHINS - gate.weighInCount, GATE_MIN_CLEAN_WEIGHINS - gate.cleanWeighInCount);
   return Math.max(0, first, missing);
+}
+
+/**
+ * Point 7 (report 45 s5, point 7): the recalibration line of Aujourd'hui on the aligned target, "Prochaine recalibration dans
+ * {n} jours", rather than the gate of the declarations; null when the recalibration may come (the usual lines then).
+ */
+export function alignedStatusLine(store: WheightyStore, today: string): string | null {
+  if (pathOf(store).method !== 'aligned') return null;
+  const days = alignedRecalibrationDays(store, today);
+  return days > 0 ? JOURNAL_MESSAGE.nextRecalibration(days) : null;
+}
+
+/** Point 7 (report 45 s5, point 5): "Pourquoi ce résultat ?" in the measured habit, null otherwise. */
+export function measuredWhyText(store: WheightyStore): string | null {
+  const habit = pathOf(store).habit;
+  return journalRead(store) && store.plan && habit ? JOURNAL_MESSAGE.whyMeasured(store.plan.maintenanceKcal, habit.h) : null;
 }
 
 /** The line shown instead of the speed and of the steps / calories slider on the aligned target itself, null otherwise. */

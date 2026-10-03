@@ -5,7 +5,7 @@
  * this file.
  */
 import type { DailyLog, Goal } from '@/science/types';
-import { formatKcal, formatNumber, formatRatePercent, formatSteps } from './format';
+import { formatKcal, formatNumber, formatRatePercent, formatSteps, MINUS } from './format';
 
 /** "{vitesse} % par semaine" with the app's rate formatting (0.005 -> "0,5 %"). */
 const perWeek = (rate: number) => `${formatRatePercent(rate)} par semaine`;
@@ -139,6 +139,16 @@ export const JOURNAL_MESSAGE = {
   balanceLabel: 'Équilibre d’après ton journal',
   /** Annex of the fixes (point 2): the slider when the measured habit cannot build it (no journal input). */
   sliderUnavailable: 'En mode journal, ta cible suit ton journal et tes pesées.',
+  /** Pass 5b fixes, point 7 (report 45 s5, point 2): the deadline of the aligned target itself, Plan tab. */
+  deadlineLabel: 'Échéance',
+  deadlineAfterRecalibration: 'Après la première recalibration',
+  /** Point 7 (report 45 s5, point 7): the recalibration line of Aujourd'hui on the aligned target. */
+  nextRecalibration: (days: number) => `Prochaine recalibration dans ${days} jour${days > 1 ? 's' : ''}.`,
+  /** Point 7 (report 45 s5, point 5): "Pourquoi ce résultat ?" in the measured habit (annex); the habit as a signed percent. */
+  whyMeasured: (maintenanceKcal: number, h: number) => {
+    const g = habitGap(h);
+    return `Équilibre d’après ton journal : ${formatKcal(maintenanceKcal)} kcal par jour. Habitude : ${g.percent === 0 ? '0' : `${g.more ? '+' : MINUS}${g.percent}`} %. Ta cible = apport à viser ÷ habitude.`;
+  },
   /**
    * Pass 5b fixes, point 1a: on the aligned target itself, the speed (and the steps / calories slider) waits for the first
    * recalibration. `days`: days before it can come (0: it may come any day, the count is left out).

@@ -8,7 +8,8 @@ import { currentWeightKg } from '@/domain/engine';
 import { displayMacros, goalStatus, maintenanceZoneFor, planEnergyBalanceKcal, speedZone } from '@/domain/views';
 import { sliderBoundsFor } from '@/domain/sliderView';
 import { AlignProposalCard } from '@/components/JournalCards';
-import { alignButton, alignedLockLine, alignedTargetPreview, balanceSliderAvailable, habitLine, journalBalanceLine, journalRead } from '@/domain/journalPath';
+import { alignButton, alignedLockLine, alignedTargetPreview, balanceSliderAvailable, habitLine, journalBalanceLine } from '@/domain/journalPath';
+import { JOURNAL_MESSAGE } from '@/domain/planMessages';
 
 function BalancePreview() {
   const { openSheet } = useNav();
@@ -53,7 +54,6 @@ export function PlanScreen() {
   const target = plan.targetWeightKg ?? store.profile?.targetWeightKg ?? weight ?? 0;
   const zone = plan.goal === 'maintenance' ? maintenanceZoneFor(target) : null;
   const status = goalStatus(store);
-  const read = journalRead(store);
   const balanceLine = journalBalanceLine(store);
   const habit = habitLine(store);
   const align = alignButton(store, today);
@@ -158,24 +158,25 @@ export function PlanScreen() {
       {/* Plan answers "what do I do?": no second projection block (Suivi shows the trajectory). */}
       <div className="rows">
         <div className="row">
-          <span className="row__label">{plan.goal === 'maintenance' ? 'Zone de poids' : 'Échéance estimée'}</span>
+          {/* Pass 5b fixes, point 7: the aligned target itself keeps the projection of the plan before it; no deadline yet. */}
+          <span className="row__label">{plan.goal === 'maintenance' ? 'Zone de poids' : lockLine ? JOURNAL_MESSAGE.deadlineLabel : 'Échéance estimée'}</span>
           <span className="row__value">
             {plan.goal === 'maintenance'
               ? status.inMaintenanceZone === false
                 ? 'Hors de la zone'
                 : 'Zone tenue'
-              : plan.projection.approximateWeeks !== undefined
-                ? `~${plan.projection.approximateWeeks} sem.`
-                : 'Au-delà de 2 ans'}
+              : lockLine
+                ? JOURNAL_MESSAGE.deadlineAfterRecalibration
+                : plan.projection.approximateWeeks !== undefined
+                  ? `~${plan.projection.approximateWeeks} sem.`
+                  : 'Au-delà de 2 ans'}
           </span>
         </div>
       </div>
-      {/* The explanation describes the current method; the measured habit has its habit line instead (pass 5b). */}
-      {read ? null : (
-        <button type="button" className="link" style={{ marginTop: 14 }} onClick={() => openSheet('why', 'estimate')}>
-          Pourquoi ce résultat ?
-        </button>
-      )}
+      {/* Pass 5b fixes, point 7: in the measured habit, a short explanation of its own (WhySheet). */}
+      <button type="button" className="link" style={{ marginTop: 14 }} onClick={() => openSheet('why', 'estimate')}>
+        Pourquoi ce résultat ?
+      </button>
       {align ? (
         <div style={{ marginTop: 20 }}>
           {asked?.ok ? (

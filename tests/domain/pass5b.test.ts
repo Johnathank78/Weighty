@@ -398,13 +398,15 @@ describe('suggested adherence (decision 12)', () => {
 });
 
 describe('interface of the journal path', () => {
-  it('"ta dépense" is absent once the journal is read; the Plan tab hides the explanation of the current method', () => {
+  it('"ta dépense" is absent once the journal is read; the measured habit has its own explanation (report 46, point 7)', () => {
     for (const v of Object.values(JOURNAL_MESSAGE)) {
       const text = typeof v === 'function' ? (v as (...a: never[]) => string)(...([1.1, 1800] as never[])) : v;
       expect(text).not.toMatch(/dépense/);
     }
     const plan = readFileSync('src/screens/Plan.tsx', 'utf8');
-    expect(plan).toMatch(/\{read \? null : \(\s*<button type="button" className="link" style=\{\{ marginTop: 14 \}\} onClick=\{\(\) => openSheet\('why', 'estimate'\)\}>/);
+    // Report 46, point 7: "Pourquoi ce résultat ?" is back in the measured habit, with the short explanation of the habit.
+    expect(plan).toMatch(/<button type="button" className="link" style=\{\{ marginTop: 14 \}\} onClick=\{\(\) => openSheet\('why', 'estimate'\)\}>/);
+    expect(readFileSync('src/screens/WhySheet.tsx', 'utf8')).toMatch(/measuredWhyText\(store\)/);
     expect(plan).toMatch(/balanceLine \? \(/);
     expect(readFileSync('src/screens/Tracking.tsx', 'utf8')).toMatch(/journalRead\(store\) \? JOURNAL_MESSAGE\.balanceLabel : 'Maintien estimé aujourd’hui'/);
     expect(readFileSync('src/screens/Today.tsx', 'utf8')).toMatch(/adherenceAsked\(store\) \? \(/);
