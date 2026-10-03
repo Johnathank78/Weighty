@@ -9,7 +9,8 @@ import { displayMacros, goalStatus, maintenanceZoneFor, planEnergyBalanceKcal, s
 import { sliderBoundsFor } from '@/domain/sliderView';
 import { AlignProposalCard } from '@/components/JournalCards';
 import { alignButton, alignedLockLine, alignedTargetPreview, balanceSliderAvailable, habitLine, journalBalanceLine } from '@/domain/journalPath';
-import { JOURNAL_MESSAGE } from '@/domain/planMessages';
+import { JOURNAL_MESSAGE, PERSONAL_TARGET_MESSAGE } from '@/domain/planMessages';
+import { personalTargetAvailable, personalTargetLine } from '@/domain/personalTarget';
 
 function BalancePreview() {
   const { openSheet } = useNav();
@@ -58,6 +59,7 @@ export function PlanScreen() {
   const habit = habitLine(store);
   const align = alignButton(store, today);
   const lockLine = alignedLockLine(store, today);
+  const personalLine = personalTargetLine(store);
   const asked = asking && align?.enabled ? alignedTargetPreview(store, today) : null;
 
   return (
@@ -88,6 +90,11 @@ export function PlanScreen() {
 
       {balanceSliderAvailable(store) ? (
         <BalancePreview />
+      ) : personalLine ? (
+        // Fixes of pass 5b, point 6: the user's own target, and the speed the model predicts with it.
+        <p className="small" style={{ margin: '14px 0 22px' }}>
+          {personalLine}
+        </p>
       ) : lockLine ? (
         // Pass 5b fixes, point 1a: the steps / calories slider waits for the first recalibration, as the speed does.
         <p className="small" style={{ margin: '14px 0 22px' }}>
@@ -173,10 +180,17 @@ export function PlanScreen() {
           </span>
         </div>
       </div>
-      {/* Pass 5b fixes, point 7: in the measured habit, a short explanation of its own (WhySheet). */}
-      <button type="button" className="link" style={{ marginTop: 14 }} onClick={() => openSheet('why', 'estimate')}>
-        Pourquoi ce résultat ?
-      </button>
+      {/* Pass 5b fixes, point 7: in the measured habit, a short explanation of its own (WhySheet); none on a personal target. */}
+      {personalLine ? null : (
+        <button type="button" className="link" style={{ marginTop: 14 }} onClick={() => openSheet('why', 'estimate')}>
+          Pourquoi ce résultat ?
+        </button>
+      )}
+      {personalTargetAvailable(store) ? (
+        <button type="button" className="btn btn--outline" style={{ marginTop: 20 }} onClick={() => openSheet('personalTarget')}>
+          {PERSONAL_TARGET_MESSAGE.planAction}
+        </button>
+      ) : null}
       {align ? (
         <div style={{ marginTop: 20 }}>
           {asked?.ok ? (

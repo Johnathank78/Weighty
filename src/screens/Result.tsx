@@ -7,14 +7,16 @@ import { Mascot } from '@/components/Mascot';
 import { ConfidenceBar } from '@/components/controls';
 import { completeOnboarding, previewInitialPlan } from '@/domain/engine';
 import { journalRead, updateProfileOnPath } from '@/domain/journalPath';
-import { JOURNAL_MESSAGE } from '@/domain/planMessages';
+import { JOURNAL_MESSAGE, PERSONAL_TARGET_MESSAGE } from '@/domain/planMessages';
+import { checkPersonalTarget, completeOnboardingWithTarget, onboardingPersonalTargetTable, withPersonalTarget } from '@/domain/personalTarget';
 import { formatGrams, formatKcal, formatKcalRange, formatRatePercent, formatSteps } from '@/domain/format';
 import { draftToEvidence, draftToProfile } from '@/domain/onboarding';
 import { floorAdviceOf } from '@/domain/planSafety';
 import { displayMacros, warmStartView } from '@/domain/views';
+import type { WheightyStore } from '@/domain/types';
 
 export function ResultScreen() {
-  const { draft, go, openSheet, showToast } = useNav();
+  const { draft, setDraft, go, openSheet, showToast } = useNav();
   const { store, commit, today, nowIso } = useWheighty();
   const profile = useMemo(() => draftToProfile(draft, store.preferences.units), [draft, store.preferences.units]);
   const evidence = useMemo(() => draftToEvidence(draft, store.preferences.units, today), [draft, store.preferences.units, today]);
@@ -27,6 +29,12 @@ export function ResultScreen() {
     () => (draft.mode === 'edit' && profile && store.plan && store.meta.journalPath.method !== 'assumed' ? updateProfileOnPath(store, today, profile) : null),
     [draft.mode, profile, store, today],
   );
+  // Fixes of pass 5b, point 6: "J'ai déjà ma cible" on the first plan; the target kept in the draft, checked again here.
+  const personal = useMemo(() => {
+    if (draft.mode === 'edit' || draft.personalTargetKcal === null || !profile) return null;
+    const table = onboardingPersonalTargetTable(profile, today, evidence);
+    return table ? checkPersonalTarget(table, draft.personalTargetKcal) : null;
+  }, [draft.mode, draft.personalTargetKcal, profile, today, evidence]);
 
   if (!profile || !preview) {
     return (
@@ -74,7 +82,8 @@ export function ResultScreen() {
 
   const { goalPlan } = preview;
   const onPath = pathPreview?.ok ? pathPreview.store : null;
-  const plan = onPath?.plan ?? preview.plan;
+  // The personal target shown with its own macros, as it will be applied (fixes of pass 5b, point 6).
+  const plan = onPath?.plan ?? (personal?.ok && preview.context ? withPersonalTarget(preview.plan, preview.context, profile.goal, profile.targetWeightKg, personal.kcal, personal.predictedRate) : preview.plan);
   const macros = displayMacros(plan);
   const warm = warmStartView(preview.warmStart);
 
@@ -90,9 +99,11 @@ export function ResultScreen() {
       go('plan', { replace: true });
       return;
     }
-    const r = completeOnboarding(store, profile, today, nowIso(), evidence);
+    const r: { ok: true; store: WheightyStore } | { ok: false; reason: string; text?: string } = personal?.ok
+      ? completeOnboardingWithTarget(store, profile, today, nowIso(), evidence, personal.kcal)
+      : completeOnboarding(store, profile, today, nowIso(), evidence);
     if (!r.ok) {
-      showToast(PLAN_ERROR_TEXT[r.reason] ?? 'Impossible de créer le plan.');
+      showToast(r.text ?? PLAN_ERROR_TEXT[r.reason] ?? 'Impossible de créer le plan.');
       return;
     }
     commit(r.store);
@@ -119,6 +130,11 @@ export function ResultScreen() {
           <div className="eyebrow" style={{ fontSize: 13, marginTop: 4 }}>
             kcal par jour
           </div>
+          {personal ? (
+            <p className="small" style={{ margin: '10px 0 0' }} role={personal.ok ? undefined : 'alert'}>
+              {personal.text}
+            </p>
+          ) : null}
         </div>
         <div style={{ display: 'flex', gap: 22, justifyContent: 'center', marginTop: 18 }}>
           <div style={{ textAlign: 'center' }}>
@@ -176,7 +192,7 @@ export function ResultScreen() {
         )}
 
         {warm.conflict && !onPath ? <ResultNote>{WARM_START_TEXT.conflict}</ResultNote> : null}
-        {goalPlan.rateAdjusted && !onPath ? (
+        {goalPlan.rateAdjusted && !onPath && !personal?.ok ? (
           <ResultNote warn>
             Vitesse ajustée à {formatRatePercent(goalPlan.weeklyRateTarget)} par semaine pour respecter les limites de sécurité.{advice ? ` ${advice.lines.join(' ')}` : ''}
           </ResultNote>
@@ -185,9 +201,22 @@ export function ResultScreen() {
         {(onPath ? plan.warnings?.lowEnergyAvailability : goalPlan.warnings.lowEnergyAvailability) ? <ResultNote warn>Avec ton volume d’entraînement, l’énergie disponible serait basse. Préfère une vitesse plus douce et surveille ta fatigue.</ResultNote> : null}
         {(onPath ? plan.warnings?.gainWithoutResistance : goalPlan.warnings.gainWithoutResistance) ? <ResultNote>Une prise de poids rapide sans entraînement de résistance favorise moins la prise de masse maigre.</ResultNote> : null}
 
-        <button type="button" className="link" style={{ width: '100%', textAlign: 'center' }} onClick={() => openSheet('why', 'estimate')}>
-          Pourquoi ce résultat ?
-        </button>
+        {personal?.ok ? null : (
+          <button type="button" className="link" style={{ width: '100%', textAlign: 'center' }} onClick={() => openSheet('why', 'estimate')}>
+            Pourquoi ce résultat ?
+          </button>
+        )}
+        {draft.mode === 'edit' ? null : (
+          // Fixes of pass 5b, point 6: the secondary action of the first plan.
+          <button
+            type="button"
+            className="link"
+            style={{ width: '100%', textAlign: 'center' }}
+            onClick={() => (draft.personalTargetKcal === null ? openSheet('personalTarget') : setDraft((d) => ({ ...d, personalTargetKcal: null })))}
+          >
+            {draft.personalTargetKcal === null ? PERSONAL_TARGET_MESSAGE.action : PERSONAL_TARGET_MESSAGE.useComputed}
+          </button>
+        )}
         <div className="sticky-cta">
           <button type="button" className="btn btn--primary" onClick={start}>
             {draft.mode === 'edit' ? 'Appliquer ce plan' : 'C’est parti'}

@@ -19,6 +19,7 @@ import { DataScreen, DeleteScreen, GoalSheet, ParamsScreen, ProfilScreen, Reache
 import { AdherenceSheet, StepsSheet, WeighSheet } from '@/screens/DailySheets';
 import { BalanceSheet } from '@/screens/BalanceSheet';
 import { WhySheet } from '@/screens/WhySheet';
+import { PersonalTargetSheet } from '@/screens/PersonalTargetSheet';
 import { JournalScreen } from '@/screens/Journal';
 import { HistoryScreen } from '@/screens/History';
 
@@ -95,6 +96,8 @@ function Screens() {
         </>
       ) : null}
       <WhySheet />
+      {/* Fixes of pass 5b, point 6: also on the first plan of the onboarding, before any plan exists. */}
+      <PersonalTargetSheet />
       {toast ? (
         <Toast
           key={toast.id}

@@ -9,7 +9,7 @@ import { PlanNotices } from '@/components/PlanNotices';
 import { ConfidenceBar, ConfidenceGauge, NavRow, Segmented } from '@/components/controls';
 import { WeightChart } from '@/components/WeightChart';
 import { applyRecalibration, applyRecalibrationAsMaintenance, buildPlanFromStore, deleteWeight, markRecalibrationSeen, trendOf } from '@/domain/engine';
-import { recalibrationRefusedText, SHORT_MESSAGE } from '@/domain/planMessages';
+import { PERSONAL_TARGET_MESSAGE, recalibrationRefusedText, SHORT_MESSAGE } from '@/domain/planMessages';
 import { ShortNotice } from '@/components/ShortNotice';
 import { floorAdviceOf } from '@/domain/planSafety';
 import { journalRead } from '@/domain/journalPath';
@@ -530,9 +530,16 @@ export function RecalibrationScreen() {
       <button type="button" className="btn btn--ghost" onClick={() => openSheet('why', 'recalibration')}>
         Pourquoi ce changement ?
       </button>
-      <button type="button" className="btn btn--ghost" style={{ paddingTop: 0 }} onClick={() => go('analyse', { replace: true })}>
-        Plus tard
-      </button>
+      {plan.source === 'personal_target' ? (
+        // Fixes of pass 5b, point 6: keeping the personal target changes nothing (the recalibration was seen).
+        <button type="button" className="btn btn--ghost" style={{ paddingTop: 0 }} onClick={() => go('today', { replace: true })}>
+          {PERSONAL_TARGET_MESSAGE.keep}
+        </button>
+      ) : (
+        <button type="button" className="btn btn--ghost" style={{ paddingTop: 0 }} onClick={() => go('analyse', { replace: true })}>
+          Plus tard
+        </button>
+      )}
     </main>
   );
 }

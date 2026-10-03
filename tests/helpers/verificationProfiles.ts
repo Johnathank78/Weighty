@@ -7,6 +7,7 @@
 import { addWeight, completeOnboarding, setAdherence } from '@/domain/engine';
 import { addFoodEntry } from '@/domain/journal';
 import { acceptMeasuredOffer, runJournalWeek, switchToAlignedTarget } from '@/domain/journalPath';
+import { completeOnboardingWithTarget } from '@/domain/personalTarget';
 import { runDailyChecks } from '@/domain/planSafety';
 import type { WheightyStore } from '@/domain/types';
 import { emptyStore } from '@/persistence/schema';
@@ -122,4 +123,15 @@ export function deducedAdherenceProfile(today: string): WheightyStore {
   const target = store.plan?.calorieTarget as number;
   const s = live(store, start, 0, 9, (i) => ({ kg: 75 - 0.02 * i, kcal: Math.round(target * (i === 8 ? 1.3 : i === 9 ? 1.15 : 1)) }));
   return eat(addWeight(s, { date: today, weightKg: 74.8 }, at(today)), today, Math.round(target * 1.05));
+}
+
+/**
+ * 7. Personal target and a recalibration (fixes, point 6): target of 1 700 kcal chosen at the onboarding, 21 days ago; a
+ * weigh-in and "Plan respecté" every day, losing faster than predicted: a recalibration is ready when the file is opened.
+ */
+export function personalTargetProfile(today: string): WheightyStore {
+  const start = addDays(today, -21);
+  const r = completeOnboardingWithTarget(emptyStore(), verificationProfile('Test cible personnelle'), start, at(start), null, 1700);
+  if (!r.ok) throw new Error(r.reason);
+  return live(r.store, start, 1, 21, (i) => ({ kg: 75 - 0.12 * i, adherence: 'on_plan' }));
 }

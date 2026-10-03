@@ -547,6 +547,16 @@ export function evaluateWeeklyRate(ctx: PlanContext, goal: Goal, weeklyRate: num
   return { ok: true, weeklyRate, solve, macros };
 }
 
+/**
+ * Constant daily intake that holds `weeklyRate` at the solver horizon: the solve of `evaluateWeeklyRate`, without its floor
+ * and macro checks (they are the caller's). Null when the solve does not converge. The correspondence rate -> target of the
+ * speed slider, read the other way by the personal target (fixes of pass 5b, point 6: no new science).
+ */
+export function calorieTargetForRate(ctx: PlanContext, goal: Goal, weeklyRate: number, stepTarget: number): number | null {
+  const solve = solveCaloriesAtHorizon(ctx, goal, stepTarget, horizonTarget(ctx, goal, weeklyRate));
+  return solve.converged ? solve.calorieTargetKcal : null;
+}
+
 /** Grid of candidate rates from `fromRate` down to the goal minimum, fastest first. */
 function descendingRateGrid(goal: Goal, fromRate: number): number[] {
   const { minRate } = weeklyRateRange(goal);

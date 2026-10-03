@@ -9,11 +9,12 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { alignButton, incompleteDayLine, measuredOfferView, openAlignProposal, suggestedAdherence } from '@/domain/journalPath';
 import { THIN_SPACE } from '@/domain/format';
+import { computeCalibrationState } from '@/domain/engine';
 import { runDailyChecks } from '@/domain/planSafety';
 import type { WheightyStore } from '@/domain/types';
 import { exportStore, parseImport } from '@/persistence/exportImport';
 import { addDays, localIsoDate } from '@/science/dates';
-import { at, buttonProfile, deducedAdherenceProfile, eat, firstPlanProfile, incompleteDayProfile, proposalProfile, returnProfile } from '../../helpers/verificationProfiles';
+import { at, buttonProfile, deducedAdherenceProfile, eat, firstPlanProfile, incompleteDayProfile, personalTargetProfile, proposalProfile, returnProfile } from '../../helpers/verificationProfiles';
 
 const TODAY = process.env.MANUAL_TODAY ?? localIsoDate(new Date());
 const OUT = 'docs/verification-5b';
@@ -63,4 +64,10 @@ it(`pass 5b manual check profiles, for ${TODAY}`, () => {
   expect(on(TODAY)?.adherence).toBeUndefined();
   expect(suggestedAdherence(loaded, TODAY)?.text).toBe('Plan respecté, d’après ton journal');
   write('6-adherence-deduite.json', deduced);
+
+  // Report 46, point 6: the personal target in force, a recalibration ready at the opening ("Garder ma cible").
+  const personal = personalTargetProfile(TODAY);
+  expect(personal.plan?.source).toBe('personal_target');
+  expect(computeCalibrationState(runDailyChecks(personal, TODAY, at(TODAY)), TODAY, at(TODAY))?.surfaced).toBe(true);
+  write('7-cible-personnelle.json', personal);
 });

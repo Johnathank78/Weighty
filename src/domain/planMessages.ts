@@ -161,6 +161,26 @@ export const JOURNAL_MESSAGE = {
       : 'Ta cible suit ce que tu manges. Vitesse modifiable après la première recalibration.',
 } as const;
 
+/** Personal target (fixes of pass 5b, point 6, annex). Never use the em dash character in this file. */
+export const PERSONAL_TARGET_MESSAGE = {
+  action: 'J’ai déjà ma cible',
+  planAction: 'Choisir ma cible',
+  field: 'Ma cible, en kcal par jour',
+  /** The rate is shown without sign (a maintenance target between the first notches of loss and gain). */
+  predicted: (kcal: number, rate: number) => `Avec ${formatKcal(kcal)} kcal, vitesse prévue : ${formatRatePercent(Math.abs(rate))} par semaine.`,
+  belowFloor: (floorKcal: number) => `Ton minimum est de ${formatKcal(floorKcal)} kcal par jour.`,
+  tooFastLoss: (minKcal: number) => `Trop rapide pour ton IMC : au moins ${formatKcal(minKcal)} kcal par jour.`,
+  /** No annex text for a gain: its cap is the product maximum, not the BMI. */
+  tooFastGain: (maxKcal: number) => `Trop rapide : au plus ${formatKcal(maxKcal)} kcal par jour.`,
+  contradicts: (direction: 'gain' | 'loss') => `Avec cette cible, tu ${direction === 'gain' ? 'prendrais' : 'perdrais'} du poids : change ta cible ou ton objectif.`,
+  inPlan: (kcal: number, rate: number) => `Ta cible personnelle : ${formatKcal(kcal)} kcal par jour. Vitesse prévue : ${formatRatePercent(Math.abs(rate))} par semaine.`,
+  keep: 'Garder ma cible',
+  apply: 'Appliquer ma cible',
+  applied: 'Ta cible est appliquée.',
+  /** Onboarding: back to the target computed by the app. */
+  useComputed: 'Revenir à la cible proposée',
+} as const;
+
 /**
  * Every reason for which a plan cannot be (re)built, as returned by the domain (`buildPlan`, `buildPlanFromStore`,
  * `applyRecalibration`), with the sentence that says why. `floorKcal` completes the infeasible-speed sentence.

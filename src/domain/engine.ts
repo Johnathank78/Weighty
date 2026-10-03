@@ -707,6 +707,8 @@ export function applySliderSteps(store: WheightyStore, today: string, steps: num
   // Journal path (pass 5b): not on the aligned target itself (the user's own figure); in the measured habit, only on the
   // context of the habit (`override`, pass 5b fixes, point 2).
   if (store.meta.journalPath.chosenTargetActive || (store.meta.journalPath.method === 'measured' && !override)) return { ok: false, reason: 'journal_path' };
+  // The target chosen by the user is theirs (fixes of pass 5b, point 6): "Choisir ma cible" changes it.
+  if (plan.source === 'personal_target') return { ok: false, reason: 'personal_target' };
   const session = createSliderSession(store, today, override);
   if (!session) return { ok: false, reason: 'no_plan' };
   const clamped = Math.min(session.bounds.maxSteps, Math.max(session.effectiveMinSteps, steps));
@@ -999,8 +1001,9 @@ export function periodicReplan(store: WheightyStore, today: string, options: { n
   const plan = store.plan;
   if (!plan || !store.profile) return { status: 'not_due', ageDays: 0 };
   const ageDays = planAgeDays(plan, today);
-  // Journal path (report 40 s3.10): no periodic replan while the plan in force is the aligned target itself.
-  if (store.meta.journalPath.chosenTargetActive) return { status: 'not_due', ageDays };
+  // Journal path (report 40 s3.10): no periodic replan while the plan in force is the aligned target itself; nor while it is
+  // the target chosen by the user (fixes of pass 5b, point 6).
+  if (store.meta.journalPath.chosenTargetActive || plan.source === 'personal_target') return { status: 'not_due', ageDays };
   if (daysSincePeriodicCheck(store, plan, today) < PERIODIC_REPLAN_EVERY_DAYS) return { status: 'not_due', ageDays };
   const nowIso = options.nowIso ?? `${today}T00:00:00.000Z`;
   const withLogs = ensureDailyLogs(store, today);

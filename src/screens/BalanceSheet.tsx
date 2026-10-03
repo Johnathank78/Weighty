@@ -7,6 +7,7 @@ import { Mascot } from '@/components/Mascot';
 import { Range } from '@/components/controls';
 import { alignedLockLine, applyPathSliderSteps, balanceSliderAvailable, pathSliderSession } from '@/domain/journalPath';
 import { JOURNAL_MESSAGE } from '@/domain/planMessages';
+import { personalTargetLine } from '@/domain/personalTarget';
 import { formatKcal, formatSignedKcal, formatSignedWeight, formatSteps, weightUnitLabel } from '@/domain/format';
 
 export function BalanceSheet() {
@@ -30,7 +31,7 @@ export function BalanceSheet() {
       <BottomSheet open onClose={closeSheet} title="Manger ↔ Marcher">
         <div className="note">
           <Mascot variant="search" width={38} />
-          <span>{alignedLockLine(store, today) ?? JOURNAL_MESSAGE.sliderUnavailable}</span>
+          <span>{alignedLockLine(store, today) ?? personalTargetLine(store) ?? JOURNAL_MESSAGE.sliderUnavailable}</span>
         </div>
       </BottomSheet>
     );

@@ -105,6 +105,8 @@ export type OnboardingDraft = {
   targetWeight: number | null;
   /** Requested weekly rate, fraction of body weight per week (null until a loss or gain goal is chosen). */
   weeklyRate: number | null;
+  /** "J'ai déjà ma cible" on the first plan (fixes of pass 5b, point 6): the user's own target, kcal/day; null: the app's. */
+  personalTargetKcal: number | null;
 };
 
 export function emptyDraft(): OnboardingDraft {
@@ -137,6 +139,7 @@ export function emptyDraft(): OnboardingDraft {
     goal: null,
     targetWeight: null,
     weeklyRate: null,
+    personalTargetKcal: null,
   };
 }
 
