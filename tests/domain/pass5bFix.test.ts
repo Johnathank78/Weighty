@@ -9,6 +9,10 @@ import { addFoodEntry } from '@/domain/journal';
 import {
   acceptMeasuredOffer,
   alignedLockLine,
+  applyPathSliderSteps,
+  balanceSliderAvailable,
+  measuredPeriodicReplan,
+  pathSliderSession,
   alignedTargetLocked,
   changeGoalOnPath,
   jstarPlanOf,
@@ -171,5 +175,62 @@ describe('point 1b: speed change in the measured habit', () => {
     const applied = ok(updateProfileOnPath(s, day(29), profile));
     expect(applied.store.plan).toEqual(preview.store.plan);
     expect(applied.store.plan?.requestedWeeklyRate).toBe(0.003);
+  });
+});
+
+describe('point 2: steps / calories slider in the measured habit', () => {
+  it('reactivated on the context of the plan of the habit: I* traded with the steps, displayed target = I* / h, floor I* >= 1.10 x h x floor', () => {
+    const s = measured();
+    const plan = s.plan as NonNullable<WheightyStore['plan']>;
+    const h = s.meta.journalPath.habit?.h as number;
+    expect(balanceSliderAvailable(s)).toBe(true);
+    const session = pathSliderSession(s, day(29));
+    if (!session) throw new Error('no session');
+    expect(session.habit).toBe(h);
+    // At the baseline steps: the plan of the habit (I* rounded to 10 kcal by the slider).
+    expect(Math.abs(session.pointAt(plan.stepTarget).calorieTargetKcal - plan.calorieTarget * h)).toBeLessThanOrEqual(5);
+    const floorI = 1.1 * h * hardFloorKcal(plan.reeKcal, 'female');
+    for (const steps of [plan.stepTarget - 3000, plan.stepTarget + 3000]) {
+      const p = session.pointAt(steps);
+      if (p.belowHardFloor) {
+        expect(p.calorieTargetKcal).toBeLessThan(floorI);
+        expect(applyPathSliderSteps(s, day(29), steps).ok).toBe(true); // clamped to the lowest step count above the floor
+        continue;
+      }
+      const r = ok(applyPathSliderSteps(s, day(29), steps));
+      expect(r.store.plan?.stepTarget).toBe(p.stepsPerDay);
+      expect(r.store.plan?.calorieTarget).toBeCloseTo(p.calorieTargetKcal / h, 9);
+      expect((r.store.plan?.calorieTarget as number) * h).toBeGreaterThanOrEqual(floorI - 1e-6);
+      expect(r.store.plan?.source).toBe('user_adjusted_slider');
+      expect(r.store.meta.journalPath.method).toBe('measured');
+    }
+    // More steps, more to eat; back to the baseline steps gives the plan's own target.
+    const more = ok(applyPathSliderSteps(s, day(29), plan.stepTarget + 2000));
+    expect(more.store.plan?.calorieTarget).toBeGreaterThan(plan.calorieTarget);
+    const back = ok(applyPathSliderSteps(more.store, day(29), plan.stepTarget));
+    expect(back.store.plan?.calorieTarget).toBe(plan.calorieTarget);
+    // The lowest step count stops at the floor of the habit.
+    const low = session.pointAt(session.effectiveMinSteps);
+    expect(low.calorieTargetKcal).toBeGreaterThanOrEqual(floorI - 10);
+  });
+
+  it('the steps chosen are kept by the next plans of the habit (periodic replan)', () => {
+    const s = measured();
+    const plan = s.plan as NonNullable<WheightyStore['plan']>;
+    const moved = ok(applyPathSliderSteps(s, day(29), plan.stepTarget + 2000)).store;
+    const later = live(moved, 29, 56, (i) => ({ kcal: 1980, kg: 75 - 0.03 * i }));
+    const r = measuredPeriodicReplan(later, day(56), at(day(56)));
+    if (r.status !== 'replanned') throw new Error(r.status);
+    expect(r.store.plan?.stepTarget).toBe(plan.stepTarget + 2000);
+    // The slider of the new plan starts from it.
+    const session = pathSliderSession(r.store, day(56));
+    expect(session?.pointAt(plan.stepTarget + 2000).calorieTargetKcal).toBeCloseTo((r.store.plan?.calorieTarget as number) * (r.store.meta.journalPath.habit?.h as number), -1);
+  });
+
+  it('on the aligned target itself: no slider, the line of point 1a instead', () => {
+    const s = aligned(16);
+    expect(balanceSliderAvailable(s)).toBe(false);
+    expect(applyPathSliderSteps(s, day(16), 9000)).toEqual({ ok: false, reason: 'journal_path' });
+    expect(alignedLockLine(s, day(16))).toMatch(/^Ta cible suit ce que tu manges/);
   });
 });

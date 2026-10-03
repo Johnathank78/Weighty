@@ -77,7 +77,8 @@ export const JOURNAL_MESSAGE = {
   offerAcceptedToast: 'Nouveau plan appliqué.',
   statusMeasured: 'Ton plan suit ton journal et tes pesées.',
   balanceLabel: 'Équilibre d’après ton journal',
-  sliderUnavailable: 'Ce réglage n’est pas disponible pendant que ton plan suit ta cible alignée ou ton journal.',
+  /** Annex of the fixes (point 2): the slider when the measured habit cannot build it (no journal input). */
+  sliderUnavailable: 'En mode journal, ta cible suit ton journal et tes pesées.',
   /**
    * Pass 5b fixes, point 1a: on the aligned target itself, the speed (and the steps / calories slider) waits for the first
    * recalibration. `days`: days before it can come (0: it may come any day, the count is left out).

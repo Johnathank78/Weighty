@@ -36,6 +36,7 @@ import {
   stepsToHoldRateAtFloor,
   weeklyRateRange,
   baselineWeightAtHorizon,
+  macrosFor,
 } from '@/science/goals';
 import type { GoalPlan, PlanContext, RateDefinition, SelectableRateLimit, SliderBaseline, SliderBounds, SliderPoint, SolverOptions, SolverStart } from '@/science/goals';
 import { bmi } from '@/science/macros';
@@ -642,6 +643,11 @@ export function deleteWeight(store: WheightyStore, id: string): WheightyStore {
 
 export type SliderSession = {
   context: PlanContext;
+  /**
+   * Habit h of the measured habit (pass 5b fixes, point 2), 1 otherwise: the slider trades the intake to aim at I* (logged
+   * kcal) and the displayed target is I* / h.
+   */
+  habit: number;
   baseline: SliderBaseline;
   /** Horizon value of the baseline plan (tissue mass at the solver horizon, K2), held by every point of the slider. */
   baselineAtHorizon: number;
@@ -650,12 +656,18 @@ export type SliderSession = {
   pointAt: (steps: number) => SliderPoint;
 };
 
-export function createSliderSession(store: WheightyStore, today: string): SliderSession | null {
+/**
+ * Slider on another context than the plan's own (pass 5b fixes, point 2, the measured habit): the context of the plans of the
+ * habit, h, and the intake to aim at of the plan at its baseline steps (logged kcal).
+ */
+export type SliderContextOverride = { context: PlanContext; habit: number; baselineCalorieKcal: number };
+
+export function createSliderSession(store: WheightyStore, today: string, override?: SliderContextOverride): SliderSession | null {
   const plan = store.plan;
-  const context = contextForCurrentPlan(store, today);
+  const context = override ? override.context : contextForCurrentPlan(store, today);
   if (!plan || !context) return null;
   const baselineSteps = plan.baselineStepTarget ?? plan.stepTarget;
-  const baselineCalories = plan.baselineCalorieTarget ?? plan.calorieTarget;
+  const baselineCalories = override ? override.baselineCalorieKcal : (plan.baselineCalorieTarget ?? plan.calorieTarget);
   const baseline: SliderBaseline = { goal: plan.goal, scenario: { calorieTargetKcal: baselineCalories, stepsPerDay: baselineSteps } };
   const baselineAtHorizon = baselineWeightAtHorizon(context, baseline);
   const cache = new Map<number, SliderPoint>();
@@ -669,6 +681,7 @@ export function createSliderSession(store: WheightyStore, today: string): Slider
   };
   return {
     context,
+    habit: override?.habit ?? 1,
     baseline,
     baselineAtHorizon,
     bounds: sliderBounds(baselineSteps),
@@ -683,18 +696,25 @@ export function createSliderSession(store: WheightyStore, today: string): Slider
  * tissue mass at the same horizon); it does not refresh the rate from today's state. The periodic replan, which does, keeps
  * its 28-day cadence from that solve, and carries the chosen steps over (`periodicReplan` keeps the step target).
  */
-export function applySliderSteps(store: WheightyStore, today: string, steps: number): { ok: true; store: WheightyStore } | { ok: false; reason: string } {
+export function applySliderSteps(store: WheightyStore, today: string, steps: number, override?: SliderContextOverride): { ok: true; store: WheightyStore } | { ok: false; reason: string } {
   const plan = store.plan;
   const profile = store.profile;
   if (!plan || !profile) return { ok: false, reason: 'no_plan' };
-  // Journal path (pass 5b): not on the aligned target itself (the user's own figure) nor in the measured habit (I* / h).
-  if (store.meta.journalPath.chosenTargetActive || store.meta.journalPath.method === 'measured') return { ok: false, reason: 'journal_path' };
-  const session = createSliderSession(store, today);
+  // Journal path (pass 5b): not on the aligned target itself (the user's own figure); in the measured habit, only on the
+  // context of the habit (`override`, pass 5b fixes, point 2).
+  if (store.meta.journalPath.chosenTargetActive || (store.meta.journalPath.method === 'measured' && !override)) return { ok: false, reason: 'journal_path' };
+  const session = createSliderSession(store, today, override);
   if (!session) return { ok: false, reason: 'no_plan' };
   const clamped = Math.min(session.bounds.maxSteps, Math.max(session.effectiveMinSteps, steps));
   const point = session.pointAt(clamped);
   if (point.belowHardFloor || !point.macroFeasible || !point.converged) return { ok: false, reason: 'blocked' };
   const context = session.context;
+  const isBaseline = point.stepsPerDay === (plan.baselineStepTarget ?? plan.stepTarget);
+  // Measured habit: displayed target = I* / h, with the macros of that target (as the plans of the habit).
+  const h = session.habit;
+  const calorieTarget = h === 1 ? (isBaseline ? (plan.baselineCalorieTarget ?? point.calorieTargetKcal) : point.calorieTargetKcal) : (isBaseline ? session.baseline.scenario.calorieTargetKcal : point.calorieTargetKcal) / h;
+  const macros = h === 1 ? point.macros : macrosFor(context, plan.goal, calorieTarget);
+  if (!macros.feasible) return { ok: false, reason: 'blocked' };
   const projection = projectPlan(context, {
     goal: plan.goal,
     scenario: { calorieTargetKcal: point.calorieTargetKcal, stepsPerDay: point.stepsPerDay },
@@ -702,21 +722,20 @@ export function applySliderSteps(store: WheightyStore, today: string, steps: num
     maintenanceOffsets80: [plan.maintenanceInterval80[0] - plan.maintenanceKcal, plan.maintenanceInterval80[1] - plan.maintenanceKcal],
     maintenanceHorizonDays: MAINTENANCE_PROJECTION_DAYS,
   });
-  const isBaseline = point.stepsPerDay === (plan.baselineStepTarget ?? plan.stepTarget);
   const nextPlan: CurrentPlan = {
     ...plan,
     source: isBaseline ? plan.source : 'user_adjusted_slider',
-    calorieTarget: isBaseline ? (plan.baselineCalorieTarget ?? point.calorieTargetKcal) : point.calorieTargetKcal,
+    calorieTarget,
     stepTarget: point.stepsPerDay,
-    macros: { ...point.macros.exact },
-    macrosDisplay: { ...point.macros.display },
+    macros: { ...macros.exact },
+    macrosDisplay: { ...macros.display },
     projection: {
       ...(projection.approximateWeeks !== undefined ? { approximateWeeks: projection.approximateWeeks } : {}),
       trajectory: projection.trajectory,
       lower80: projection.lower80,
       upper80: projection.upper80,
     },
-    proteinRule: point.macros.proteinRule,
+    proteinRule: macros.proteinRule,
   };
   const withLogs = ensureDailyLogs(store, today);
   return { ok: true, store: syncTodayLogTargets({ ...withLogs, plan: nextPlan }, today) };

@@ -58,7 +58,9 @@ import type { BaselineAssessment } from '@/science/assessment';
 import type { DailyLog, Goal, Interval, UserProfile } from '@/science/types';
 import { intervalWidth } from '@/science/uncertainty';
 import {
+  applySliderSteps,
   changeGoal,
+  createSliderSession,
   currentWeightKg,
   ensureDailyLogs,
   planDateOf,
@@ -72,7 +74,7 @@ import {
   syncTodayLog,
   updateProfile,
 } from './engine';
-import type { SolverRequest, SpeedSliderModel } from './engine';
+import type { SliderContextOverride, SliderSession, SolverRequest, SpeedSliderModel } from './engine';
 import { intakeObservationsFrom } from './intakeObservations';
 import type { UsabilityRule } from './intakeObservations';
 import { evaluateJournalGate, journalCalibrationInputFromStore } from './journalCalibration';
@@ -619,7 +621,7 @@ export function evaluateJournalWeek(store: WheightyStore, today: string, nowIso:
   if (!est || !habit) return { kind: 'evaluated', gate: summary };
   const levelGate: GateStatus = { ...gate, met: true };
   if (!first && path.surfacingReference !== null && !jstarSurfaced(levelGate, est.maintenanceKcal, est.interval80Width, habit.h, path.surfacingReference, today)) return { kind: 'evaluated', gate: summary, measured: { maintenanceKcal: est.maintenanceKcal, habit } };
-  const r = jstarPlanOf(withLogs, today, est.estimate, habit.h, { request: PRODUCTION_SOLVER, input: prepared.input });
+  const r = jstarPlanOf(withLogs, today, est.estimate, habit.h, { request: PRODUCTION_SOLVER, input: prepared.input }, stepsKept(withLogs));
   const offerKind = first ? 'first' : 'update';
   if (!r.ok) return { kind: 'failed', gate: summary, reason: r.reason, offerKind };
   return {
@@ -742,7 +744,7 @@ export function measuredPeriodicReplan(store: WheightyStore, today: string, nowI
   const withLogs = ensureDailyLogs(store, today);
   const checked: WheightyStore = { ...withLogs, meta: { ...withLogs.meta, periodicReplanCheckedOn: today } };
   const b = measuredRebuildBase(withLogs, today);
-  const r = b ? jstarPlanOf(withLogs, today, b.base, b.habit.h, { request: PRODUCTION_SOLVER, input: b.prepared.input }) : null;
+  const r = b ? jstarPlanOf(withLogs, today, b.base, b.habit.h, { request: PRODUCTION_SOLVER, input: b.prepared.input }, stepsKept(withLogs)) : null;
   if (!b || !r || !r.ok) {
     const reason = r && !r.ok ? r.reason : 'no_journal_input';
     return { status: 'failed', reason, store: recordPlanEvent(checked, { date: today, rule: 'periodic_replan', status: 'failed', reason, before: planSummary(plan), after: null, message: null }, nowIso) };
@@ -954,10 +956,66 @@ export function habitInForce(store: WheightyStore): number | null {
   return journalRead(store) ? (pathOf(store).habit?.h ?? null) : null;
 }
 
-/** The steps / calories slider trades along the plan of the current method: not on the aligned target itself nor the habit. */
+/**
+ * The steps / calories slider trades along the plan in force: not on the aligned target itself (point 1a). In the measured
+ * habit, on the context of the plans of the habit (pass 5b fixes, point 2: `measuredSliderContext`).
+ */
 export function balanceSliderAvailable(store: WheightyStore): boolean {
+  return !pathOf(store).chosenTargetActive;
+}
+
+/**
+ * Pass 5b fixes, point 2: the slider of the measured habit is the existing slider on the context of the plan of the habit in
+ * force, as of the day it was built (as `contextForCurrentPlan` for the current method): journal maintenance at the last
+ * estimate applied, floor x 1.10 x h (so I* >= 1.10 x h x floor), modeled body of the journal. It trades the intake to aim at
+ * I* with the steps; the displayed target is I* / h. Baseline: I* of the plan at its baseline steps (the plan's own when it
+ * is at them, else the goal solver of the habit at the baseline steps). Null outside the habit or without a journal input.
+ */
+export function measuredSliderContext(store: WheightyStore): SliderContextOverride | null {
   const path = pathOf(store);
-  return path.method !== 'measured' && !path.chosenTargetActive;
+  const plan = store.plan;
+  const profile = store.profile;
+  if (path.method !== 'measured' || !plan || !profile || !path.estimate || !path.habit) return null;
+  const date = planDateOf(plan);
+  const asOf: WheightyStore = {
+    ...store,
+    weights: store.weights.filter((w) => w.date <= date),
+    dailyLogs: store.dailyLogs.filter((l) => l.date <= date),
+    foodJournal: { ...store.foodJournal, entries: store.foodJournal.entries.filter((e) => e.date <= date) },
+  };
+  const prepared = measuredInput(asOf, date);
+  if (!prepared) return null;
+  const h = path.habit.h;
+  const { ctx } = journalPlanContext(asOf, date, path.estimate.offsetKcal, JOURNAL_FLOOR_FACTOR * h, { request: PRODUCTION_SOLVER, input: prepared.input });
+  const baselineSteps = plan.baselineStepTarget ?? profile.averageSteps7d;
+  if (plan.stepTarget === baselineSteps) return { context: ctx, habit: h, baselineCalorieKcal: plan.calorieTarget * h };
+  const g = buildGoalPlan(ctx, { goal: plan.goal, weeklyRate: profile.weeklyRateTarget, targetWeightKg: plan.targetWeightKg ?? profile.targetWeightKg, stepTarget: baselineSteps });
+  return g.calorieTargetKcal === null ? null : { context: ctx, habit: h, baselineCalorieKcal: g.calorieTargetKcal };
+}
+
+/** Slider session of the plan in force on the journal path (the habit's context in the measured habit), null when none. */
+export function pathSliderSession(store: WheightyStore, today: string): SliderSession | null {
+  if (pathOf(store).method !== 'measured') return createSliderSession(store, today);
+  const override = measuredSliderContext(store);
+  return override ? createSliderSession(store, today, override) : null;
+}
+
+/** Steps / calories chosen on the slider, on the journal path (`pathSliderSession`). */
+export function applyPathSliderSteps(store: WheightyStore, today: string, steps: number): { ok: true; store: WheightyStore } | { ok: false; reason: string } {
+  if (pathOf(store).method !== 'measured') return applySliderSteps(store, today, steps);
+  const override = measuredSliderContext(store);
+  return override ? applySliderSteps(store, today, steps, override) : { ok: false, reason: 'journal_path' };
+}
+
+/**
+ * Step target carried over by the plans of the habit (offers, periodic replan) when the user moved the slider: the goal
+ * solver of the habit at those steps, as its guardrails do (prototype overrides). Nothing at the baseline steps, so the plans
+ * are those of the prototype.
+ */
+function stepsKept(store: WheightyStore): JournalPlanOverrides | undefined {
+  const plan = store.plan;
+  const profile = store.profile;
+  return plan && profile && plan.stepTarget !== profile.averageSteps7d ? { stepTarget: plan.stepTarget } : undefined;
 }
 
 export type SuggestedAdherence = { value: NonNullable<DailyLog['adherence']>; text: string };

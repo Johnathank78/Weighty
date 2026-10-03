@@ -294,13 +294,14 @@ describe('measured habit: first plan (decisions 4 and 9)', () => {
 });
 
 describe('measured habit: in force, return to the aligned target and back (decisions 6 and 7)', () => {
-  it('in force: balance of the journal, habit line, no declaration, no slider', () => {
+  it('in force: balance of the journal, habit line, no declaration; the slider runs on the habit (pass 5b fixes, point 2)', () => {
     const s = measured();
     expect(journalBalanceLine(s)).toBe(`Équilibre d’après ton journal : ${formatKcal(s.plan?.maintenanceKcal ?? 0)} kcal par jour.`);
     expect(habitLine(s)).toBe('Ton habitude : tu manges en moyenne 10 % de plus que ta cible. Ta cible affichée en tient compte.');
     expect(adherenceAsked(s)).toBe(false);
     expect(suggestedAdherence(live(s, 29, 29, () => ({ kcal: 1980 })), day(29))).toBeNull();
-    expect(balanceSliderAvailable(s)).toBe(false);
+    // Report 46, point 2: the slider is reactivated in the measured habit, on the context of the plan of the habit.
+    expect(balanceSliderAvailable(s)).toBe(true);
   });
 
   it('3 missed weigh-ins over 28 days: back to the aligned target with its message; back in the habit once the gate is met again, with a first-plan confirmation', () => {
