@@ -18,7 +18,8 @@ import { bmi, weightAtBmi } from '@/science/macros';
 import type { CalibrationState, PlanBuildResult } from './engine';
 import { enforcePlanGuardrails, ensureDailyLogs, journalMethodOf, periodicReplan, recordPlanEvent, trendOf } from './engine';
 import { enforceMeasuredGuardrails, measuredPeriodicReplan, runJournalDailyChecks } from './journalPath';
-import { PLAN_MESSAGE } from './planMessages';
+import { PLAN_MESSAGE, SHORT_MESSAGE } from './planMessages';
+import type { ShortText } from './planMessages';
 import type { PlanEvent, PlanEventRule, WheightyStore } from './types';
 import { projectionFromToday } from './views';
 
@@ -201,9 +202,12 @@ export type PlanNotice = {
   kind: PlanNoticeKind;
   /** Trace entry closed by "OK"; null for the warning ahead of BMI 20, which is not an entry. */
   eventId: string | null;
+  /** Short format (pass 5b fixes, point 5): title and one line; `text`, the long text, behind "Détails". */
+  title: string;
+  line: string;
   text: string;
   tone: 'warn' | 'calm';
-  /** Weeks announced by the warning ahead of BMI 20 (its compact line). */
+  /** Weeks announced by the warning ahead of BMI 20. */
   weeks?: number;
 };
 
@@ -235,6 +239,40 @@ export function planEventText(e: PlanEvent): string | null {
 }
 
 /**
+ * Short format of a trace entry (pass 5b fixes, point 5), from its rule and the plans it keeps, so that an entry written
+ * before the fixes reads like a new one. The target migration keeps no plan: its weight is read in its message (written by
+ * `PLAN_MESSAGE.targetRaised`). Null for an entry without message, or of a rule without a short text.
+ */
+export function planEventShort(e: PlanEvent): ShortText | null {
+  if (e.message === null) return null;
+  switch (e.rule) {
+    case 'G1':
+      return SHORT_MESSAGE.guardrailBmi20;
+    case 'G2':
+      return e.after ? SHORT_MESSAGE.guardrailRateCap(e.after.weeklyRateTarget) : null;
+    case 'periodic_replan':
+      return e.before && e.after ? SHORT_MESSAGE.periodicReplan(e.before.calorieTarget, e.after.calorieTarget, e.after.goal) : null;
+    case 'target_bmi_20': {
+      const kg = /(\d+(?:,\d+)?) kg/.exec(e.message)?.[1];
+      return kg === undefined ? null : SHORT_MESSAGE.targetRaised(Number(kg.replace(',', '.')));
+    }
+    case 'underweight_bmi':
+    case 'underweight_decline':
+      return SHORT_MESSAGE.underweight;
+    case 'journal_switch':
+      return e.after ? SHORT_MESSAGE.floorRaised(e.after.calorieTarget) : null;
+    case 'journal_log_more':
+      return SHORT_MESSAGE.logMore;
+    case 'journal_weigh_daily':
+      return SHORT_MESSAGE.weighDaily;
+    case 'journal_measured_exit':
+      return e.reason === 'logging' ? SHORT_MESSAGE.exitLogging : SHORT_MESSAGE.exitWeighIns;
+    default:
+      return null;
+  }
+}
+
+/**
  * The messages to show (unread entries of the trace, and the warning ahead of BMI 20 while the projection announces it),
  * in the order of the zone: underweight alert, guardrail, BMI-20 warning, target migration, periodic replan; the trace
  * order within a kind. Which messages exist and when is decided by pass 5a; this only orders and words them.
@@ -245,9 +283,14 @@ export function planNotices(unseen: readonly PlanEvent[], warning: { weeks: numb
     const text = planEventText(e);
     if (text === null) continue;
     const kind = KIND_OF_RULE[e.rule];
-    out.push({ kind, eventId: e.id, text, tone: kind === 'underweight' || e.rule === 'G1' ? 'warn' : 'calm' });
+    // A message without a short text (none today) shows its text as the line.
+    const short = planEventShort(e) ?? { title: '', line: text };
+    out.push({ kind, eventId: e.id, title: short.title, line: short.line, text, tone: kind === 'underweight' || e.rule === 'G1' ? 'warn' : 'calm' });
   }
-  if (warning) out.push({ kind: 'bmi20_warning', eventId: null, text: warning.message, tone: 'warn', weeks: warning.weeks });
+  if (warning) {
+    const short = SHORT_MESSAGE.bmi20Warning(warning.weeks);
+    out.push({ kind: 'bmi20_warning', eventId: null, title: short.title, line: short.line, text: warning.message, tone: 'warn', weeks: warning.weeks });
+  }
   const rank = (k: PlanNoticeKind) => PLAN_NOTICE_ORDER.indexOf(k);
   return out.map((n, i) => ({ n, i })).sort((a, b) => rank(a.n.kind) - rank(b.n.kind) || a.i - b.i).map(({ n }) => n);
 }

@@ -79,7 +79,8 @@ import { intakeObservationsFrom } from './intakeObservations';
 import type { UsabilityRule } from './intakeObservations';
 import { evaluateJournalGate, journalCalibrationInputFromStore } from './journalCalibration';
 import type { JournalCalibrationInput, JournalRegimeOptions } from './journalCalibration';
-import { JOURNAL_MESSAGE, PLAN_MESSAGE } from './planMessages';
+import { JOURNAL_MESSAGE, PLAN_MESSAGE, SHORT_MESSAGE } from './planMessages';
+import type { ShortText } from './planMessages';
 import type { AlignedTarget, CurrentPlan, HabitSummary, JournalEstimate, JournalGateSummary, JournalPathState, MeasuredOffer, WheightyStore } from './types';
 
 
@@ -702,13 +703,18 @@ export function declineMeasuredOffer(store: WheightyStore, today: string, nowIso
   return recordPlanEvent(next, { date: today, rule: 'journal_offer_declined', status: 'applied', reason: offer.kind, before: null, after: null, message: null }, nowIso);
 }
 
-/** The offer awaiting confirmation, worded (annex texts), null when none. */
-export function measuredOfferView(store: WheightyStore): { kind: MeasuredOffer['kind']; title: string; text: string; accept: string; decline: string; targetKcal: number } | null {
+/**
+ * The offer awaiting confirmation, worded (annex texts), null when none: `short` is shown (pass 5b fixes, point 5), `title`
+ * and `text` (the long texts of pass 5b) behind "Détails".
+ */
+export function measuredOfferView(store: WheightyStore): { kind: MeasuredOffer['kind']; short: ShortText; title: string; text: string; accept: string; decline: string; targetKcal: number } | null {
   const offer = pathOf(store).offer;
   if (!offer || !store.plan) return null;
   const target = offer.plan.calorieTarget;
-  const text = offer.kind === 'first' ? JOURNAL_MESSAGE.firstPlanText(offer.habit.h, target) : JOURNAL_MESSAGE.updateText(store.plan.calorieTarget, target);
-  return { kind: offer.kind, title: offer.kind === 'first' ? JOURNAL_MESSAGE.firstPlanTitle : JOURNAL_MESSAGE.updateTitle, text, accept: JOURNAL_MESSAGE.offerAccept, decline: JOURNAL_MESSAGE.offerDecline, targetKcal: target };
+  const first = offer.kind === 'first';
+  const text = first ? JOURNAL_MESSAGE.firstPlanText(offer.habit.h, target) : JOURNAL_MESSAGE.updateText(store.plan.calorieTarget, target);
+  const short = first ? SHORT_MESSAGE.firstPlan(offer.habit.h, target) : SHORT_MESSAGE.updatePlan(store.plan.calorieTarget, target);
+  return { kind: offer.kind, short, title: first ? JOURNAL_MESSAGE.firstPlanTitle : JOURNAL_MESSAGE.updateTitle, text, accept: JOURNAL_MESSAGE.offerAccept, decline: JOURNAL_MESSAGE.offerDecline, targetKcal: target };
 }
 
 // ---------------------------------------------------------------------------

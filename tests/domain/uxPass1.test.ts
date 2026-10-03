@@ -367,9 +367,8 @@ describe('G. messages of pass 5a', () => {
 
   it('the warning before BMI 20 cannot be closed (no stored dismissal without a schema change) and holds on one line', () => {
     const [warning] = planNotices([], { weeks: 1, message: PLAN_MESSAGE.bmi20Warning(1) });
-    expect(warning).toMatchObject({ kind: 'bmi20_warning', eventId: null, weeks: 1 });
-    expect(PLAN_NOTICE_TEXT.bmi20Short(1)).toBe('IMC sous 20 possible d’ici 1 semaine');
-    expect(PLAN_NOTICE_TEXT.bmi20Short(3).length).toBeLessThanOrEqual(40);
+    // Report 46, point 5: the short format of every message (title and one line) replaces the one-line text of G2.
+    expect(warning).toMatchObject({ kind: 'bmi20_warning', eventId: null, weeks: 1, title: 'IMC 20 dans 1 sem.', line: 'Ton plan passera alors en maintien.', text: PLAN_MESSAGE.bmi20Warning(1) });
     // Pass 5b (schema 8) adds the journal path; still no dismissal date for this warning.
     expect(Object.keys(DEFAULT_META)).toEqual(['onboardingDate', 'initialMaintenanceKcal', 'initialInterval80', 'initialPalCategory', 'initialProvisionalPal', 'initialWeightKg', 'lastSurfacedCalibration', 'recoveredCorruptData', 'planEvents', 'periodicReplanCheckedOn', 'guardrailMaintenanceSince', 'journalPath']);
   });
@@ -387,7 +386,8 @@ describe('G. messages of pass 5a', () => {
   it('the line under the speed slider, and the texts that did not change', () => {
     expect(PLAN_MESSAGE.floorLimitLine(1250, 0.009)).toBe(nb(`Limitée par ton minimum de 1 250 kcal par jour. Maximum : ${formatRatePercent(0.009)} par semaine.`));
     expect(PLAN_MESSAGE.floorStepsLink).toBe('Et avec plus de pas ?');
-    expect(RECALIBRATION_REFUSED_TITLE).toBe('Recalibration impossible pour l’instant');
+    // Report 46, point 5: the short title of the annex.
+    expect(RECALIBRATION_REFUSED_TITLE).toBe('Recalibration impossible');
     expect(CHART_BAND_LABEL).toBe('zone probable');
     expect(PLAN_MESSAGE.guardrailBmi20).toBe('Ton IMC atteint 20. Pour rester dans une zone sûre, ton plan passe en maintien : à partir de maintenant, on stabilise ton poids.');
   });

@@ -1,7 +1,7 @@
 import { useNav } from '@/app/navigation';
-import { Mascot } from '@/components/Mascot';
+import { ShortNotice } from '@/components/ShortNotice';
 import { acceptMeasuredOffer, declineAlignProposal, declineMeasuredOffer, measuredOfferView, openAlignProposal, switchToAlignedTarget } from '@/domain/journalPath';
-import { JOURNAL_MESSAGE } from '@/domain/planMessages';
+import { JOURNAL_MESSAGE, SHORT_MESSAGE } from '@/domain/planMessages';
 import type { AlignedTarget } from '@/domain/types';
 import { useWheighty } from '@/store/StoreProvider';
 
@@ -45,21 +45,19 @@ export function AlignProposalCard({ target, onDeclined }: { target: AlignedTarge
       update((s) => declineAlignProposal(s, today, at));
     }
   };
+  const short = SHORT_MESSAGE.proposal(kcal);
+  // Pass 5b fixes, point 5: short format; the long texts of pass 5b behind "Détails".
+  const detail = target.raised ? `${JOURNAL_MESSAGE.proposalText(kcal)} ${JOURNAL_MESSAGE.floorRaised(target.medianKcal, kcal)}` : JOURNAL_MESSAGE.proposalText(kcal);
   return (
-    <div className="note" role="group" aria-label={JOURNAL_MESSAGE.proposalTitle} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-        <Mascot variant="search" width={36} />
-        <strong style={{ font: '600 14.5px/1.35 var(--font)' }}>{JOURNAL_MESSAGE.proposalTitle}</strong>
-      </div>
-      <span>{JOURNAL_MESSAGE.proposalText(kcal)}</span>
-      {target.raised ? <span className="small">{JOURNAL_MESSAGE.floorRaised(target.medianKcal, kcal)}</span> : null}
+    <ShortNotice title={short.title} line={short.line} detail={detail}>
+      {target.raised ? <span className="small">{SHORT_MESSAGE.floorRaisedLine(kcal)}</span> : null}
       <button type="button" className="btn btn--primary btn--small" onClick={accept}>
         {JOURNAL_MESSAGE.proposalAccept(kcal)}
       </button>
       <button type="button" className="btn btn--ghost btn--small" onClick={decline}>
         {JOURNAL_MESSAGE.proposalDecline}
       </button>
-    </div>
+    </ShortNotice>
   );
 }
 
@@ -82,18 +80,13 @@ function MeasuredOfferCard() {
     update((s) => declineMeasuredOffer(s, today, at));
   };
   return (
-    <div className="note" role="group" aria-label={offer.title} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-        <Mascot variant="surpris" width={36} />
-        <strong style={{ font: '600 14.5px/1.35 var(--font)' }}>{offer.title}</strong>
-      </div>
-      <span>{offer.text}</span>
+    <ShortNotice title={offer.short.title} line={offer.short.line} detail={offer.text} mascot="surpris">
       <button type="button" className="btn btn--primary btn--small" onClick={accept}>
         {offer.accept}
       </button>
       <button type="button" className="btn btn--ghost btn--small" onClick={decline}>
         {offer.decline}
       </button>
-    </div>
+    </ShortNotice>
   );
 }

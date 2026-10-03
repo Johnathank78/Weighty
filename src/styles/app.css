@@ -1018,41 +1018,10 @@ img {
   border-top: 1.5px dashed var(--ink2);
 }
 
-/* UX pass 1, G2: the warning ahead of BMI 20 on one line, its sentence unfolded on demand. */
+/* UX pass 1, G2 (the warning ahead of BMI 20 is a short message since the fixes of 5b, point 5). */
 .note--compact {
   display: block;
   padding: 0;
-}
-.note__line {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 44px;
-  padding: 10px 16px;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: 600 13px/1.3 var(--font);
-  text-align: left;
-}
-.note__line-text {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.note__line .chevron {
-  transition: transform 0.15s ease;
-}
-.note__line .chevron[data-open='true'] {
-  transform: rotate(90deg);
-}
-.note__detail {
-  margin: 0;
-  padding: 0 16px 12px;
-  font: 400 13px/1.5 var(--font);
 }
 /* UX pass 1, G7: legend of the projection band under the Suivi chart. */
 .chart-legend {

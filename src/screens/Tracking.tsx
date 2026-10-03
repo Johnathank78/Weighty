@@ -9,7 +9,8 @@ import { PlanNotices } from '@/components/PlanNotices';
 import { ConfidenceBar, ConfidenceGauge, NavRow, Segmented } from '@/components/controls';
 import { WeightChart } from '@/components/WeightChart';
 import { applyRecalibration, applyRecalibrationAsMaintenance, buildPlanFromStore, deleteWeight, markRecalibrationSeen, trendOf } from '@/domain/engine';
-import { recalibrationRefusedText } from '@/domain/planMessages';
+import { recalibrationRefusedText, SHORT_MESSAGE } from '@/domain/planMessages';
+import { ShortNotice } from '@/components/ShortNotice';
 import { floorAdviceOf } from '@/domain/planSafety';
 import { journalRead } from '@/domain/journalPath';
 import { JOURNAL_MESSAGE } from '@/domain/planMessages';
@@ -422,7 +423,7 @@ export function RecalibrationScreen() {
   const apply = () => {
     const r = applyRecalibration(store, state, today, nowIso());
     if (!r.ok) {
-      showToast(recalibrationRefusedText(r.reason, build && !build.ok ? build.floorKcal : null));
+      showToast(SHORT_MESSAGE.recalibrationRefused(r.reason, build && !build.ok ? build.floorKcal : null).line);
       return;
     }
     commit(r.store);
@@ -434,7 +435,7 @@ export function RecalibrationScreen() {
     // The new estimate is applied, then the plan switches to maintenance.
     const r = applyRecalibrationAsMaintenance(store, state, today, nowIso());
     if (!r.ok) {
-      showToast(recalibrationRefusedText(r.reason, null));
+      showToast(SHORT_MESSAGE.recalibrationRefused(r.reason, null).line);
       return;
     }
     commit(r.store);
@@ -500,12 +501,14 @@ export function RecalibrationScreen() {
         </p>
       </div>
       {build && !build.ok ? (
-        <div className="note note--warn" role="status" style={{ marginTop: 14 }}>
-          <Mascot variant="search" width={36} />
-          <span>
-            {recalibrationRefusedText(build.reason, build.floorKcal)}
-            {build.reason === 'no_feasible_speed' && build.advice ? ` ${build.advice.lines[1]}` : ''}
-          </span>
+        // Pass 5b fixes, point 5: the short reason; the sentence of pass 5a (and the steps advice) behind "Détails".
+        <div role="status" style={{ marginTop: 14 }}>
+          <ShortNotice
+            title=""
+            line={SHORT_MESSAGE.recalibrationRefused(build.reason, build.floorKcal).line}
+            detail={`${recalibrationRefusedText(build.reason, build.floorKcal)}${build.reason === 'no_feasible_speed' && build.advice ? ` ${build.advice.lines[1]}` : ''}`}
+            tone="warn"
+          />
         </div>
       ) : null}
       {build?.ok && build.advice ? (

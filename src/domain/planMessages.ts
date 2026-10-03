@@ -31,6 +31,66 @@ export const PLAN_MESSAGE = {
   underweight: 'Ton poids descend sous la zone habituellement recommandée. Si ce n’est pas voulu, parles-en à un professionnel de santé.',
 } as const;
 
+/**
+ * Short format of the messages that update the plan (pass 5b fixes, point 5): a title of 6 words at most and one line of
+ * 90 characters at most, with the figures; the long text above stays behind "Détails". Texts of the annex of the prompt of
+ * report 46; the others in the same style (listed in the report). Never use the em dash character in this file.
+ */
+export type ShortText = { title: string; line: string };
+
+/** Short reasons of a refused recalibration (annex), lower case: the line capitalises the first letter. */
+export function shortRefusalReason(reason: string, floorKcal: number | null): string {
+  switch (reason) {
+    case 'loss_unavailable_low_bmi':
+      return 'IMC sous 20';
+    case 'no_feasible_speed':
+      return floorKcal === null ? 'vitesse sous ton minimum calorique' : `vitesse sous ton minimum de ${formatKcal(floorKcal)} kcal`;
+    case 'target_not_above_current':
+    case 'target_not_below_current':
+      return 'poids cible atteint';
+    case 'target_bmi_too_low':
+      return 'poids cible sous le minimum (IMC 20)';
+    case 'invalid_profile':
+      return 'profil incomplet';
+    case 'no_profile':
+      return 'profil introuvable';
+    case 'gate_not_met':
+      return 'pas encore assez de pesées';
+    default:
+      return 'calcul impossible';
+  }
+}
+
+const capitalize = (text: string) => text.charAt(0).toLocaleUpperCase('fr-FR') + text.slice(1);
+
+export const SHORT_MESSAGE = {
+  guardrailBmi20: { title: 'Passage en maintien', line: 'Ton IMC atteint 20 : on stabilise ton poids.' } as ShortText,
+  guardrailRateCap: (rate: number): ShortText => ({ title: 'Vitesse ajustée', line: `Ramenée à ${perWeek(rate)}, le maximum pour ton IMC.` }),
+  bmi20Warning: (weeks: number): ShortText => ({ title: `IMC 20 dans ${weeks} sem.`, line: 'Ton plan passera alors en maintien.' }),
+  periodicReplan: (before: number, after: number, goal: Goal): ShortText => ({
+    title: 'Plan recalculé',
+    line: `${formatKcal(before)} → ${formatKcal(after)} kcal par jour, ${goal === 'maintenance' ? 'pour garder ton poids stable' : 'pour tenir ta vitesse'}.`,
+  }),
+  targetRaised: (weightKg: number): ShortText => ({ title: 'Objectif ajusté', line: `Poids cible minimal : ${formatNumber(weightKg, 1)} kg (IMC 20).` }),
+  recalibrationRefused: (reason: string, floorKcal: number | null): ShortText => ({ title: 'Recalibration impossible', line: `${capitalize(shortRefusalReason(reason, floorKcal))}. Tu peux passer en maintien.` }),
+  underweight: { title: 'Poids bas', line: 'Si ce n’est pas voulu, parles-en à un professionnel de santé.' } as ShortText,
+  proposal: (kcal: number): ShortText => ({ title: 'Viser ce que tu manges ?', line: `D’après ton journal : environ ${formatKcal(kcal)} kcal par jour.` }),
+  /** Under the proposal when the floor raises the aligned target. */
+  floorRaisedLine: (kcal: number) => `On part de ${formatKcal(kcal)} kcal, ton minimum.`,
+  /** The trace message of the switch when the floor raised the target (no annex text: same line, own title). */
+  floorRaised: (kcal: number): ShortText => ({ title: 'Cible relevée au minimum', line: `On part de ${formatKcal(kcal)} kcal, ton minimum.` }),
+  logMore: { title: 'Note tes repas 2 semaines', line: 'Pour caler ta cible sur tes habitudes.' } as ShortText,
+  weighDaily: { title: 'Pèse-toi chaque jour', line: 'Dans 4 semaines, ton plan pourra suivre ton journal.' } as ShortText,
+  firstPlan: (h: number, targetKcal: number): ShortText => {
+    const g = habitGap(h);
+    const first = g.close ? 'Tu tiens ta cible de près.' : `Tu manges ${g.percent} % ${g.more ? 'de plus' : 'de moins'} que ta cible.`;
+    return { title: 'Plan calé sur ton journal', line: `${first} Nouvelle cible : ${formatKcal(targetKcal)} kcal.` };
+  },
+  updatePlan: (beforeKcal: number, afterKcal: number): ShortText => ({ title: 'Plan à ajuster', line: `${formatKcal(beforeKcal)} → ${formatKcal(afterKcal)} kcal par jour.` }),
+  exitWeighIns: { title: 'Retour à ta cible alignée', line: 'Trop de pesées manquées ces dernières semaines.' } as ShortText,
+  exitLogging: { title: 'Retour à ta cible alignée', line: 'Trop de journées non saisies ces dernières semaines.' } as ShortText,
+} as const;
+
 /** Relative gap of the habit h to the target, rounded percent, and its direction. */
 function habitGap(h: number): { percent: number; more: boolean; close: boolean } {
   const gap = Math.abs(h - 1);
