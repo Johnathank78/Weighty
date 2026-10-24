@@ -5,8 +5,11 @@
  * confidence gauge (7), the adherence noted (8).
  */
 import { readFileSync } from 'node:fs';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { TRACKING_RANGE_LABEL } from '@/app/copy';
+import { ConfidenceGauge } from '@/components/controls';
 import { DEFAULT_TRACKING_RANGE, trackingChart, TRACKING_RANGE_DAYS, TRACKING_RANGES } from '@/domain/views';
 import { typeWeighKey, weighHint, weighSaveEnabled } from '@/domain/weighEntry';
 import { addWeight, applySliderSteps, completeOnboarding, computeCalibrationState, createSliderSession, guardrailWeightKg, periodicReplan, rebuildContextFromStore, setAdherence } from '@/domain/engine';
@@ -242,5 +245,28 @@ describe('6. new weigh-in: the last weight as a greyed hint', () => {
   it('"Enregistrer" is inactive while the value is empty', () => {
     expect(weighSaveEnabled('')).toBe(false);
     expect(weighSaveEnabled('7')).toBe(true);
+  });
+});
+
+describe('7. confidence gauge: no word right of the title', () => {
+  const html = (level: 'low' | 'medium' | 'good' | 'high') => renderToStaticMarkup(createElement(ConfidenceGauge, { level }));
+  const visible = (h: string) => h.replace(/<span class="sr-only">.*?<\/span>/g, '').replace(/<[^>]+>/g, '|');
+
+  it('the head holds the title only; the level is read out to screen readers; the steps are hidden from them', () => {
+    const h = html('medium');
+    expect(h).not.toContain('gauge__value');
+    expect(h).toContain('<span class="sr-only"> : Moyenne</span>');
+    expect(h).toContain('class="gauge__track" aria-hidden="true"');
+    const head = visible(h.slice(0, h.indexOf('gauge__track')));
+    expect(head).not.toMatch(/Faible|Moyenne|Bonne|Élevée/);
+  });
+
+  it('"Élevée": three steps on, the third reads "Élevée"; "Bonne" otherwise', () => {
+    const high = html('high');
+    expect((high.match(/data-on="true"/g) ?? []).length).toBe(3);
+    expect(visible(high)).toContain('|Élevée|');
+    expect(visible(high)).not.toContain('Bonne');
+    expect(visible(html('good'))).toContain('|Bonne|');
+    expect(visible(html('good'))).not.toContain('Élevée');
   });
 });
