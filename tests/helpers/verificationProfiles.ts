@@ -126,12 +126,26 @@ export function deducedAdherenceProfile(today: string): WheightyStore {
 }
 
 /**
- * 7. Personal target and a recalibration (fixes, point 6): target of 1 700 kcal chosen at the onboarding, 21 days ago; a
- * weigh-in and "Plan respecté" every day, losing faster than predicted: a recalibration is ready when the file is opened.
+ * 7. Personal target in force (fixes, point 6; report 47): target of 1 700 kcal chosen at the onboarding, 7 days ago; a
+ * weigh-in and "Plan respecté" every day; no recalibration yet.
  */
 export function personalTargetProfile(today: string): WheightyStore {
-  const start = addDays(today, -21);
+  const start = addDays(today, -7);
   const r = completeOnboardingWithTarget(emptyStore(), verificationProfile('Test cible personnelle'), start, at(start), null, 1700);
   if (!r.ok) throw new Error(r.reason);
-  return live(r.store, start, 1, 21, (i) => ({ kg: 75 - 0.12 * i, adherence: 'on_plan' }));
+  return live(r.store, start, 1, 7, (i) => ({ kg: 75 - 0.08 * i, adherence: 'on_plan' }));
+}
+
+/**
+ * 8. Takeover of a personal target (report 47, point 1c): 66 kg, 165 cm (BMI 24); target of 1 350 kcal chosen at the
+ * onboarding 21 days ago (the population estimate would have refused it as too fast); a weigh-in and "Plan respecté" every
+ * day, losing 0.1 kg a day: the first recalibration is ready when the file is opened, and the app takes the target over by
+ * itself ("Vitesse ajustée", 1 350 -> about 1 560 kcal, 0.5 % a week, the maximum at this BMI).
+ */
+export function takeoverProfile(today: string): WheightyStore {
+  const start = addDays(today, -21);
+  const profile = makeProfile({ firstName: 'Test reprise', sexForEquation: 'female', ageYears: 35, heightCm: 165, currentWeightKg: 66, goal: 'loss', targetWeightKg: 60, weeklyRateTarget: 0.004 });
+  const r = completeOnboardingWithTarget(emptyStore(), profile, start, at(start), null, 1350);
+  if (!r.ok) throw new Error(r.reason);
+  return live(r.store, start, 1, 21, (i) => ({ kg: 66 - 0.1 * i, adherence: 'on_plan' }));
 }

@@ -10,11 +10,13 @@ import { expect, it } from 'vitest';
 import { alignButton, incompleteDayLine, measuredOfferView, openAlignProposal, suggestedAdherence } from '@/domain/journalPath';
 import { THIN_SPACE } from '@/domain/format';
 import { computeCalibrationState } from '@/domain/engine';
+import { planEventShort } from '@/domain/planSafety';
+import { takeOverPersonalTarget } from '@/domain/personalTarget';
 import { runDailyChecks } from '@/domain/planSafety';
 import type { WheightyStore } from '@/domain/types';
 import { exportStore, parseImport } from '@/persistence/exportImport';
 import { addDays, localIsoDate } from '@/science/dates';
-import { at, buttonProfile, deducedAdherenceProfile, eat, firstPlanProfile, incompleteDayProfile, personalTargetProfile, proposalProfile, returnProfile } from '../../helpers/verificationProfiles';
+import { at, buttonProfile, deducedAdherenceProfile, eat, firstPlanProfile, incompleteDayProfile, personalTargetProfile, proposalProfile, returnProfile, takeoverProfile } from '../../helpers/verificationProfiles';
 
 const TODAY = process.env.MANUAL_TODAY ?? localIsoDate(new Date());
 const OUT = 'docs/verification-5b';
@@ -65,9 +67,20 @@ it(`pass 5b manual check profiles, for ${TODAY}`, () => {
   expect(suggestedAdherence(loaded, TODAY)?.text).toBe('Plan respecté, d’après ton journal');
   write('6-adherence-deduite.json', deduced);
 
-  // Report 46, point 6: the personal target in force, a recalibration ready at the opening ("Garder ma cible").
+  // Report 46, point 6, and report 47: the personal target in force, no recalibration yet.
   const personal = personalTargetProfile(TODAY);
   expect(personal.plan?.source).toBe('personal_target');
-  expect(computeCalibrationState(runDailyChecks(personal, TODAY, at(TODAY)), TODAY, at(TODAY))?.surfaced).toBe(true);
+  expect(computeCalibrationState(runDailyChecks(personal, TODAY, at(TODAY)), TODAY, at(TODAY))?.surfaced).toBe(false);
   write('7-cible-personnelle.json', personal);
+
+  // Report 47, point 1c: the first recalibration is ready at the opening; the app takes the target over by itself.
+  const takeover = takeoverProfile(TODAY);
+  const opened = runDailyChecks(takeover, TODAY, at(TODAY));
+  expect(opened.plan?.source).toBe('personal_target');
+  const taken = takeOverPersonalTarget(opened, computeCalibrationState(opened, TODAY, at(TODAY)), TODAY, at(TODAY));
+  expect(taken.plan?.source).toBe('recalibrated');
+  const event = taken.meta.planEvents[taken.meta.planEvents.length - 1];
+  expect(event?.personalTarget?.case).toBe('too_fast');
+  expect(event && planEventShort(event)?.title).toBe('Vitesse ajustée');
+  write('8-reprise.json', takeover);
 });

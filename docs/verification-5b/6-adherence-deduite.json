@@ -1,10 +1,10 @@
 {
   "format": "wheighty-export",
   "formatVersion": 1,
-  "exportedAt": "2026-10-03T08:00:00.000Z",
+  "exportedAt": "2026-10-24T08:00:00.000Z",
   "store": {
-    "schemaVersion": 9,
-    "scientificModelVersion": "1.6.0",
+    "schemaVersion": 10,
+    "scientificModelVersion": "1.7.0",
     "profile": {
       "ageYears": 35,
       "sexForEquation": "female",
@@ -20,7 +20,7 @@
       "firstName": "Test adhérence"
     },
     "plan": {
-      "createdAt": "2026-09-23T00:00:00.000Z",
+      "createdAt": "2026-10-14T00:00:00.000Z",
       "source": "initial",
       "maintenanceKcal": 2329.92,
       "maintenanceInterval80": [
@@ -514,7 +514,7 @@
           }
         ]
       },
-      "scientificModelVersion": "1.6.0",
+      "scientificModelVersion": "1.7.0",
       "planWeightKg": 75,
       "targetWeightKg": 64,
       "requestedWeeklyRate": 0.005,
@@ -535,75 +535,75 @@
     },
     "weights": [
       {
-        "id": "w-20260923080000000-b0ncqb",
-        "date": "2026-09-23",
+        "id": "w-20261014080000000-vxgyy",
+        "date": "2026-10-14",
         "weightKg": 75,
-        "createdAt": "2026-09-23T08:00:00.000Z"
+        "createdAt": "2026-10-14T08:00:00.000Z"
       },
       {
-        "id": "w-20260924080000000-dpnvs0",
-        "date": "2026-09-24",
+        "id": "w-20261015080000000-f8j3lp",
+        "date": "2026-10-15",
         "weightKg": 75,
-        "createdAt": "2026-09-24T08:00:00.000Z"
+        "createdAt": "2026-10-15T08:00:00.000Z"
       },
       {
-        "id": "w-20260925080000000-fd30ww",
-        "date": "2026-09-25",
+        "id": "w-20261016080000000-qmmyn",
+        "date": "2026-10-16",
         "weightKg": 75,
-        "createdAt": "2026-09-25T08:00:00.000Z"
+        "createdAt": "2026-10-16T08:00:00.000Z"
       },
       {
-        "id": "w-20260926080000000-g3ej03",
-        "date": "2026-09-26",
+        "id": "w-20261017080000000-ygfv",
+        "date": "2026-10-17",
         "weightKg": 74.9,
-        "createdAt": "2026-09-26T08:00:00.000Z"
+        "createdAt": "2026-10-17T08:00:00.000Z"
       },
       {
-        "id": "w-20260927080000000-a221zh",
-        "date": "2026-09-27",
+        "id": "w-20261018080000000-6ys8ly",
+        "date": "2026-10-18",
         "weightKg": 74.9,
-        "createdAt": "2026-09-27T08:00:00.000Z"
+        "createdAt": "2026-10-18T08:00:00.000Z"
       },
       {
-        "id": "w-20260928080000000-93qd33",
-        "date": "2026-09-28",
+        "id": "w-20261019080000000-edvpi7",
+        "date": "2026-10-19",
         "weightKg": 74.9,
-        "createdAt": "2026-09-28T08:00:00.000Z"
+        "createdAt": "2026-10-19T08:00:00.000Z"
       },
       {
-        "id": "w-20260929080000000-95vw93",
-        "date": "2026-09-29",
+        "id": "w-20261020080000000-b3nj6d",
+        "date": "2026-10-20",
         "weightKg": 74.9,
-        "createdAt": "2026-09-29T08:00:00.000Z"
+        "createdAt": "2026-10-20T08:00:00.000Z"
       },
       {
-        "id": "w-20260930080000000-fxnfxs",
-        "date": "2026-09-30",
+        "id": "w-20261021080000000-75vg4x",
+        "date": "2026-10-21",
         "weightKg": 74.9,
-        "createdAt": "2026-09-30T08:00:00.000Z"
+        "createdAt": "2026-10-21T08:00:00.000Z"
       },
       {
-        "id": "w-20261001080000000-espjuy",
-        "date": "2026-10-01",
+        "id": "w-20261022080000000-6dlnfv",
+        "date": "2026-10-22",
         "weightKg": 74.8,
-        "createdAt": "2026-10-01T08:00:00.000Z"
+        "createdAt": "2026-10-22T08:00:00.000Z"
       },
       {
-        "id": "w-20261002080000000-f4wo09",
-        "date": "2026-10-02",
+        "id": "w-20261023080000000-3vu1xz",
+        "date": "2026-10-23",
         "weightKg": 74.8,
-        "createdAt": "2026-10-02T08:00:00.000Z"
+        "createdAt": "2026-10-23T08:00:00.000Z"
       },
       {
-        "id": "w-20261003080000000-7gjq81",
-        "date": "2026-10-03",
+        "id": "w-20261024080000000-2u1vxg",
+        "date": "2026-10-24",
         "weightKg": 74.8,
-        "createdAt": "2026-10-03T08:00:00.000Z"
+        "createdAt": "2026-10-24T08:00:00.000Z"
       }
     ],
     "dailyLogs": [
       {
-        "date": "2026-09-23",
+        "date": "2026-10-14",
         "calorieTargetForDay": 1808.31298828125,
         "stepTargetForDay": 7000,
         "macrosForDay": {
@@ -613,7 +613,7 @@
         }
       },
       {
-        "date": "2026-09-24",
+        "date": "2026-10-15",
         "calorieTargetForDay": 1808.31298828125,
         "stepTargetForDay": 7000,
         "macrosForDay": {
@@ -623,7 +623,7 @@
         }
       },
       {
-        "date": "2026-09-25",
+        "date": "2026-10-16",
         "calorieTargetForDay": 1808.31298828125,
         "stepTargetForDay": 7000,
         "macrosForDay": {
@@ -633,7 +633,7 @@
         }
       },
       {
-        "date": "2026-09-26",
+        "date": "2026-10-17",
         "calorieTargetForDay": 1808.31298828125,
         "stepTargetForDay": 7000,
         "macrosForDay": {
@@ -643,7 +643,7 @@
         }
       },
       {
-        "date": "2026-09-27",
+        "date": "2026-10-18",
         "calorieTargetForDay": 1808.31298828125,
         "stepTargetForDay": 7000,
         "macrosForDay": {
@@ -653,7 +653,7 @@
         }
       },
       {
-        "date": "2026-09-28",
+        "date": "2026-10-19",
         "calorieTargetForDay": 1808.31298828125,
         "stepTargetForDay": 7000,
         "macrosForDay": {
@@ -663,7 +663,7 @@
         }
       },
       {
-        "date": "2026-09-29",
+        "date": "2026-10-20",
         "calorieTargetForDay": 1808.31298828125,
         "stepTargetForDay": 7000,
         "macrosForDay": {
@@ -673,7 +673,7 @@
         }
       },
       {
-        "date": "2026-09-30",
+        "date": "2026-10-21",
         "calorieTargetForDay": 1808.31298828125,
         "stepTargetForDay": 7000,
         "macrosForDay": {
@@ -683,7 +683,7 @@
         }
       },
       {
-        "date": "2026-10-01",
+        "date": "2026-10-22",
         "calorieTargetForDay": 1808.31298828125,
         "stepTargetForDay": 7000,
         "macrosForDay": {
@@ -693,7 +693,7 @@
         }
       },
       {
-        "date": "2026-10-02",
+        "date": "2026-10-23",
         "calorieTargetForDay": 1808.31298828125,
         "stepTargetForDay": 7000,
         "macrosForDay": {
@@ -703,7 +703,7 @@
         }
       },
       {
-        "date": "2026-10-03",
+        "date": "2026-10-24",
         "calorieTargetForDay": 1808.31298828125,
         "stepTargetForDay": 7000,
         "macrosForDay": {
@@ -717,19 +717,19 @@
     "historicalEvidence": null,
     "foodJournal": {
       "journalVersion": 1,
-      "startedOn": "2026-09-23",
+      "startedOn": "2026-10-14",
       "entries": [
         {
-          "id": "f-20260923080000000-c58x1x",
-          "date": "2026-09-23",
-          "loggedAt": "2026-09-23T08:00:00.000Z",
+          "id": "f-20261014080000000-373y73",
+          "date": "2026-10-14",
+          "loggedAt": "2026-10-14T08:00:00.000Z",
           "localTime": "08:00",
           "consumedTime": "08:00",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-09-23T08:00:00.000Z",
+          "resolvedAt": "2026-10-14T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -740,16 +740,16 @@
           }
         },
         {
-          "id": "f-20260923080000000-qd9c9",
-          "date": "2026-09-23",
-          "loggedAt": "2026-09-23T08:00:00.000Z",
+          "id": "f-20261014080000000-aqhd8z",
+          "date": "2026-10-14",
+          "loggedAt": "2026-10-14T08:00:00.000Z",
           "localTime": "12:30",
           "consumedTime": "12:30",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-09-23T08:00:00.000Z",
+          "resolvedAt": "2026-10-14T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -760,16 +760,16 @@
           }
         },
         {
-          "id": "f-20260923080000000-ynsmn",
-          "date": "2026-09-23",
-          "loggedAt": "2026-09-23T08:00:00.000Z",
+          "id": "f-20261014080000000-7rq84x",
+          "date": "2026-10-14",
+          "loggedAt": "2026-10-14T08:00:00.000Z",
           "localTime": "19:30",
           "consumedTime": "19:30",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-09-23T08:00:00.000Z",
+          "resolvedAt": "2026-10-14T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -780,16 +780,16 @@
           }
         },
         {
-          "id": "f-20260924080000000-bvcc6s",
-          "date": "2026-09-24",
-          "loggedAt": "2026-09-24T08:00:00.000Z",
+          "id": "f-20261015080000000-apur2q",
+          "date": "2026-10-15",
+          "loggedAt": "2026-10-15T08:00:00.000Z",
           "localTime": "08:00",
           "consumedTime": "08:00",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-09-24T08:00:00.000Z",
+          "resolvedAt": "2026-10-15T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -800,16 +800,16 @@
           }
         },
         {
-          "id": "f-20260924080000000-94x9sg",
-          "date": "2026-09-24",
-          "loggedAt": "2026-09-24T08:00:00.000Z",
+          "id": "f-20261015080000000-8pwhrz",
+          "date": "2026-10-15",
+          "loggedAt": "2026-10-15T08:00:00.000Z",
           "localTime": "12:30",
           "consumedTime": "12:30",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-09-24T08:00:00.000Z",
+          "resolvedAt": "2026-10-15T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -820,16 +820,16 @@
           }
         },
         {
-          "id": "f-20260924080000000-80ih0u",
-          "date": "2026-09-24",
-          "loggedAt": "2026-09-24T08:00:00.000Z",
+          "id": "f-20261015080000000-1622pt",
+          "date": "2026-10-15",
+          "loggedAt": "2026-10-15T08:00:00.000Z",
           "localTime": "19:30",
           "consumedTime": "19:30",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-09-24T08:00:00.000Z",
+          "resolvedAt": "2026-10-15T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -840,16 +840,16 @@
           }
         },
         {
-          "id": "f-20260925080000000-5zjut6",
-          "date": "2026-09-25",
-          "loggedAt": "2026-09-25T08:00:00.000Z",
+          "id": "f-20261016080000000-fhgvks",
+          "date": "2026-10-16",
+          "loggedAt": "2026-10-16T08:00:00.000Z",
           "localTime": "08:00",
           "consumedTime": "08:00",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-09-25T08:00:00.000Z",
+          "resolvedAt": "2026-10-16T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -860,16 +860,16 @@
           }
         },
         {
-          "id": "f-20260925080000000-2ay76x",
-          "date": "2026-09-25",
-          "loggedAt": "2026-09-25T08:00:00.000Z",
+          "id": "f-20261016080000000-7j3by",
+          "date": "2026-10-16",
+          "loggedAt": "2026-10-16T08:00:00.000Z",
           "localTime": "12:30",
           "consumedTime": "12:30",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-09-25T08:00:00.000Z",
+          "resolvedAt": "2026-10-16T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -880,16 +880,16 @@
           }
         },
         {
-          "id": "f-20260925080000000-54x2qy",
-          "date": "2026-09-25",
-          "loggedAt": "2026-09-25T08:00:00.000Z",
+          "id": "f-20261016080000000-ajzb61",
+          "date": "2026-10-16",
+          "loggedAt": "2026-10-16T08:00:00.000Z",
           "localTime": "19:30",
           "consumedTime": "19:30",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-09-25T08:00:00.000Z",
+          "resolvedAt": "2026-10-16T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -900,16 +900,16 @@
           }
         },
         {
-          "id": "f-20260926080000000-f0lm51",
-          "date": "2026-09-26",
-          "loggedAt": "2026-09-26T08:00:00.000Z",
+          "id": "f-20261017080000000-4flu3",
+          "date": "2026-10-17",
+          "loggedAt": "2026-10-17T08:00:00.000Z",
           "localTime": "08:00",
           "consumedTime": "08:00",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-09-26T08:00:00.000Z",
+          "resolvedAt": "2026-10-17T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -920,16 +920,16 @@
           }
         },
         {
-          "id": "f-20260926080000000-7v8qf0",
-          "date": "2026-09-26",
-          "loggedAt": "2026-09-26T08:00:00.000Z",
+          "id": "f-20261017080000000-1v7lrd",
+          "date": "2026-10-17",
+          "loggedAt": "2026-10-17T08:00:00.000Z",
           "localTime": "12:30",
           "consumedTime": "12:30",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-09-26T08:00:00.000Z",
+          "resolvedAt": "2026-10-17T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -940,16 +940,16 @@
           }
         },
         {
-          "id": "f-20260926080000000-g3ptgh",
-          "date": "2026-09-26",
-          "loggedAt": "2026-09-26T08:00:00.000Z",
+          "id": "f-20261017080000000-3bblll",
+          "date": "2026-10-17",
+          "loggedAt": "2026-10-17T08:00:00.000Z",
           "localTime": "19:30",
           "consumedTime": "19:30",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-09-26T08:00:00.000Z",
+          "resolvedAt": "2026-10-17T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -960,16 +960,16 @@
           }
         },
         {
-          "id": "f-20260927080000000-e4phal",
-          "date": "2026-09-27",
-          "loggedAt": "2026-09-27T08:00:00.000Z",
+          "id": "f-20261018080000000-gb41yl",
+          "date": "2026-10-18",
+          "loggedAt": "2026-10-18T08:00:00.000Z",
           "localTime": "08:00",
           "consumedTime": "08:00",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-09-27T08:00:00.000Z",
+          "resolvedAt": "2026-10-18T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -980,16 +980,16 @@
           }
         },
         {
-          "id": "f-20260927080000000-65ie5b",
-          "date": "2026-09-27",
-          "loggedAt": "2026-09-27T08:00:00.000Z",
+          "id": "f-20261018080000000-fp2rv2",
+          "date": "2026-10-18",
+          "loggedAt": "2026-10-18T08:00:00.000Z",
           "localTime": "12:30",
           "consumedTime": "12:30",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-09-27T08:00:00.000Z",
+          "resolvedAt": "2026-10-18T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -1000,16 +1000,16 @@
           }
         },
         {
-          "id": "f-20260927080000000-amh9hh",
-          "date": "2026-09-27",
-          "loggedAt": "2026-09-27T08:00:00.000Z",
+          "id": "f-20261018080000000-2r65qx",
+          "date": "2026-10-18",
+          "loggedAt": "2026-10-18T08:00:00.000Z",
           "localTime": "19:30",
           "consumedTime": "19:30",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-09-27T08:00:00.000Z",
+          "resolvedAt": "2026-10-18T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -1020,16 +1020,16 @@
           }
         },
         {
-          "id": "f-20260928080000000-ga6m0p",
-          "date": "2026-09-28",
-          "loggedAt": "2026-09-28T08:00:00.000Z",
+          "id": "f-20261019080000000-6084q0",
+          "date": "2026-10-19",
+          "loggedAt": "2026-10-19T08:00:00.000Z",
           "localTime": "08:00",
           "consumedTime": "08:00",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-09-28T08:00:00.000Z",
+          "resolvedAt": "2026-10-19T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -1040,16 +1040,16 @@
           }
         },
         {
-          "id": "f-20260928080000000-tu4a5",
-          "date": "2026-09-28",
-          "loggedAt": "2026-09-28T08:00:00.000Z",
+          "id": "f-20261019080000000-52bspi",
+          "date": "2026-10-19",
+          "loggedAt": "2026-10-19T08:00:00.000Z",
           "localTime": "12:30",
           "consumedTime": "12:30",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-09-28T08:00:00.000Z",
+          "resolvedAt": "2026-10-19T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -1060,16 +1060,16 @@
           }
         },
         {
-          "id": "f-20260928080000000-8mcq97",
-          "date": "2026-09-28",
-          "loggedAt": "2026-09-28T08:00:00.000Z",
+          "id": "f-20261019080000000-4d6ul4",
+          "date": "2026-10-19",
+          "loggedAt": "2026-10-19T08:00:00.000Z",
           "localTime": "19:30",
           "consumedTime": "19:30",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-09-28T08:00:00.000Z",
+          "resolvedAt": "2026-10-19T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -1080,16 +1080,16 @@
           }
         },
         {
-          "id": "f-20260929080000000-8rn8nu",
-          "date": "2026-09-29",
-          "loggedAt": "2026-09-29T08:00:00.000Z",
+          "id": "f-20261020080000000-amhv7j",
+          "date": "2026-10-20",
+          "loggedAt": "2026-10-20T08:00:00.000Z",
           "localTime": "08:00",
           "consumedTime": "08:00",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-09-29T08:00:00.000Z",
+          "resolvedAt": "2026-10-20T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -1100,16 +1100,16 @@
           }
         },
         {
-          "id": "f-20260929080000000-cwnied",
-          "date": "2026-09-29",
-          "loggedAt": "2026-09-29T08:00:00.000Z",
+          "id": "f-20261020080000000-dfv20j",
+          "date": "2026-10-20",
+          "loggedAt": "2026-10-20T08:00:00.000Z",
           "localTime": "12:30",
           "consumedTime": "12:30",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-09-29T08:00:00.000Z",
+          "resolvedAt": "2026-10-20T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -1120,16 +1120,16 @@
           }
         },
         {
-          "id": "f-20260929080000000-ey2my1",
-          "date": "2026-09-29",
-          "loggedAt": "2026-09-29T08:00:00.000Z",
+          "id": "f-20261020080000000-mo011",
+          "date": "2026-10-20",
+          "loggedAt": "2026-10-20T08:00:00.000Z",
           "localTime": "19:30",
           "consumedTime": "19:30",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-09-29T08:00:00.000Z",
+          "resolvedAt": "2026-10-20T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -1140,16 +1140,16 @@
           }
         },
         {
-          "id": "f-20260930080000000-8sffbp",
-          "date": "2026-09-30",
-          "loggedAt": "2026-09-30T08:00:00.000Z",
+          "id": "f-20261021080000000-f47ra8",
+          "date": "2026-10-21",
+          "loggedAt": "2026-10-21T08:00:00.000Z",
           "localTime": "08:00",
           "consumedTime": "08:00",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-09-30T08:00:00.000Z",
+          "resolvedAt": "2026-10-21T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -1160,16 +1160,16 @@
           }
         },
         {
-          "id": "f-20260930080000000-2d2kj0",
-          "date": "2026-09-30",
-          "loggedAt": "2026-09-30T08:00:00.000Z",
+          "id": "f-20261021080000000-b1qvh1",
+          "date": "2026-10-21",
+          "loggedAt": "2026-10-21T08:00:00.000Z",
           "localTime": "12:30",
           "consumedTime": "12:30",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-09-30T08:00:00.000Z",
+          "resolvedAt": "2026-10-21T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -1180,16 +1180,16 @@
           }
         },
         {
-          "id": "f-20260930080000000-3o15oa",
-          "date": "2026-09-30",
-          "loggedAt": "2026-09-30T08:00:00.000Z",
+          "id": "f-20261021080000000-afulu7",
+          "date": "2026-10-21",
+          "loggedAt": "2026-10-21T08:00:00.000Z",
           "localTime": "19:30",
           "consumedTime": "19:30",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-09-30T08:00:00.000Z",
+          "resolvedAt": "2026-10-21T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -1200,16 +1200,16 @@
           }
         },
         {
-          "id": "f-20261001080000000-4sq0fb",
-          "date": "2026-10-01",
-          "loggedAt": "2026-10-01T08:00:00.000Z",
+          "id": "f-20261022080000000-bu56lu",
+          "date": "2026-10-22",
+          "loggedAt": "2026-10-22T08:00:00.000Z",
           "localTime": "08:00",
           "consumedTime": "08:00",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-10-01T08:00:00.000Z",
+          "resolvedAt": "2026-10-22T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -1220,16 +1220,16 @@
           }
         },
         {
-          "id": "f-20261001080000000-441izl",
-          "date": "2026-10-01",
-          "loggedAt": "2026-10-01T08:00:00.000Z",
+          "id": "f-20261022080000000-esdll3",
+          "date": "2026-10-22",
+          "loggedAt": "2026-10-22T08:00:00.000Z",
           "localTime": "12:30",
           "consumedTime": "12:30",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-10-01T08:00:00.000Z",
+          "resolvedAt": "2026-10-22T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -1240,16 +1240,16 @@
           }
         },
         {
-          "id": "f-20261001080000000-biyd8c",
-          "date": "2026-10-01",
-          "loggedAt": "2026-10-01T08:00:00.000Z",
+          "id": "f-20261022080000000-aq3wcm",
+          "date": "2026-10-22",
+          "loggedAt": "2026-10-22T08:00:00.000Z",
           "localTime": "19:30",
           "consumedTime": "19:30",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-10-01T08:00:00.000Z",
+          "resolvedAt": "2026-10-22T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -1260,16 +1260,16 @@
           }
         },
         {
-          "id": "f-20261002080000000-fkqkq0",
-          "date": "2026-10-02",
-          "loggedAt": "2026-10-02T08:00:00.000Z",
+          "id": "f-20261023080000000-7ib4rv",
+          "date": "2026-10-23",
+          "loggedAt": "2026-10-23T08:00:00.000Z",
           "localTime": "08:00",
           "consumedTime": "08:00",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-10-02T08:00:00.000Z",
+          "resolvedAt": "2026-10-23T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -1280,16 +1280,16 @@
           }
         },
         {
-          "id": "f-20261002080000000-ghz10d",
-          "date": "2026-10-02",
-          "loggedAt": "2026-10-02T08:00:00.000Z",
+          "id": "f-20261023080000000-eqfygo",
+          "date": "2026-10-23",
+          "loggedAt": "2026-10-23T08:00:00.000Z",
           "localTime": "12:30",
           "consumedTime": "12:30",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-10-02T08:00:00.000Z",
+          "resolvedAt": "2026-10-23T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -1300,16 +1300,16 @@
           }
         },
         {
-          "id": "f-20261002080000000-5981lf",
-          "date": "2026-10-02",
-          "loggedAt": "2026-10-02T08:00:00.000Z",
+          "id": "f-20261023080000000-3g71l",
+          "date": "2026-10-23",
+          "loggedAt": "2026-10-23T08:00:00.000Z",
           "localTime": "19:30",
           "consumedTime": "19:30",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-10-02T08:00:00.000Z",
+          "resolvedAt": "2026-10-23T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -1320,16 +1320,16 @@
           }
         },
         {
-          "id": "f-20261003080000000-ratzs",
-          "date": "2026-10-03",
-          "loggedAt": "2026-10-03T08:00:00.000Z",
+          "id": "f-20261024080000000-8qjs05",
+          "date": "2026-10-24",
+          "loggedAt": "2026-10-24T08:00:00.000Z",
           "localTime": "08:00",
           "consumedTime": "08:00",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-10-03T08:00:00.000Z",
+          "resolvedAt": "2026-10-24T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -1340,16 +1340,16 @@
           }
         },
         {
-          "id": "f-20261003080000000-cq8o1w",
-          "date": "2026-10-03",
-          "loggedAt": "2026-10-03T08:00:00.000Z",
+          "id": "f-20261024080000000-hq9nh",
+          "date": "2026-10-24",
+          "loggedAt": "2026-10-24T08:00:00.000Z",
           "localTime": "12:30",
           "consumedTime": "12:30",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-10-03T08:00:00.000Z",
+          "resolvedAt": "2026-10-24T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -1360,16 +1360,16 @@
           }
         },
         {
-          "id": "f-20261003080000000-2srv22",
-          "date": "2026-10-03",
-          "loggedAt": "2026-10-03T08:00:00.000Z",
+          "id": "f-20261024080000000-gc24j6",
+          "date": "2026-10-24",
+          "loggedAt": "2026-10-24T08:00:00.000Z",
           "localTime": "19:30",
           "consumedTime": "19:30",
           "name": "Repas",
           "source": "manual",
           "sourceId": null,
           "sourceVersion": null,
-          "resolvedAt": "2026-10-03T08:00:00.000Z",
+          "resolvedAt": "2026-10-24T08:00:00.000Z",
           "per100g": null,
           "quantity": null,
           "intake": {
@@ -1391,7 +1391,7 @@
       "productSearchEnabled": false
     },
     "meta": {
-      "onboardingDate": "2026-09-23",
+      "onboardingDate": "2026-10-14",
       "initialMaintenanceKcal": 2329.92,
       "initialInterval80": [
         1974.737983621675,

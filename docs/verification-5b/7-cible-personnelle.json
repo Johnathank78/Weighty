@@ -1,10 +1,10 @@
 {
   "format": "wheighty-export",
   "formatVersion": 1,
-  "exportedAt": "2026-10-03T08:00:00.000Z",
+  "exportedAt": "2026-10-24T08:00:00.000Z",
   "store": {
-    "schemaVersion": 9,
-    "scientificModelVersion": "1.6.0",
+    "schemaVersion": 10,
+    "scientificModelVersion": "1.7.0",
     "profile": {
       "ageYears": 35,
       "sexForEquation": "female",
@@ -16,11 +16,11 @@
       "activities": [],
       "goal": "loss",
       "targetWeightKg": 64,
-      "weeklyRateTarget": 0.006042596108210726,
+      "weeklyRateTarget": 0.006,
       "firstName": "Test cible personnelle"
     },
     "plan": {
-      "createdAt": "2026-09-12T00:00:00.000Z",
+      "createdAt": "2026-10-17T00:00:00.000Z",
       "source": "personal_target",
       "maintenanceKcal": 2329.92,
       "maintenanceInterval80": [
@@ -48,7 +48,7 @@
       "palCategory": "low_active",
       "provisionalPal": 1.5311076515020468,
       "goal": "loss",
-      "weeklyRateTarget": 0.006042596108210726,
+      "weeklyRateTarget": 0.006,
       "projection": {
         "approximateWeeks": 28,
         "trajectory": [
@@ -406,10 +406,10 @@
           }
         ]
       },
-      "scientificModelVersion": "1.6.0",
+      "scientificModelVersion": "1.7.0",
       "planWeightKg": 75,
       "targetWeightKg": 64,
-      "requestedWeeklyRate": 0.006042596108210726,
+      "requestedWeeklyRate": 0.006,
       "maintenanceStepsPerDay": 7000,
       "baselineStepTarget": 7000,
       "baselineCalorieTarget": 1700,
@@ -426,146 +426,63 @@
       "proteinRule": "loss_1_6",
       "personalTarget": {
         "kcal": 1700,
-        "predictedRate": 0.006042596108210726
+        "estimatedRate": -0.006042596108210726,
+        "beyondGrid": false
       }
     },
     "weights": [
       {
-        "id": "w-20260912080000000-cppcr7",
-        "date": "2026-09-12",
+        "id": "w-20261017080000000-f91jcd",
+        "date": "2026-10-17",
         "weightKg": 75,
-        "createdAt": "2026-09-12T08:00:00.000Z"
+        "createdAt": "2026-10-17T08:00:00.000Z"
       },
       {
-        "id": "w-20260913080000000-fn5as",
-        "date": "2026-09-13",
+        "id": "w-20261018080000000-9qtz69",
+        "date": "2026-10-18",
         "weightKg": 74.9,
-        "createdAt": "2026-09-13T08:00:00.000Z"
+        "createdAt": "2026-10-18T08:00:00.000Z"
       },
       {
-        "id": "w-20260914080000000-31cyd4",
-        "date": "2026-09-14",
+        "id": "w-20261019080000000-ddaijk",
+        "date": "2026-10-19",
         "weightKg": 74.8,
-        "createdAt": "2026-09-14T08:00:00.000Z"
+        "createdAt": "2026-10-19T08:00:00.000Z"
       },
       {
-        "id": "w-20260915080000000-90xi3c",
-        "date": "2026-09-15",
+        "id": "w-20261020080000000-g9xrk4",
+        "date": "2026-10-20",
+        "weightKg": 74.8,
+        "createdAt": "2026-10-20T08:00:00.000Z"
+      },
+      {
+        "id": "w-20261021080000000-1jxwvo",
+        "date": "2026-10-21",
+        "weightKg": 74.7,
+        "createdAt": "2026-10-21T08:00:00.000Z"
+      },
+      {
+        "id": "w-20261022080000000-5steb5",
+        "date": "2026-10-22",
         "weightKg": 74.6,
-        "createdAt": "2026-09-15T08:00:00.000Z"
+        "createdAt": "2026-10-22T08:00:00.000Z"
       },
       {
-        "id": "w-20260916080000000-g9il5p",
-        "date": "2026-09-16",
+        "id": "w-20261023080000000-7akcv6",
+        "date": "2026-10-23",
         "weightKg": 74.5,
-        "createdAt": "2026-09-16T08:00:00.000Z"
+        "createdAt": "2026-10-23T08:00:00.000Z"
       },
       {
-        "id": "w-20260917080000000-epj5rm",
-        "date": "2026-09-17",
+        "id": "w-20261024080000000-djzgqf",
+        "date": "2026-10-24",
         "weightKg": 74.4,
-        "createdAt": "2026-09-17T08:00:00.000Z"
-      },
-      {
-        "id": "w-20260918080000000-66hwmk",
-        "date": "2026-09-18",
-        "weightKg": 74.3,
-        "createdAt": "2026-09-18T08:00:00.000Z"
-      },
-      {
-        "id": "w-20260919080000000-4egko8",
-        "date": "2026-09-19",
-        "weightKg": 74.2,
-        "createdAt": "2026-09-19T08:00:00.000Z"
-      },
-      {
-        "id": "w-20260920080000000-a3nfhp",
-        "date": "2026-09-20",
-        "weightKg": 74,
-        "createdAt": "2026-09-20T08:00:00.000Z"
-      },
-      {
-        "id": "w-20260921080000000-13ze4h",
-        "date": "2026-09-21",
-        "weightKg": 73.9,
-        "createdAt": "2026-09-21T08:00:00.000Z"
-      },
-      {
-        "id": "w-20260922080000000-83jc6j",
-        "date": "2026-09-22",
-        "weightKg": 73.8,
-        "createdAt": "2026-09-22T08:00:00.000Z"
-      },
-      {
-        "id": "w-20260923080000000-bs9dso",
-        "date": "2026-09-23",
-        "weightKg": 73.7,
-        "createdAt": "2026-09-23T08:00:00.000Z"
-      },
-      {
-        "id": "w-20260924080000000-9ckfvr",
-        "date": "2026-09-24",
-        "weightKg": 73.6,
-        "createdAt": "2026-09-24T08:00:00.000Z"
-      },
-      {
-        "id": "w-20260925080000000-eqddnt",
-        "date": "2026-09-25",
-        "weightKg": 73.4,
-        "createdAt": "2026-09-25T08:00:00.000Z"
-      },
-      {
-        "id": "w-20260926080000000-71nges",
-        "date": "2026-09-26",
-        "weightKg": 73.3,
-        "createdAt": "2026-09-26T08:00:00.000Z"
-      },
-      {
-        "id": "w-20260927080000000-5ymcgn",
-        "date": "2026-09-27",
-        "weightKg": 73.2,
-        "createdAt": "2026-09-27T08:00:00.000Z"
-      },
-      {
-        "id": "w-20260928080000000-1skyjs",
-        "date": "2026-09-28",
-        "weightKg": 73.1,
-        "createdAt": "2026-09-28T08:00:00.000Z"
-      },
-      {
-        "id": "w-20260929080000000-crco3x",
-        "date": "2026-09-29",
-        "weightKg": 73,
-        "createdAt": "2026-09-29T08:00:00.000Z"
-      },
-      {
-        "id": "w-20260930080000000-62ir59",
-        "date": "2026-09-30",
-        "weightKg": 72.8,
-        "createdAt": "2026-09-30T08:00:00.000Z"
-      },
-      {
-        "id": "w-20261001080000000-70i99s",
-        "date": "2026-10-01",
-        "weightKg": 72.7,
-        "createdAt": "2026-10-01T08:00:00.000Z"
-      },
-      {
-        "id": "w-20261002080000000-50spmo",
-        "date": "2026-10-02",
-        "weightKg": 72.6,
-        "createdAt": "2026-10-02T08:00:00.000Z"
-      },
-      {
-        "id": "w-20261003080000000-4ajom3",
-        "date": "2026-10-03",
-        "weightKg": 72.5,
-        "createdAt": "2026-10-03T08:00:00.000Z"
+        "createdAt": "2026-10-24T08:00:00.000Z"
       }
     ],
     "dailyLogs": [
       {
-        "date": "2026-09-12",
+        "date": "2026-10-17",
         "calorieTargetForDay": 1700,
         "stepTargetForDay": 7000,
         "macrosForDay": {
@@ -575,7 +492,7 @@
         }
       },
       {
-        "date": "2026-09-13",
+        "date": "2026-10-18",
         "calorieTargetForDay": 1700,
         "stepTargetForDay": 7000,
         "macrosForDay": {
@@ -587,7 +504,7 @@
         "adherenceSource": "user"
       },
       {
-        "date": "2026-09-14",
+        "date": "2026-10-19",
         "calorieTargetForDay": 1700,
         "stepTargetForDay": 7000,
         "macrosForDay": {
@@ -599,7 +516,7 @@
         "adherenceSource": "user"
       },
       {
-        "date": "2026-09-15",
+        "date": "2026-10-20",
         "calorieTargetForDay": 1700,
         "stepTargetForDay": 7000,
         "macrosForDay": {
@@ -611,7 +528,7 @@
         "adherenceSource": "user"
       },
       {
-        "date": "2026-09-16",
+        "date": "2026-10-21",
         "calorieTargetForDay": 1700,
         "stepTargetForDay": 7000,
         "macrosForDay": {
@@ -623,7 +540,7 @@
         "adherenceSource": "user"
       },
       {
-        "date": "2026-09-17",
+        "date": "2026-10-22",
         "calorieTargetForDay": 1700,
         "stepTargetForDay": 7000,
         "macrosForDay": {
@@ -635,7 +552,7 @@
         "adherenceSource": "user"
       },
       {
-        "date": "2026-09-18",
+        "date": "2026-10-23",
         "calorieTargetForDay": 1700,
         "stepTargetForDay": 7000,
         "macrosForDay": {
@@ -647,175 +564,7 @@
         "adherenceSource": "user"
       },
       {
-        "date": "2026-09-19",
-        "calorieTargetForDay": 1700,
-        "stepTargetForDay": 7000,
-        "macrosForDay": {
-          "proteinG": 112.56300000000002,
-          "carbsG": 184.937,
-          "fatG": 56.666666666666664
-        },
-        "adherence": "on_plan",
-        "adherenceSource": "user"
-      },
-      {
-        "date": "2026-09-20",
-        "calorieTargetForDay": 1700,
-        "stepTargetForDay": 7000,
-        "macrosForDay": {
-          "proteinG": 112.56300000000002,
-          "carbsG": 184.937,
-          "fatG": 56.666666666666664
-        },
-        "adherence": "on_plan",
-        "adherenceSource": "user"
-      },
-      {
-        "date": "2026-09-21",
-        "calorieTargetForDay": 1700,
-        "stepTargetForDay": 7000,
-        "macrosForDay": {
-          "proteinG": 112.56300000000002,
-          "carbsG": 184.937,
-          "fatG": 56.666666666666664
-        },
-        "adherence": "on_plan",
-        "adherenceSource": "user"
-      },
-      {
-        "date": "2026-09-22",
-        "calorieTargetForDay": 1700,
-        "stepTargetForDay": 7000,
-        "macrosForDay": {
-          "proteinG": 112.56300000000002,
-          "carbsG": 184.937,
-          "fatG": 56.666666666666664
-        },
-        "adherence": "on_plan",
-        "adherenceSource": "user"
-      },
-      {
-        "date": "2026-09-23",
-        "calorieTargetForDay": 1700,
-        "stepTargetForDay": 7000,
-        "macrosForDay": {
-          "proteinG": 112.56300000000002,
-          "carbsG": 184.937,
-          "fatG": 56.666666666666664
-        },
-        "adherence": "on_plan",
-        "adherenceSource": "user"
-      },
-      {
-        "date": "2026-09-24",
-        "calorieTargetForDay": 1700,
-        "stepTargetForDay": 7000,
-        "macrosForDay": {
-          "proteinG": 112.56300000000002,
-          "carbsG": 184.937,
-          "fatG": 56.666666666666664
-        },
-        "adherence": "on_plan",
-        "adherenceSource": "user"
-      },
-      {
-        "date": "2026-09-25",
-        "calorieTargetForDay": 1700,
-        "stepTargetForDay": 7000,
-        "macrosForDay": {
-          "proteinG": 112.56300000000002,
-          "carbsG": 184.937,
-          "fatG": 56.666666666666664
-        },
-        "adherence": "on_plan",
-        "adherenceSource": "user"
-      },
-      {
-        "date": "2026-09-26",
-        "calorieTargetForDay": 1700,
-        "stepTargetForDay": 7000,
-        "macrosForDay": {
-          "proteinG": 112.56300000000002,
-          "carbsG": 184.937,
-          "fatG": 56.666666666666664
-        },
-        "adherence": "on_plan",
-        "adherenceSource": "user"
-      },
-      {
-        "date": "2026-09-27",
-        "calorieTargetForDay": 1700,
-        "stepTargetForDay": 7000,
-        "macrosForDay": {
-          "proteinG": 112.56300000000002,
-          "carbsG": 184.937,
-          "fatG": 56.666666666666664
-        },
-        "adherence": "on_plan",
-        "adherenceSource": "user"
-      },
-      {
-        "date": "2026-09-28",
-        "calorieTargetForDay": 1700,
-        "stepTargetForDay": 7000,
-        "macrosForDay": {
-          "proteinG": 112.56300000000002,
-          "carbsG": 184.937,
-          "fatG": 56.666666666666664
-        },
-        "adherence": "on_plan",
-        "adherenceSource": "user"
-      },
-      {
-        "date": "2026-09-29",
-        "calorieTargetForDay": 1700,
-        "stepTargetForDay": 7000,
-        "macrosForDay": {
-          "proteinG": 112.56300000000002,
-          "carbsG": 184.937,
-          "fatG": 56.666666666666664
-        },
-        "adherence": "on_plan",
-        "adherenceSource": "user"
-      },
-      {
-        "date": "2026-09-30",
-        "calorieTargetForDay": 1700,
-        "stepTargetForDay": 7000,
-        "macrosForDay": {
-          "proteinG": 112.56300000000002,
-          "carbsG": 184.937,
-          "fatG": 56.666666666666664
-        },
-        "adherence": "on_plan",
-        "adherenceSource": "user"
-      },
-      {
-        "date": "2026-10-01",
-        "calorieTargetForDay": 1700,
-        "stepTargetForDay": 7000,
-        "macrosForDay": {
-          "proteinG": 112.56300000000002,
-          "carbsG": 184.937,
-          "fatG": 56.666666666666664
-        },
-        "adherence": "on_plan",
-        "adherenceSource": "user"
-      },
-      {
-        "date": "2026-10-02",
-        "calorieTargetForDay": 1700,
-        "stepTargetForDay": 7000,
-        "macrosForDay": {
-          "proteinG": 112.56300000000002,
-          "carbsG": 184.937,
-          "fatG": 56.666666666666664
-        },
-        "adherence": "on_plan",
-        "adherenceSource": "user"
-      },
-      {
-        "date": "2026-10-03",
+        "date": "2026-10-24",
         "calorieTargetForDay": 1700,
         "stepTargetForDay": 7000,
         "macrosForDay": {
@@ -844,7 +593,7 @@
       "productSearchEnabled": false
     },
     "meta": {
-      "onboardingDate": "2026-09-12",
+      "onboardingDate": "2026-10-17",
       "initialMaintenanceKcal": 2329.92,
       "initialInterval80": [
         1974.737983621675,
@@ -855,7 +604,34 @@
       "initialWeightKg": 75,
       "lastSurfacedCalibration": null,
       "recoveredCorruptData": null,
-      "planEvents": [],
+      "planEvents": [
+        {
+          "date": "2026-10-17",
+          "rule": "personal_target_set",
+          "status": "applied",
+          "before": null,
+          "after": {
+            "createdAt": "2026-10-17T00:00:00.000Z",
+            "source": "personal_target",
+            "goal": "loss",
+            "calorieTarget": 1700,
+            "stepTarget": 7000,
+            "weeklyRateTarget": 0.006,
+            "requestedWeeklyRate": 0.006,
+            "maintenanceKcal": 2329.92,
+            "targetWeightKg": 64
+          },
+          "message": null,
+          "personalTarget": {
+            "kcal": 1700,
+            "estimatedRate": -0.006042596108210726,
+            "beyondGrid": false,
+            "case": "within"
+          },
+          "id": "e-20261017080000000-wjpq0",
+          "seen": true
+        }
+      ],
       "periodicReplanCheckedOn": null,
       "guardrailMaintenanceSince": null,
       "journalPath": {
