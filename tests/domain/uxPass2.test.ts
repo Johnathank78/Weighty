@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { TRACKING_RANGE_LABEL } from '@/app/copy';
 import { DEFAULT_TRACKING_RANGE, trackingChart, TRACKING_RANGE_DAYS, TRACKING_RANGES } from '@/domain/views';
+import { typeWeighKey, weighHint, weighSaveEnabled } from '@/domain/weighEntry';
 import { addWeight, applySliderSteps, completeOnboarding, computeCalibrationState, createSliderSession, guardrailWeightKg, periodicReplan, rebuildContextFromStore, setAdherence } from '@/domain/engine';
 import type { CalibrationState } from '@/domain/engine';
 import { applyPathSliderSteps, balanceSliderAvailable, pathSliderSession } from '@/domain/journalPath';
@@ -226,5 +227,20 @@ describe('5. Suivi: "Ce mois-ci" and "Tout"', () => {
     expect(month).toEqual(trackingChart(s, day(60), 30));
     expect(month?.startDate).toBe(day(30));
     expect(all?.startDate).toBe(D0);
+  });
+});
+
+describe('6. new weigh-in: the last weight as a greyed hint', () => {
+  it('the field starts empty: the first key starts a new value; the hint is the last weigh-in, "0" without any', () => {
+    expect(['7', '4', ',', '6'].reduce(typeWeighKey, '')).toBe('74,6');
+    expect(typeWeighKey('', ',')).toBe('');
+    expect(typeWeighKey('', 'del')).toBe('');
+    expect(weighHint(weighed(onboard(), -0.1, 3), 'metric')).toBe('74,7');
+    expect(weighHint(emptyStore(), 'metric')).toBe('0');
+  });
+
+  it('"Enregistrer" is inactive while the value is empty', () => {
+    expect(weighSaveEnabled('')).toBe(false);
+    expect(weighSaveEnabled('7')).toBe(true);
   });
 });
