@@ -9,8 +9,10 @@ import { displayMacros, goalStatus, maintenanceZoneFor, planEnergyBalanceKcal, s
 import { sliderBoundsFor } from '@/domain/sliderView';
 import { AlignProposalCard } from '@/components/JournalCards';
 import { alignButton, alignedLockLine, alignedTargetPreview, balanceSliderAvailable, habitLine, journalBalanceLine } from '@/domain/journalPath';
-import { JOURNAL_MESSAGE, PERSONAL_TARGET_MESSAGE } from '@/domain/planMessages';
-import { personalTargetAvailable, personalTargetLine } from '@/domain/personalTarget';
+import { JOURNAL_MESSAGE, PLAN_CHANGE_MESSAGE } from '@/domain/planMessages';
+import { personalTargetLine } from '@/domain/personalTarget';
+import { planChangeOptions } from '@/domain/planChange';
+import { PlanChangeSheet } from '@/screens/PlanChangeSheet';
 
 function BalancePreview() {
   const { openSheet } = useNav();
@@ -58,6 +60,7 @@ export function PlanScreen() {
   const balanceLine = journalBalanceLine(store);
   const habit = habitLine(store);
   const align = alignButton(store, today);
+  const changeOptions = planChangeOptions(store, today);
   const lockLine = alignedLockLine(store, today);
   const personalLine = personalTargetLine(store);
   const asked = asking && align?.enabled ? alignedTargetPreview(store, today) : null;
@@ -195,29 +198,17 @@ export function PlanScreen() {
           Pourquoi ce résultat ?
         </button>
       )}
-      {personalTargetAvailable(store) ? (
-        <button type="button" className="btn btn--outline" style={{ marginTop: 20 }} onClick={() => openSheet('personalTarget')}>
-          {PERSONAL_TARGET_MESSAGE.planAction}
+      {/* UX pass 2, points 3 and 4: one entry for the two ways to change the target (sheet "Changer de plan"). */}
+      {asked?.ok ? (
+        <div style={{ marginTop: 20 }}>
+          <AlignProposalCard target={asked.target} onDeclined={() => setAsking(false)} />
+        </div>
+      ) : changeOptions ? (
+        <button type="button" className="btn btn--outline" style={{ marginTop: 20 }} onClick={() => openSheet('planChange')}>
+          {PLAN_CHANGE_MESSAGE.button}
         </button>
       ) : null}
-      {align ? (
-        <div style={{ marginTop: 20 }}>
-          {asked?.ok ? (
-            <AlignProposalCard target={asked.target} onDeclined={() => setAsking(false)} />
-          ) : (
-            <>
-              <button type="button" className="btn btn--outline" disabled={!align.enabled} onClick={() => setAsking(true)}>
-                {align.label}
-              </button>
-              {align.hint ? (
-                <p className="small" style={{ margin: '8px 0 0' }}>
-                  {align.hint}
-                </p>
-              ) : null}
-            </>
-          )}
-        </div>
-      ) : null}
+      <PlanChangeSheet options={changeOptions} onAlign={() => setAsking(true)} />
       {plan.warnings?.belowRee ? (
         <div className="note" style={{ marginTop: 16 }}>
           <Mascot variant="search" width={40} />

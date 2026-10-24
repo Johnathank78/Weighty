@@ -1,7 +1,7 @@
 /**
  * UX pass 2 (John's feedback of 24 October), the domain side: the steps / calories slider on a personal target, which holds
  * at the steps of the plan in force (point 2), with the bit-for-bit check of the targets at the steps of the profile against
- * the base 1209d49.
+ * the base 1209d49; the options of "Changer de plan" (points 3 and 4).
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -9,7 +9,9 @@ import { addWeight, applySliderSteps, completeOnboarding, computeCalibrationStat
 import type { CalibrationState } from '@/domain/engine';
 import { applyPathSliderSteps, balanceSliderAvailable, pathSliderSession } from '@/domain/journalPath';
 import { checkPersonalTarget, choosePersonalTarget, computePersonalTakeover, personalTargetLine, personalTargetTable, readPersonalTarget, storePersonalTargetTable, takeOverPersonalTarget } from '@/domain/personalTarget';
-import { PERSONAL_TARGET_MESSAGE } from '@/domain/planMessages';
+import { addFoodEntry } from '@/domain/journal';
+import { planChangeOptions } from '@/domain/planChange';
+import { JOURNAL_MESSAGE, PERSONAL_TARGET_MESSAGE, PLAN_CHANGE_MESSAGE } from '@/domain/planMessages';
 import { runDailyChecks } from '@/domain/planSafety';
 import type { CurrentPlan, WheightyStore } from '@/domain/types';
 import { emptyStore } from '@/persistence/schema';
@@ -167,5 +169,45 @@ describe('2e. a personal target at the steps of the profile: bit for bit the bas
       expect(key).toBeUndefined();
     }
     expect(now).toBe(base);
+  });
+});
+
+describe('3 and 4. the options of "Changer de plan"', () => {
+  /** `days` days logged in full among the 14 before `today` (day 14). */
+  function logged(days: number): WheightyStore {
+    let s = onboard();
+    for (let i = 0; i < days; i++) {
+      const r = addFoodEntry(s, { kind: 'manual', food: { name: 'Repas', intake: { energyKcal: 1800, proteinG: null, carbsG: null, fatG: null }, grams: null }, date: day(i), localTime: '12:00', consumedTime: '12:00' }, at(day(i)));
+      if (!r.ok) throw new Error(r.reason);
+      s = r.store;
+    }
+    return s;
+  }
+  const withMethod = (s: WheightyStore, method: 'aligned' | 'measured'): WheightyStore => ({ ...s, meta: { ...s.meta, journalPath: { ...s.meta.journalPath, method } } });
+  const personalOption = { id: 'personal', title: PLAN_CHANGE_MESSAGE.personalTitle, sub: PLAN_CHANGE_MESSAGE.personalSub, enabled: true };
+
+  it('target assumed to be followed, journal long enough: both, active', () => {
+    expect(planChangeOptions(logged(14), day(14))).toEqual([personalOption, { id: 'align', title: PLAN_CHANGE_MESSAGE.alignTitle, sub: PLAN_CHANGE_MESSAGE.alignSub, enabled: true }]);
+  });
+
+  it('target assumed to be followed, journal too short: the alignment greyed, with the existing line', () => {
+    expect(planChangeOptions(logged(6), day(14))).toEqual([personalOption, { id: 'align', title: PLAN_CHANGE_MESSAGE.alignTitle, sub: JOURNAL_MESSAGE.alignButtonDisabled(4), enabled: false }]);
+    expect(PLAN_CHANGE_MESSAGE.alignTitle).toBe(JOURNAL_MESSAGE.alignButton);
+    expect(PLAN_CHANGE_MESSAGE.personalTitle).toBe(PERSONAL_TARGET_MESSAGE.planAction);
+  });
+
+  it('aligned target, measured habit: no entry in Plan', () => {
+    expect(planChangeOptions(withMethod(logged(14), 'aligned'), day(14))).toBeNull();
+    expect(planChangeOptions(withMethod(logged(14), 'measured'), day(14))).toBeNull();
+  });
+
+  it('a personal target in force: both, as before (the method stays the target assumed to be followed)', () => {
+    const s = personal();
+    expect(planChangeOptions(s, D0)).toEqual([personalOption, { id: 'align', title: PLAN_CHANGE_MESSAGE.alignTitle, sub: JOURNAL_MESSAGE.alignButtonDisabled(10), enabled: false }]);
+  });
+
+  it('annex texts, without the em dash', () => {
+    expect(PLAN_CHANGE_MESSAGE).toMatchObject({ button: 'Je souhaite changer de plan', title: 'Changer de plan', personalSub: 'Tu connais déjà les calories qui te conviennent.', alignSub: 'D’après les 14 derniers jours de ton journal.' });
+    expect(JSON.stringify(PLAN_CHANGE_MESSAGE)).not.toContain('—');
   });
 });

@@ -173,6 +173,19 @@ export const JOURNAL_MESSAGE = {
 } as const;
 
 /**
+ * "Je souhaite changer de plan" (UX pass 2, points 3 and 4): one entry in Plan, a sheet with the two ways to change the
+ * target. Annex texts. Never use the em dash character in this file.
+ */
+export const PLAN_CHANGE_MESSAGE = {
+  button: 'Je souhaite changer de plan',
+  title: 'Changer de plan',
+  personalTitle: 'Choisir ma cible',
+  personalSub: 'Tu connais déjà les calories qui te conviennent.',
+  alignTitle: 'Aligner ma cible sur ce que je mange',
+  alignSub: 'D’après les 14 derniers jours de ton journal.',
+} as const;
+
+/**
  * Personal target (fixes of pass 5b, point 6; second fixes, point 1: a starting point, refused only under the floor, taken
  * over by the app at its first recalibration). Annex texts. Never use the em dash character in this file.
  */

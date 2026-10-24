@@ -474,6 +474,12 @@ img {
   font: 600 15px var(--font);
   padding: 16px;
 }
+/* UX pass 2, point 3: an inactive outline button looks inactive, as a primary one. */
+.btn--outline:disabled {
+  background: var(--surf2);
+  color: var(--ink2);
+  box-shadow: none;
+}
 .btn--danger {
   background: var(--danger);
   color: #fff;

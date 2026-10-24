@@ -32,7 +32,7 @@ export type ScreenId =
   | 'journal'
   | 'history';
 
-export type SheetId = 'balance' | 'weigh' | 'adherence' | 'steps' | 'why' | 'goal' | 'food' | 'foodEdit' | 'weighOptions' | 'productConsent' | 'productClear' | 'personalTarget';
+export type SheetId = 'balance' | 'weigh' | 'adherence' | 'steps' | 'why' | 'goal' | 'food' | 'foodEdit' | 'weighOptions' | 'productConsent' | 'productClear' | 'personalTarget' | 'planChange';
 
 export type TabId = 'today' | 'plan' | 'suivi' | 'analyse' | 'profil';
 /** Order of the sections, left to right, as in the bottom bar. */
