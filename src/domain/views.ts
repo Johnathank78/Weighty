@@ -218,6 +218,15 @@ export function projectionFromToday(store: WheightyStore, today: string, state: 
 }
 
 /** Weight chart data for Suivi: raw points, trend, and where the plan leads from the last trend point. */
+/**
+ * Periods of the Suivi chart (UX pass 2, point 5): "Ce mois-ci", the last 30 days (not the calendar month), the default;
+ * "Tout", since the first weigh-in.
+ */
+export type TrackingRange = 'month' | 'all';
+export const TRACKING_RANGES: readonly TrackingRange[] = ['month', 'all'];
+export const DEFAULT_TRACKING_RANGE: TrackingRange = 'month';
+export const TRACKING_RANGE_DAYS: Readonly<Record<TrackingRange, number | null>> = { month: 30, all: null };
+
 export function trackingChart(store: WheightyStore, today: string, rangeDays: number | null, state: CalibrationState | null = null): ChartSeries | null {
   const { points } = trendOf(store);
   if (points.length === 0) return null;

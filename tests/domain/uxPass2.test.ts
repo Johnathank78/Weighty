@@ -1,10 +1,13 @@
 /**
  * UX pass 2 (John's feedback of 24 October), the domain side: the steps / calories slider on a personal target, which holds
  * at the steps of the plan in force (point 2), with the bit-for-bit check of the targets at the steps of the profile against
- * the base 1209d49; the options of "Changer de plan" (points 3 and 4).
+ * the base 1209d49; the options of "Changer de plan" (points 3 and 4); the periods of Suivi (5), the entry of a weigh-in (6), the
+ * confidence gauge (7), the adherence noted (8).
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { TRACKING_RANGE_LABEL } from '@/app/copy';
+import { DEFAULT_TRACKING_RANGE, trackingChart, TRACKING_RANGE_DAYS, TRACKING_RANGES } from '@/domain/views';
 import { addWeight, applySliderSteps, completeOnboarding, computeCalibrationState, createSliderSession, guardrailWeightKg, periodicReplan, rebuildContextFromStore, setAdherence } from '@/domain/engine';
 import type { CalibrationState } from '@/domain/engine';
 import { applyPathSliderSteps, balanceSliderAvailable, pathSliderSession } from '@/domain/journalPath';
@@ -209,5 +212,19 @@ describe('3 and 4. the options of "Changer de plan"', () => {
   it('annex texts, without the em dash', () => {
     expect(PLAN_CHANGE_MESSAGE).toMatchObject({ button: 'Je souhaite changer de plan', title: 'Changer de plan', personalSub: 'Tu connais déjà les calories qui te conviennent.', alignSub: 'D’après les 14 derniers jours de ton journal.' });
     expect(JSON.stringify(PLAN_CHANGE_MESSAGE)).not.toContain('—');
+  });
+});
+
+describe('5. Suivi: "Ce mois-ci" and "Tout"', () => {
+  it('two periods, "Ce mois-ci" by default: the last 30 days (the former "1 mois"), and everything', () => {
+    expect(TRACKING_RANGES).toEqual(['month', 'all']);
+    expect(DEFAULT_TRACKING_RANGE).toBe('month');
+    expect(TRACKING_RANGES.map((r) => TRACKING_RANGE_LABEL[r])).toEqual(['Ce mois-ci', 'Tout']);
+    const s = weighed(onboard(), -0.05, 60);
+    const month = trackingChart(s, day(60), TRACKING_RANGE_DAYS.month);
+    const all = trackingChart(s, day(60), TRACKING_RANGE_DAYS.all);
+    expect(month).toEqual(trackingChart(s, day(60), 30));
+    expect(month?.startDate).toBe(day(30));
+    expect(all?.startDate).toBe(D0);
   });
 });

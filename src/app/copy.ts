@@ -1,5 +1,6 @@
 /** French UI copy and label maps. Never use the em dash character in this file. */
 import type { ActivityIntensity, BodyFatMethod, ConfidenceLevel, Goal, OccupationActivity, ReeMethod, SexForEquation, SpeedZone, StructuredActivityType, TrackingQuality, WalkingPace } from '@/science/types';
+import type { TrackingRange } from '@/domain/views';
 
 /**
  * Lot F, gender agreement. Everything the app says about the user is written epicene wherever that reads
@@ -281,6 +282,9 @@ export const SIGMA_REASON_LABEL: Record<string, string> = {
   reeModelDisagreement: 'désaccord entre équations de REE',
   defaultActivityCadence: 'cadence par défaut d’une activité',
 };
+
+/** Periods of the Suivi chart (UX pass 2, point 5). */
+export const TRACKING_RANGE_LABEL: Record<TrackingRange, string> = { month: 'Ce mois-ci', all: 'Tout' };
 
 export const GATE_CRITERION_LABEL = {
   weighIns: 'Pesées',

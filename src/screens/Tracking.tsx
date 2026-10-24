@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNav, useViewActive } from '@/app/navigation';
 import { useWheighty } from '@/store/StoreProvider';
-import { ADHERENCE_LABEL, CHART_BAND_LABEL, CONFIDENCE_LABEL, GATE_CRITERION_LABEL, HISTORY_TEXT, RECALIBRATION_REFUSED_TITLE } from '@/app/copy';
+import { ADHERENCE_LABEL, CHART_BAND_LABEL, CONFIDENCE_LABEL, GATE_CRITERION_LABEL, HISTORY_TEXT, RECALIBRATION_REFUSED_TITLE, TRACKING_RANGE_LABEL } from '@/app/copy';
 import { HISTORY_WINDOW_DAYS } from '@/domain/history';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Mascot } from '@/components/Mascot';
@@ -15,12 +15,10 @@ import { floorAdviceOf } from '@/domain/planSafety';
 import { journalRead } from '@/domain/journalPath';
 import { JOURNAL_MESSAGE } from '@/domain/planMessages';
 import { formatDayMonth, formatInteger, formatKcal, formatKcalRange, formatShortMonth, formatSignedKcal, formatSignedWeight, formatSteps, formatWeight, weightUnitLabel } from '@/domain/format';
-import { adherenceSummary, analysisView, averageLoggedSteps, gateCriterionValue, gateProgress, recentWeights, trackingChart, weeksOfTracking } from '@/domain/views';
-import type { ChartSeries } from '@/domain/views';
+import { adherenceSummary, analysisView, averageLoggedSteps, DEFAULT_TRACKING_RANGE, gateCriterionValue, gateProgress, recentWeights, trackingChart, TRACKING_RANGE_DAYS, TRACKING_RANGES, weeksOfTracking } from '@/domain/views';
+import type { ChartSeries, TrackingRange } from '@/domain/views';
 import type { UnitPreference } from '@/domain/types';
 import { addDays } from '@/science/dates';
-
-type RangeChoice = '1m' | '3m' | 'all';
 
 /** Duration of the maintenance count-up animation on the recalibration screen (visual only). */
 const COUNT_UP_MS = 1100;
@@ -28,11 +26,11 @@ const COUNT_UP_MS = 1100;
 export function SuiviScreen() {
   const { go, openSheet, closeSheet, sheet } = useNav();
   const { store, today, update, calibration } = useWheighty();
-  const [range, setRange] = useState<RangeChoice>('3m');
+  const [range, setRange] = useState<TrackingRange>(DEFAULT_TRACKING_RANGE);
   const [pending, setPending] = useState<string | null>(null);
   const units = store.preferences.units;
   const trend = trendOf(store).summary;
-  const chart = useMemo(() => trackingChart(store, today, range === '1m' ? 30 : range === '3m' ? 90 : null, calibration), [store, today, range, calibration]);
+  const chart = useMemo(() => trackingChart(store, today, TRACKING_RANGE_DAYS[range], calibration), [store, today, range, calibration]);
   const lastTrendDay = chart ? (chart.trend[chart.trend.length - 1]?.day ?? chart.todayDay) : 0;
   const hasFuture = chart ? chart.projection.some((p) => p.day > lastTrendDay) : false;
   const markers = useMemo(
@@ -105,11 +103,7 @@ export function SuiviScreen() {
 
       <Segmented
         label="Période"
-        options={[
-          { value: '1m', label: '1 mois' },
-          { value: '3m', label: '3 mois' },
-          { value: 'all', label: 'Tout' },
-        ]}
+        options={TRACKING_RANGES.map((value) => ({ value, label: TRACKING_RANGE_LABEL[value] }))}
         value={range}
         onChange={setRange}
       />
