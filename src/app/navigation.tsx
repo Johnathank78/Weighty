@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { OnboardingDraft, OnboardingScreenId } from '@/domain/onboarding';
-import { activeTab, canGoBack, currentKey, currentScreen, initialNav, liveKeys, navBack, navCloseSheet, navGo, navOpenSheet, navSelectTab, navSwipe, screenUnder, swipeActions } from './navModel';
+import { activeTab, canGoBack, currentKey, currentScreen, entryAnimated, initialNav, keptArrival, liveKeys, navBack, navCloseSheet, navGo, navOpenSheet, navSelectTab, navSwipe, screenUnder, swipeActions, swipeArrival } from './navModel';
 import { BACK_LABEL } from './copy';
 import type { NavState, NavTransition, ScreenId, SheetId, SwipeAction, TabId } from './navModel';
 import { createHistorySync } from './navHistory';
@@ -21,6 +21,8 @@ type NavValue = {
   /** Identity of the screen on display and how it was reached, for its entrance animation. */
   screenKey: string;
   transition: NavTransition;
+  /** Whether the screen on display plays its entrance animations: not after a swipe landed on it (UX pass 2, point 1). */
+  entryMotion: boolean;
   /** What a horizontal swipe may do from the screen on display (SwipeView). */
   swipe: { right: SwipeAction | null; left: SwipeAction | null };
   /** A swipe carried through by the gesture layer. */
@@ -67,6 +69,9 @@ export function NavigationProvider({ initialScreen, children }: { initialScreen:
   const stateRef = useRef(state);
   const scrolls = useRef(new Map<string, number>());
   const history = useRef<HistorySync | null>(null);
+  // What the last swipe carried through landed on (UX pass 2, point 1), forgotten once something else is on display.
+  const [arrival, setArrival] = useState<string | null>(null);
+  if (keptArrival(arrival, state) !== arrival) setArrival(null);
 
   /** Every navigation: the scroll position of the screen left is kept, then the state changes. */
   const navigate = useCallback((fn: (s: NavState) => NavState | null) => {
@@ -115,7 +120,13 @@ export function NavigationProvider({ initialScreen, children }: { initialScreen:
     [navigate],
   );
   const back = useCallback(() => navigate(navBack), [navigate]);
-  const completeSwipe = useCallback((action: SwipeAction) => navigate((s) => navSwipe(s, action)), [navigate]);
+  const completeSwipe = useCallback(
+    (action: SwipeAction) => {
+      setArrival(swipeArrival(stateRef.current, action));
+      navigate((s) => navSwipe(s, action));
+    },
+    [navigate],
+  );
   const scrollOf = useCallback((k: string) => scrolls.current.get(k) ?? 0, []);
   const openSheet = useCallback((next: SheetId, topic?: WhyTopic) => {
     if (topic) setWhyTopic(topic);
@@ -139,6 +150,7 @@ export function NavigationProvider({ initialScreen, children }: { initialScreen:
       tab: activeTab(state),
       screenKey: key,
       transition: state.transition,
+      entryMotion: entryAnimated(state, arrival),
       swipe: swipeActions(state),
       completeSwipe,
       scrollOf,
@@ -155,7 +167,7 @@ export function NavigationProvider({ initialScreen, children }: { initialScreen:
       draft: state.draft,
       setDraft,
     }),
-    [state, key, completeSwipe, scrollOf, whyTopic, go, selectTab, back, openSheet, closeSheet, toast, showToast, dismissToast, setDraft],
+    [state, key, arrival, completeSwipe, scrollOf, whyTopic, go, selectTab, back, openSheet, closeSheet, toast, showToast, dismissToast, setDraft],
   );
   return <NavContext.Provider value={value}>{children}</NavContext.Provider>;
 }
@@ -178,6 +190,17 @@ export const ViewActiveContext = createContext(true);
 
 export function useViewActive(): boolean {
   return useContext(ViewActiveContext);
+}
+
+/**
+ * Whether the screen being rendered plays its entrance animations (UX pass 2, point 1): never in a copy drawn during a
+ * swipe, nor in the screen a swipe landed on; read by the animations run in script (the progressive drawing of a chart).
+ * The CSS ones are cut by the attribute of the view (`data-entry`).
+ */
+export const EntryMotionContext = createContext(true);
+
+export function useEntryMotion(): boolean {
+  return useContext(EntryMotionContext);
 }
 
 /** Back label of a copy drawn during a swipe (the page under it), in place of the live screen's. */

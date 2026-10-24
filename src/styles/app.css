@@ -1135,6 +1135,18 @@ img {
   transform-origin: left;
   animation: wGrow 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+/*
+ * UX pass 2, point 1: the entrance animations nested in a screen do not play in the copy drawn during a swipe, nor in the
+ * screen the swipe lands on (`data-entry`, SwipeView): it shows in its final state. After the rules above (same weight).
+ */
+.nav-layer .conf__seg[data-on='true'],
+.nav-layer .gauge__step .gauge__bar::after,
+.nav-layer .progress__bar,
+.nav-view[data-entry='settled'] .conf__seg[data-on='true'],
+.nav-view[data-entry='settled'] .gauge__step .gauge__bar::after,
+.nav-view[data-entry='settled'] .progress__bar {
+  animation: none;
+}
 .onb-progress {
   display: flex;
   gap: 6px;
