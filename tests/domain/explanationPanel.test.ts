@@ -163,8 +163,9 @@ describe('digest: what will move this number (real gate criteria)', () => {
     expect(y?.gate.criteria[0]?.have).toBe(1);
     const t = text(render(x, false));
     expect(t).toContain('Ce qui fera bouger ce chiffre');
-    expect(t).toContain('Confiance actuelle Faible');
-    for (const label of ['Pesées 0 / 5', 'Durée couverte 0 / 14 jours', 'Pesées hors écarts importants 0 / 4', 'Journées notées 0 % / 50 %']) expect(t).toContain(label);
+    // UX pass 2: the level is read out after the title (point 7), the adherence criterion renamed (point 8).
+    expect(t).toContain('Confiance actuelle : Faible');
+    for (const label of ['Pesées 0 / 5', 'Durée couverte 0 / 14 jours', 'Pesées hors écarts importants 0 / 4', 'Adhérence notée 0 % des jours, 50 % requis']) expect(t).toContain(label);
   });
 });
 
