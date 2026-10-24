@@ -32,8 +32,12 @@ import type {
  * journal), plan source 'personal_target' and `CurrentPlan.personalTarget` (the target chosen by the user). The lock of the
  * aligned target is not stored: it is the plan in force being the aligned target itself (`chosenTargetActive`). Loaded from
  * schema 8 with every existing declaration from the user.
+ * Version 10 (model 1.7.0, second fixes of pass 5b): the personal target keeps the rate estimated at the start, signed, and
+ * whether it lies beyond the slider grid (`PersonalTarget`); the trace rules 'personal_target_set' and
+ * 'personal_target_takeover', with their `PlanEvent.personalTarget`. Loaded from schema 9: the predicted rate becomes the
+ * signed estimated rate, and the rates of the profile and of the plan are brought inside the range of the goal.
  */
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 
 /**
  * A weigh-in as this app stores it: the engine contract (`WeightEntry`, science) plus fields that are

@@ -201,7 +201,7 @@ exports[`warm start reference cases (model 1.2.0) > case R (real profile) 1`] = 
     "source": "warm_start",
   },
   "matchesStoredPlan": null,
-  "modelVersion": "1.6.0",
+  "modelVersion": "1.7.0",
   "population": {
     "baseSigmaKcal": 241,
     "interval80": [
@@ -491,7 +491,7 @@ exports[`warm start reference cases (model 1.2.0) > case S (synthetic 5-session 
     "source": "warm_start",
   },
   "matchesStoredPlan": null,
-  "modelVersion": "1.6.0",
+  "modelVersion": "1.7.0",
   "population": {
     "baseSigmaKcal": 241,
     "interval80": [

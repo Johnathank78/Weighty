@@ -38,9 +38,12 @@ import { PERSONAL_TARGET_MESSAGE } from '@/domain/planMessages';
 import { analysisView } from '@/domain/views';
 import { formatKcal, formatRatePercent, THIN_SPACE } from '@/domain/format';
 import type { CurrentPlan, PlanEvent, WheightyStore } from '@/domain/types';
-import { emptyStore } from '@/persistence/schema';
+import { SCHEMA_VERSION } from '@/domain/types';
+import { migrateToCurrent } from '@/persistence/migrations';
+import { emptyStore, validateStore } from '@/persistence/schema';
 import { calibrationAnswer, calibrationFingerprint, createCalibrationRunner } from '@/store/calibrationClient';
 import type { CalibrationResponse } from '@/store/calibrationClient';
+import { SCIENTIFIC_MODEL_VERSION } from '@/science/constants';
 import { addDays } from '@/science/dates';
 import { calorieTargetForRate, planHardFloorKcal, weeklyRateRange } from '@/science/goals';
 import type { PlanContext } from '@/science/goals';
@@ -395,5 +398,60 @@ describe('2. preview of a profile edit on the target assumed to be followed', ()
     if (!population.ok) throw new Error(population.reason);
     expect(preview.personalOffsetKcal).toBe(latestAppliedSnapshot(s)?.posteriorMedianOffsetKcal);
     expect(Math.abs(preview.maintenanceKcal - population.plan.maintenanceKcal)).toBeGreaterThan(100);
+  });
+});
+
+describe('3. versions, schema 10', () => {
+  it('model 1.7.0, schema 10', () => {
+    expect(SCIENTIFIC_MODEL_VERSION).toBe('1.7.0');
+    expect(SCHEMA_VERSION).toBe(10);
+  });
+
+  it('a schema-9 store with a personal target loads without loss: the signed estimated rate, the rates inside the range', () => {
+    const current = ok(choosePersonalTarget(onboard(), D0, 2050, at(D0))).store;
+    const plan = planOf(current);
+    // As written by schema 9: the predicted rate (0.15 % a week, slower than the minimum of the goal) everywhere.
+    const raw = JSON.parse(
+      JSON.stringify({
+        ...current,
+        schemaVersion: 9,
+        scientificModelVersion: '1.6.0',
+        profile: { ...current.profile, weeklyRateTarget: 0.0015 },
+        plan: { ...plan, weeklyRateTarget: 0.0015, requestedWeeklyRate: 0.0015, personalTarget: { kcal: 2050, predictedRate: 0.0015 } },
+        meta: { ...current.meta, planEvents: [] },
+      }),
+    ) as Record<string, unknown>;
+    const migrated = migrateToCurrent(raw);
+    if (!migrated.ok) throw new Error(migrated.error);
+    expect(migrated.fromVersion).toBe(9);
+    const v = validateStore(migrated.value);
+    if ('error' in v) throw new Error(v.error);
+    expect(v.dropped).toEqual([]);
+    expect(v.store.schemaVersion).toBe(10);
+    expect(v.store.plan?.personalTarget).toEqual({ kcal: 2050, estimatedRate: -0.0015, beyondGrid: false });
+    expect([v.store.profile?.weeklyRateTarget, v.store.plan?.weeklyRateTarget, v.store.plan?.requestedWeeklyRate]).toEqual([0.002, 0.002, 0.002]);
+    for (const key of ['weights', 'dailyLogs', 'calibrationSnapshots', 'foodJournal', 'preferences', 'historicalEvidence'] as const) expect(v.store[key]).toEqual(JSON.parse(JSON.stringify(current[key])));
+    expect({ ...v.store.plan, weeklyRateTarget: 0, requestedWeeklyRate: 0, personalTarget: null }).toEqual(JSON.parse(JSON.stringify({ ...plan, weeklyRateTarget: 0, requestedWeeklyRate: 0, personalTarget: null })));
+  });
+
+  it('a schema-9 store without a personal target loads unchanged', () => {
+    const current = onboard();
+    const raw = JSON.parse(JSON.stringify({ ...current, schemaVersion: 9 })) as Record<string, unknown>;
+    const migrated = migrateToCurrent(raw);
+    if (!migrated.ok) throw new Error(migrated.error);
+    expect(migrated.value).toEqual({ ...raw, schemaVersion: 10 });
+  });
+
+  it('the trace entries of the personal target are read; an unknown case is reported', () => {
+    const s = personal(LOSS, 1700, -0.05);
+    const t = takeOverPersonalTarget(s, stateOn(s, 21), day(21), at(day(21)));
+    const v = validateStore(JSON.parse(JSON.stringify(t)));
+    if ('error' in v) throw new Error(v.error);
+    expect(v.clean).toBe(true);
+    expect(v.store.meta.planEvents.map((e) => e.rule)).toEqual(['personal_target_set', 'personal_target_takeover']);
+    const bad = { ...t, meta: { ...t.meta, planEvents: t.meta.planEvents.map((e) => ({ ...e, personalTarget: { ...e.personalTarget, case: 'robot' } })) } };
+    const w = validateStore(JSON.parse(JSON.stringify(bad)));
+    if ('error' in w) throw new Error(w.error);
+    expect(w.dropped.map((d) => d.path)).toEqual(['meta.planEvents.0', 'meta.planEvents.1']);
   });
 });

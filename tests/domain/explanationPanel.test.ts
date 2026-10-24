@@ -241,7 +241,7 @@ describe('stored plan integrity (matchesStoredPlan, D-30)', () => {
     expect(older?.integrity?.caloriesMatch).toBe(true);
     expect(text(render(older as ResultExplanation, true))).toContain('Écart avec le plan enregistré');
     expect(text(render(fresh as ResultExplanation, true))).toContain('Recalcul conforme au plan enregistré');
-    // Model 1.6.0 (fixes of pass 5b): the plans of the users without a journal nor a personal target are unchanged.
-    expect(SCIENTIFIC_MODEL_VERSION).toBe('1.6.0');
+    // Model 1.7.0 (second fixes of pass 5b): the plans of the users without a journal nor a personal target are unchanged.
+    expect(SCIENTIFIC_MODEL_VERSION).toBe('1.7.0');
   });
 });

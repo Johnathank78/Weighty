@@ -5,7 +5,7 @@
 import { PLAN_MESSAGE } from '@/domain/planMessages';
 import { defaultJournalPath, emptyFoodJournal, SCHEMA_VERSION } from '@/domain/types';
 import type { PlanEvent } from '@/domain/types';
-import { TARGET_BMI_MIN } from '@/science/constants';
+import { GAIN_RATE_HARD_MAX, GAIN_RATE_MIN, LOSS_RATE_HARD_MAX, LOSS_RATE_MIN, TARGET_BMI_MIN } from '@/science/constants';
 import { localIsoDate } from '@/science/dates';
 import { bmi, minimumTargetWeightKg } from '@/science/macros';
 import { isObject } from './schema';
@@ -144,7 +144,34 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
     const dailyLogs = Array.isArray(logs) ? logs.map((l) => (isObject(l) && l.adherence !== undefined && l.adherenceSource === undefined ? { ...l, adherenceSource: 'user' } : l)) : logs;
     return { ...input, schemaVersion: 9, ...(Array.isArray(logs) ? { dailyLogs } : {}) };
   },
+  // 9 -> 10 (model 1.7.0, second fixes of pass 5b): the personal target keeps the rate estimated at the start, signed
+  // (negative, a loss) and whether it lies beyond the slider grid (never, under schema 9: a target beyond it was refused).
+  // That rate was also the rate of the profile and of the plan: those are brought inside the range of the goal (a rate slower
+  // than the minimum of the goal becomes the minimum; the BMI cap was checked when the target was set). The predicted rate is
+  // kept in the personal target, so nothing is lost. A store without a personal target is carried over as it is.
+  9: (input) => {
+    const plan = input.plan;
+    const target = isObject(plan) ? plan.personalTarget : undefined;
+    if (!isObject(plan) || !isObject(target) || !num(target.predictedRate)) return { ...input, schemaVersion: 10 };
+    const { predictedRate, ...rest } = target;
+    const estimatedRate = plan.goal === 'loss' ? -predictedRate : predictedRate;
+    const inRange = (rate: unknown) => (num(rate) ? goalRate(plan.goal, rate) : rate);
+    const profile = input.profile;
+    return {
+      ...input,
+      schemaVersion: 10,
+      plan: { ...plan, weeklyRateTarget: inRange(plan.weeklyRateTarget), requestedWeeklyRate: inRange(plan.requestedWeeklyRate), personalTarget: { ...rest, estimatedRate, beyondGrid: false } },
+      ...(isObject(profile) && profile.goal === plan.goal ? { profile: { ...profile, weeklyRateTarget: inRange(profile.weeklyRateTarget) } } : {}),
+    };
+  },
 };
+
+/** 9 -> 10: a rate inside the range of its goal (0 for a maintenance goal); a rate already inside is kept exactly. */
+function goalRate(goal: unknown, rate: number): number {
+  if (goal === 'loss') return Math.min(LOSS_RATE_HARD_MAX, Math.max(LOSS_RATE_MIN, rate));
+  if (goal === 'gain') return Math.min(GAIN_RATE_HARD_MAX, Math.max(GAIN_RATE_MIN, rate));
+  return goal === 'maintenance' ? 0 : rate;
+}
 
 export type MigrationResult = { ok: true; value: Record<string, unknown>; fromVersion: number } | { ok: false; error: 'not_an_object' | 'future_schema_version' | 'missing_migration' };
 

@@ -13,7 +13,12 @@
  * 1.6.0 (fixes of pass 5b, report 46): the adherence of a past day logged in full is deduced from the journal when the user
  * did not declare it (the declarations read by the current method change for those who log); the personal target.
  */
-export const SCIENTIFIC_MODEL_VERSION = '1.6.0';
+/**
+ * 1.7.0 (second fixes of pass 5b, report 47): the personal target is a starting point, refused only under the floor; no rate
+ * cap while it is in force; the app takes it over at its first recalibration (estimate applied, rate read on it, plan of the
+ * current method at a rate inside the limits). The plans of the users with a personal target change.
+ */
+export const SCIENTIFIC_MODEL_VERSION = '1.7.0';
 
 export type ConstantCategory =
   | 'published_constant'

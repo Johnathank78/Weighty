@@ -71,8 +71,8 @@ function storeWithJournal(): WheightyStore {
 const product = (barcode: string, kcal: number | null): OffProduct => ({ barcode, name: `Produit ${barcode}`, lastModified: '1785948506', per100g: kcal === null ? null : { energyKcal: kcal, proteinG: 1, carbsG: 2, fatG: 3 }, servingGrams: null, packageGrams: null });
 
 describe('schema 2 -> current migration (food journal)', () => {
-  it('schema version is 9 (3: journal, 4: time of consumption, 5: Mes aliments, 6: weigh-in note, 7: plan checks of pass 5a, 8: journal path of pass 5b, 9: fixes of 5b)', () => {
-    expect(SCHEMA_VERSION).toBe(9);
+  it('schema version is 10 (3: journal, 4: time of consumption, 5: Mes aliments, 6: weigh-in note, 7: plan checks of pass 5a, 8: journal path of pass 5b, 9: fixes of 5b, 10: second fixes of 5b)', () => {
+    expect(SCHEMA_VERSION).toBe(10);
   });
 
   /** Schema 9 (report 46): an existing declaration is marked as given by the user; nothing else changes in the logs. */
