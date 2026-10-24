@@ -992,8 +992,8 @@ export function habitInForce(store: WheightyStore): number | null {
  * habit, on the context of the plans of the habit (pass 5b fixes, point 2: `measuredSliderContext`).
  */
 export function balanceSliderAvailable(store: WheightyStore): boolean {
-  // Nor on the target chosen by the user (fixes of pass 5b, point 6): it is theirs, "Choisir ma cible" changes it.
-  return !pathOf(store).chosenTargetActive && store.plan?.source !== 'personal_target';
+  // On the target chosen by the user too (UX pass 2, point 2): the slider moves it with the steps (`applySliderSteps`).
+  return !pathOf(store).chosenTargetActive;
 }
 
 /**

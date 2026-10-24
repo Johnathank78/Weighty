@@ -707,8 +707,9 @@ export function applySliderSteps(store: WheightyStore, today: string, steps: num
   // Journal path (pass 5b): not on the aligned target itself (the user's own figure); in the measured habit, only on the
   // context of the habit (`override`, pass 5b fixes, point 2).
   if (store.meta.journalPath.chosenTargetActive || (store.meta.journalPath.method === 'measured' && !override)) return { ok: false, reason: 'journal_path' };
-  // The target chosen by the user is theirs (fixes of pass 5b, point 6): "Choisir ma cible" changes it.
-  if (plan.source === 'personal_target') return { ok: false, reason: 'personal_target' };
+  // The target chosen by the user (UX pass 2, point 2): the slider as for every plan, around that target at the steps of
+  // the plan in force; the plan stays theirs (source, estimated rate) with the new target.
+  const personal = plan.source === 'personal_target' ? plan.personalTarget : undefined;
   const session = createSliderSession(store, today, override);
   if (!session) return { ok: false, reason: 'no_plan' };
   const clamped = Math.min(session.bounds.maxSteps, Math.max(session.effectiveMinSteps, steps));
@@ -730,7 +731,7 @@ export function applySliderSteps(store: WheightyStore, today: string, steps: num
   });
   const nextPlan: CurrentPlan = {
     ...plan,
-    source: isBaseline ? plan.source : 'user_adjusted_slider',
+    source: isBaseline || personal ? plan.source : 'user_adjusted_slider',
     calorieTarget,
     stepTarget: point.stepsPerDay,
     macros: { ...macros.exact },
@@ -742,6 +743,7 @@ export function applySliderSteps(store: WheightyStore, today: string, steps: num
       upper80: projection.upper80,
     },
     proteinRule: macros.proteinRule,
+    ...(personal ? { personalTarget: { ...personal, kcal: calorieTarget } } : {}),
   };
   const withLogs = ensureDailyLogs(store, today);
   return { ok: true, store: syncTodayLogTargets({ ...withLogs, plan: nextPlan }, today) };

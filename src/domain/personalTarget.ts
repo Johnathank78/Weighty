@@ -204,10 +204,13 @@ export function personalTargetAvailable(store: WheightyStore): boolean {
   return store.plan !== null && store.meta.journalPath.method === 'assumed';
 }
 
-/** Table of the Plan tab: the context of a rebuild from the store (the one of a goal change and of its speed slider). */
+/**
+ * Table of the Plan tab: the context of a rebuild from the store (the one of a goal change and of its speed slider), at the
+ * steps of the plan in force (UX pass 2, point 2a: a personal target holds at those steps; the profile's without a plan).
+ */
 export function storePersonalTargetTable(store: WheightyStore, today: string): PersonalTargetTable | null {
   const ctx = rebuildContextFromStore(store, today);
-  return ctx && store.profile ? personalTargetTable(ctx, store.profile.goal, store.profile.averageSteps7d) : null;
+  return ctx && store.profile ? personalTargetTable(ctx, store.profile.goal, store.plan?.stepTarget ?? store.profile.averageSteps7d) : null;
 }
 
 /** "Ta cible personnelle : ... L'app l'ajustera à ta première recalibration." (Plan tab), null without a personal target. */
@@ -221,15 +224,17 @@ type ChooseResult = { ok: true; store: WheightyStore } | { ok: false; reason: st
 /**
  * The plan built for the chosen target, on the store's context: the plan of the profile's goal at the rate of the profile
  * (its goal checks: target weight, BMI), or, when no rate of the grid passes its floor check, the plan of a maintenance goal
- * on the same context, every goal field then set.
+ * on the same context, every goal field then set. The target holds at `steps` (UX pass 2, point 2a: those of the plan in
+ * force), which become the steps of the plan and the reference of its slider.
  */
-function personalPlan(store: WheightyStore, today: string, profile: UserProfile, target: PersonalTarget, solver?: SolverRequest): { ok: true; plan: CurrentPlan } | { ok: false; reason: string } {
+function personalPlan(store: WheightyStore, today: string, profile: UserProfile, target: PersonalTarget, steps: number, solver?: SolverRequest): { ok: true; plan: CurrentPlan } | { ok: false; reason: string } {
   const goal = profile.goal;
   const options = { source: 'personal_target' as const, ...(solver ? { solver } : {}) };
   let r = buildPlanFromStore({ ...store, profile }, today, options);
   if (!r.ok && r.reason === 'no_feasible_speed') r = buildPlanFromStore({ ...store, profile }, today, { ...options, goal: 'maintenance', targetWeightKg: profile.targetWeightKg });
   if (!r.ok) return { ok: false, reason: r.reason };
-  return { ok: true, plan: withPersonalTarget(r.plan, r.context, goal, profile.targetWeightKg, target, profile.weeklyRateTarget) };
+  const atSteps: CurrentPlan = r.plan.stepTarget === steps ? r.plan : { ...r.plan, stepTarget: steps, baselineStepTarget: steps };
+  return { ok: true, plan: withPersonalTarget(atSteps, r.context, goal, profile.targetWeightKg, target, profile.weeklyRateTarget) };
 }
 
 /** Trace entry of a personal target set by the user (no message): the target and the rate estimated at the start. */
@@ -242,7 +247,7 @@ function recordSet(store: WheightyStore, before: CurrentPlan | null, check: Extr
   );
 }
 
-/** "Choisir ma cible" (Plan tab): checked on the context of the store, then the plan in force. */
+/** "Choisir ma cible" (Plan tab): checked on the context of the store at the steps of the plan in force, then the plan in force. */
 export function choosePersonalTarget(store: WheightyStore, today: string, kcal: number, nowIso = `${today}T00:00:00.000Z`): ChooseResult {
   if (!store.profile || !store.plan) return { ok: false, reason: 'no_profile' };
   if (!personalTargetAvailable(store)) return { ok: false, reason: 'journal_path' };
@@ -252,7 +257,7 @@ export function choosePersonalTarget(store: WheightyStore, today: string, kcal: 
   if (!check.ok) return { ok: false, reason: check.reason, text: check.text };
   const profile: UserProfile = { ...store.profile, weeklyRateTarget: check.goalRate };
   const withLogs = ensureDailyLogs(store, today);
-  const built = personalPlan(withLogs, today, profile, check.target);
+  const built = personalPlan(withLogs, today, profile, check.target, store.plan.stepTarget);
   if (!built.ok) return built;
   // A target the user chooses ends a maintenance imposed by the BMI-20 guardrail, as a goal change does.
   const next = syncTodayLog({ ...withLogs, profile, plan: built.plan, meta: { ...withLogs.meta, guardrailMaintenanceSince: null } }, today);

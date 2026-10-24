@@ -89,7 +89,15 @@ export function PlanScreen() {
       </div>
 
       {balanceSliderAvailable(store) ? (
-        <BalancePreview />
+        <>
+          {personalLine ? (
+            // UX pass 2, point 2: the user's own target stays above the slider, which moves it with the steps.
+            <p className="small" style={{ margin: '14px 0 0' }}>
+              {personalLine}
+            </p>
+          ) : null}
+          <BalancePreview />
+        </>
       ) : personalLine ? (
         // Fixes of pass 5b, point 6: the user's own target, and the speed the model predicts with it.
         <p className="small" style={{ margin: '14px 0 22px' }}>

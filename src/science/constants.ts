@@ -18,7 +18,11 @@
  * cap while it is in force; the app takes it over at its first recalibration (estimate applied, rate read on it, plan of the
  * current method at a rate inside the limits). The plans of the users with a personal target change.
  */
-export const SCIENTIFIC_MODEL_VERSION = '1.7.0';
+/**
+ * 1.8.0 (UX pass 2, point 2): a personal target holds at the steps of the plan in force, and the steps / calories slider
+ * moves it as for every plan. The plans of the users without a personal target are unchanged.
+ */
+export const SCIENTIFIC_MODEL_VERSION = '1.8.0';
 
 export type ConstantCategory =
   | 'published_constant'
