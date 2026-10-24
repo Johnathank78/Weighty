@@ -290,7 +290,15 @@ export const GATE_CRITERION_LABEL = {
   weighIns: 'Pesées',
   span: 'Durée couverte',
   cleanWeighIns: 'Pesées hors écarts importants',
-  adherence: 'Journées notées',
+  adherence: 'Adhérence notée',
+} as const;
+
+/** The adherence noted by the user (UX pass 2, point 8): one term everywhere; the threshold read from the gate constant. */
+export const ADHERENCE_NOTED_TEXT = {
+  regular: 'Plus tu te pèses et notes ton adhérence régulièrement, plus l’estimation peut s’affiner.',
+  firstAdjustment: (percent: number) =>
+    `Les jours en écart important ne servent pas de preuve, les écarts légers comptent moins. Il faut au moins 5 pesées sur 14 jours et ton adhérence notée au moins ${percent} % des jours pour qu’un premier ajustement soit fiable.`,
+  count: 'adhérences notées',
 } as const;
 
 /** Food journal (J-01 to J-04). Display only; nothing here judges the amounts logged. */

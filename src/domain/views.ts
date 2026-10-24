@@ -77,9 +77,17 @@ export function gateProgressFromGate(gate: GateStatus): GateProgress {
   };
 }
 
-/** Display of one gate criterion: counts for weigh-ins and days, share of noted days for adherence. */
+/** Share of the days of the window with an adherence noted (declared, or deduced from the journal) the gate requires, in %. */
+export function gateAdherencePercent(): number {
+  return Math.round(GATE_MIN_ADHERENCE_COVERAGE * 100);
+}
+
+/**
+ * Display of one gate criterion: counts for weigh-ins and days; for adherence, the share of the days of the window with an
+ * adherence noted, and the share required (UX pass 2, point 8).
+ */
 export function gateCriterionValue(c: GateCriterion): string {
-  if (c.key === 'adherence') return `${Math.round(c.have * 100)} % / ${Math.round(c.need * 100)} %`;
+  if (c.key === 'adherence') return `${Math.round(c.have * 100)} % des jours, ${Math.round(c.need * 100)} % requis`;
   if (c.key === 'span') return `${formatInteger(Math.min(c.have, c.need))} / ${formatInteger(c.need)} jours`;
   return `${formatInteger(Math.min(c.have, c.need))} / ${formatInteger(c.need)}`;
 }

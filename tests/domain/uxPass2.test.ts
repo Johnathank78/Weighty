@@ -8,10 +8,11 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { TRACKING_RANGE_LABEL } from '@/app/copy';
+import { ADHERENCE_NOTED_TEXT, GATE_CRITERION_LABEL, TRACKING_RANGE_LABEL } from '@/app/copy';
 import { ConfidenceGauge } from '@/components/controls';
-import { DEFAULT_TRACKING_RANGE, trackingChart, TRACKING_RANGE_DAYS, TRACKING_RANGES } from '@/domain/views';
+import { DEFAULT_TRACKING_RANGE, gateAdherencePercent, gateCriterionValue, trackingChart, TRACKING_RANGE_DAYS, TRACKING_RANGES } from '@/domain/views';
 import { typeWeighKey, weighHint, weighSaveEnabled } from '@/domain/weighEntry';
+import { GATE_MIN_ADHERENCE_COVERAGE } from '@/science/constants';
 import { addWeight, applySliderSteps, completeOnboarding, computeCalibrationState, createSliderSession, guardrailWeightKg, periodicReplan, rebuildContextFromStore, setAdherence } from '@/domain/engine';
 import type { CalibrationState } from '@/domain/engine';
 import { applyPathSliderSteps, balanceSliderAvailable, pathSliderSession } from '@/domain/journalPath';
@@ -268,5 +269,22 @@ describe('7. confidence gauge: no word right of the title', () => {
     expect(visible(high)).not.toContain('Bonne');
     expect(visible(html('good'))).toContain('|Bonne|');
     expect(visible(html('good'))).not.toContain('Élevée');
+  });
+});
+
+describe('8. "Adhérence notée"', () => {
+  it('one term, the value on the share of the days, the threshold read from the constant', () => {
+    expect(GATE_CRITERION_LABEL.adherence).toBe('Adhérence notée');
+    expect(gateAdherencePercent()).toBe(Math.round(GATE_MIN_ADHERENCE_COVERAGE * 100));
+    expect(gateCriterionValue({ key: 'adherence', have: 0.95, need: GATE_MIN_ADHERENCE_COVERAGE, met: true, fill: 1 })).toBe(`95 % des jours, ${gateAdherencePercent()} % requis`);
+    expect(ADHERENCE_NOTED_TEXT.regular).toBe('Plus tu te pèses et notes ton adhérence régulièrement, plus l’estimation peut s’affiner.');
+    expect(ADHERENCE_NOTED_TEXT.firstAdjustment(gateAdherencePercent())).toContain(`ton adhérence notée au moins ${gateAdherencePercent()} % des jours`);
+    expect(ADHERENCE_NOTED_TEXT.firstAdjustment(gateAdherencePercent())).toContain('Les jours en écart important ne servent pas de preuve');
+    expect(ADHERENCE_NOTED_TEXT.count).toBe('adhérences notées');
+    // No threshold written by hand in the screens, and the former term is gone.
+    for (const f of ['src/screens/WhySheet.tsx', 'src/screens/Tracking.tsx', 'src/screens/Account.tsx', 'src/components/ResultExplanationView.tsx']) {
+      const src = readFileSync(f, 'utf8');
+      expect(src).not.toMatch(/journées notées|jours notés|50 %/i);
+    }
   });
 });

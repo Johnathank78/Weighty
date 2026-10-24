@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useBackLabel, useNav } from '@/app/navigation';
 import { useWheighty } from '@/store/StoreProvider';
-import { ACTIVITY_LABEL, BODY_FAT_METHOD_LABEL, DATA_SOURCES_TEXT, GOAL_LABEL, GOAL_SHORT, occupationLabel, PACE_LABEL, PLAN_ERROR_TEXT, PRODUCT_SEARCH_TEXT } from '@/app/copy';
+import { ACTIVITY_LABEL, ADHERENCE_NOTED_TEXT, BODY_FAT_METHOD_LABEL, DATA_SOURCES_TEXT, GOAL_LABEL, GOAL_SHORT, occupationLabel, PACE_LABEL, PLAN_ERROR_TEXT, PRODUCT_SEARCH_TEXT } from '@/app/copy';
 import { clearLibrary } from '@/domain/foodLibrary';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Mascot } from '@/components/Mascot';
@@ -387,7 +387,7 @@ export function DataScreen() {
         {(
           [
             [store.weights.length, 'pesées'],
-            [loggedDays, 'jours notés'],
+            [loggedDays, ADHERENCE_NOTED_TEXT.count],
             [recalibrations, 'recalibrations'],
           ] as const
         ).map(([n, l]) => (

@@ -191,7 +191,7 @@ describe('first recalibration progress (s17)', () => {
   it('criterion values are counts, days and the share of noted days', () => {
     expect(gateCriterionValue({ key: 'weighIns', have: 3, need: 5, met: false, fill: 0.6 })).toBe('3 / 5');
     expect(gateCriterionValue({ key: 'span', have: 20, need: 14, met: true, fill: 1 })).toBe('14 / 14 jours');
-    expect(gateCriterionValue({ key: 'adherence', have: 0.25, need: 0.5, met: false, fill: 0.5 })).toBe('25 % / 50 %');
+    expect(gateCriterionValue({ key: 'adherence', have: 0.25, need: 0.5, met: false, fill: 0.5 })).toBe('25 % des jours, 50 % requis');
   });
 });
 

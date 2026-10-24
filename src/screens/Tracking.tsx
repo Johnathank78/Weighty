@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNav, useViewActive } from '@/app/navigation';
 import { useWheighty } from '@/store/StoreProvider';
-import { ADHERENCE_LABEL, CHART_BAND_LABEL, CONFIDENCE_LABEL, GATE_CRITERION_LABEL, HISTORY_TEXT, RECALIBRATION_REFUSED_TITLE, TRACKING_RANGE_LABEL } from '@/app/copy';
+import { ADHERENCE_LABEL, ADHERENCE_NOTED_TEXT, CHART_BAND_LABEL, CONFIDENCE_LABEL, GATE_CRITERION_LABEL, HISTORY_TEXT, RECALIBRATION_REFUSED_TITLE, TRACKING_RANGE_LABEL } from '@/app/copy';
 import { HISTORY_WINDOW_DAYS } from '@/domain/history';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Mascot } from '@/components/Mascot';
@@ -337,7 +337,7 @@ export function AnalyseScreen() {
           </button>
         </>
       ) : (
-        <p className="small">Plus tes pesées et tes journées notées sont régulières, plus l’estimation peut s’affiner.</p>
+        <p className="small">{ADHERENCE_NOTED_TEXT.regular}</p>
       )}
       <button type="button" className="btn btn--ghost" style={{ fontSize: 13.5 }} onClick={() => openSheet('why', 'recalibration')}>
         Comment Wheighty apprend de mes données ?

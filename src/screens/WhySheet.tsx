@@ -4,6 +4,8 @@ import { useWheighty } from '@/store/StoreProvider';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Mascot } from '@/components/Mascot';
 import { ResultExplanationView } from '@/components/ResultExplanationView';
+import { ADHERENCE_NOTED_TEXT } from '@/app/copy';
+import { gateAdherencePercent } from '@/domain/views';
 import { explainCurrentPlan, explainPreview } from '@/domain/explain';
 import { measuredWhyText } from '@/domain/journalPath';
 import { draftToEvidence, draftToProfile } from '@/domain/onboarding';
@@ -53,9 +55,9 @@ export function WhySheet() {
             Wheighty compare tes pesées réelles à ce qu’un modèle dynamique du poids prédit avec ton plan. Ce modèle tient compte de l’eau, du glycogène et de l’adaptation du corps, pas d’une règle fixe de calories par kilo.
           </p>
           <p className="body" style={{ marginBottom: 16 }}>
-            Les journées notées « écart important » ne servent pas de preuve, les écarts légers comptent moins. Il faut au moins 5 pesées sur 14 jours et des journées notées pour qu’un premier ajustement soit fiable.
+            {ADHERENCE_NOTED_TEXT.firstAdjustment(gateAdherencePercent())}
           </p>
-          <p className="body" style={{ marginBottom: 20 }}>Plus tes pesées et tes journées notées sont régulières, plus l’estimation peut s’affiner.</p>
+          <p className="body" style={{ marginBottom: 20 }}>{ADHERENCE_NOTED_TEXT.regular}</p>
         </>
       ) : measured ? (
         <p className="body" style={{ marginBottom: 20 }}>
