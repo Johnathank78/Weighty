@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useEntryMotion } from '@/app/navigation';
 import { chartScale, FUTURE_WIDTH_SHARE } from '@/domain/chartScale';
 import type { ChartScale, DayBand, DayPoint, Marker } from '@/domain/chartScale';
 
@@ -30,6 +31,8 @@ export function WeightChart({ height, trend = [], raw = [], projection = [], ban
   const [width, setWidth] = useState(0);
   const [theme, setTheme] = useState<string>(() => (typeof document === 'undefined' ? 'light' : (document.documentElement.dataset.theme ?? 'light')));
   const [scale, setScale] = useState<ChartScale | null>(null);
+  // Drawn at once, without the progressive reveal, in a copy under a swipe and on the screen a swipe lands on (UX pass 2).
+  const reveal = useEntryMotion();
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -74,7 +77,7 @@ export function WeightChart({ height, trend = [], raw = [], projection = [], ban
     let raf = 0;
     const t0 = performance.now();
     const frame = () => {
-      const progress = reduced ? 1 : Math.min(1, (performance.now() - t0) / REVEAL_MS);
+      const progress = reduced || !reveal ? 1 : Math.min(1, (performance.now() - t0) / REVEAL_MS);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, width, height);
       paint(ctx, geometry, colors, 1 - Math.pow(1 - progress, 3));
@@ -82,7 +85,7 @@ export function WeightChart({ height, trend = [], raw = [], projection = [], ban
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [width, height, theme, trend, raw, projection, band, markers]);
+  }, [width, height, theme, trend, raw, projection, band, markers, reveal]);
 
   const todayRatio = scale?.todayRatio ?? 1 - FUTURE_WIDTH_SHARE;
   return (

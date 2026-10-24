@@ -53,20 +53,25 @@ export function ConfidenceBar({ level }: { level: 'low' | 'medium' | 'good' | 'h
 
 const GAUGE_STEPS = ['low', 'medium', 'good'] as const;
 
-/** Three-step confidence gauge (faible, moyenne, bonne); "élevée" fills all three. */
+/**
+ * Three-step confidence gauge (faible, moyenne, bonne); "élevée" fills all three, and the third step then reads "Élevée".
+ * UX pass 2, point 7: no level word right of the title; the level stays read out to screen readers (the steps are hidden).
+ */
 export function ConfidenceGauge({ level, label = 'Confiance du modèle' }: { level: ConfidenceLevel; label?: string }) {
   const on = { low: 1, medium: 2, good: 3, high: 3 }[level];
   return (
     <div className="gauge">
       <div className="gauge__head">
-        <span className="gauge__label">{label}</span>
-        <span className="gauge__value">{CONFIDENCE_LABEL[level]}</span>
+        <span className="gauge__label">
+          {label}
+          <span className="sr-only"> : {CONFIDENCE_LABEL[level]}</span>
+        </span>
       </div>
       <div className="gauge__track" aria-hidden="true">
         {GAUGE_STEPS.map((s, i) => (
           <div key={s} className="gauge__step" data-on={i < on} data-current={i === on - 1}>
             <span className="gauge__bar" style={{ animationDelay: `${i * 110}ms` }} />
-            <span className="gauge__step-label">{CONFIDENCE_LABEL[s]}</span>
+            <span className="gauge__step-label">{CONFIDENCE_LABEL[s === 'good' && level === 'high' ? 'high' : s]}</span>
           </div>
         ))}
       </div>

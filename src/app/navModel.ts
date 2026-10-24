@@ -32,7 +32,7 @@ export type ScreenId =
   | 'journal'
   | 'history';
 
-export type SheetId = 'balance' | 'weigh' | 'adherence' | 'steps' | 'why' | 'goal' | 'food' | 'foodEdit' | 'weighOptions' | 'productConsent' | 'productClear' | 'personalTarget';
+export type SheetId = 'balance' | 'weigh' | 'adherence' | 'steps' | 'why' | 'goal' | 'food' | 'foodEdit' | 'weighOptions' | 'productConsent' | 'productClear' | 'personalTarget' | 'planChange';
 
 export type TabId = 'today' | 'plan' | 'suivi' | 'analyse' | 'profil';
 /** Order of the sections, left to right, as in the bottom bar. */
@@ -212,6 +212,30 @@ export function navSwipe(s: NavState, action: SwipeAction): NavState {
   if (action.kind === 'tab') return { ...s, sheet: null, tab: action.tab, stack: [], transition: 'none' };
   const back = navBack(s);
   return back ? { ...back, transition: 'none' } : s;
+}
+
+/** What is on display, for its entrance animations: the screen, and on the onboarding the step it shows. */
+export function displayKey(s: NavState): string {
+  return currentScreen(s) === 'onboarding' ? `${currentKey(s)}:${s.draft.step}` : currentKey(s);
+}
+
+/**
+ * UX pass 2, point 1: what a swipe carried through lands on. That screen is shown in its final state, without the entrance
+ * animations nested in it (gauges, bars, the progressive drawing of a chart), which the copy drawn under the finger would
+ * otherwise play, then the screen itself again. A tap in the bottom bar or a page opened keeps them.
+ */
+export function swipeArrival(s: NavState, action: SwipeAction): string {
+  return displayKey(navSwipe(s, action));
+}
+
+/** The arrival of a swipe is forgotten once something else is on display: coming back to it later animates again. */
+export function keptArrival(arrival: string | null, s: NavState): string | null {
+  return arrival !== null && arrival === displayKey(s) ? arrival : null;
+}
+
+/** Whether the screen on display plays its entrance animations: not when a swipe landed on it (`arrival`). */
+export function entryAnimated(s: NavState, arrival: string | null): boolean {
+  return displayKey(s) !== arrival;
 }
 
 /**

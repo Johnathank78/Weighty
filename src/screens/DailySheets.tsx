@@ -6,8 +6,8 @@ import { BottomSheet } from '@/components/BottomSheet';
 import { Range, Segmented } from '@/components/controls';
 import { addWeight, setActualSteps, setAdherence } from '@/domain/engine';
 import { runWeighInChecks } from '@/domain/planSafety';
-import { formatInteger, formatWeight, lbToKg, weightUnitLabel } from '@/domain/format';
-import { latestRawWeight } from '@/domain/engine';
+import { formatInteger, lbToKg, weightUnitLabel } from '@/domain/format';
+import { typeWeighKey, weighHint, weighSaveEnabled } from '@/domain/weighEntry';
 import { todayLog } from '@/domain/views';
 import { suggestedAdherence } from '@/domain/journalPath';
 import { JOURNAL_MESSAGE } from '@/domain/planMessages';
@@ -44,26 +44,20 @@ export function WeighSheet() {
   const [menstruating, setMenstruating] = useState(false);
   const asksPeriod = store.profile?.sexForEquation === 'female';
 
+  // UX pass 2, point 6: the field opens empty; the last weigh-in is only a greyed hint, the first key starts a new value.
+  const hint = weighHint(store, units);
+
   useEffect(() => {
     if (!open) return;
-    const last = latestRawWeight(store);
-    setValue(last ? formatWeight(last.weightKg, units).replace(/[\s\u202F]/g, '') : '');
+    setValue('');
     setDay('today');
     setError(null);
     setMenstruating(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const key = (k: string) => {
     setError(null);
-    setValue((v) => {
-      if (k === 'del') return v.slice(0, -1);
-      if (k === ',') return v.includes(',') || v === '' ? v : `${v},`;
-      const [int = '', frac] = v.split(',');
-      if (frac !== undefined) return frac.length >= 1 ? v : `${v}${k}`;
-      if (int.length >= 3) return v;
-      return v === '0' ? k : `${v}${k}`;
-    });
+    setValue((v) => typeWeighKey(v, k));
   };
 
   const save = () => {
@@ -86,7 +80,7 @@ export function WeighSheet() {
     <BottomSheet open={open} onClose={closeSheet} title="Nouvelle pesée" lead="Le matin, à jeun, si possible.">
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 8, padding: '6px 0 8px' }} aria-live="polite">
         <span className="tabular" style={{ font: '600 74px/1 var(--font)', letterSpacing: '-0.05em', color: value ? 'var(--ink)' : 'var(--ink2)' }}>
-          {value || '0'}
+          {value || hint}
         </span>
         <span className="unit" style={{ fontSize: 18 }}>
           {weightUnitLabel(units)}
@@ -117,7 +111,7 @@ export function WeighSheet() {
           </button>
         ))}
       </div>
-      <button type="button" className="btn btn--primary" style={{ marginTop: 18 }} onClick={save}>
+      <button type="button" className="btn btn--primary" style={{ marginTop: 18 }} disabled={!weighSaveEnabled(value)} onClick={save}>
         Enregistrer
       </button>
     </BottomSheet>

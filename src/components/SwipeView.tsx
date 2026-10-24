@@ -1,7 +1,7 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import type { MouseEvent, PointerEvent, ReactNode } from 'react';
 import { flushSync } from 'react-dom';
-import { BackLabelContext, backLabelFor, DraftStepContext, useNav, ViewActiveContext } from '@/app/navigation';
+import { BackLabelContext, backLabelFor, DraftStepContext, EntryMotionContext, useNav, ViewActiveContext } from '@/app/navigation';
 import type { ScreenId, SwipeAction } from '@/app/navigation';
 import type { NavTransition } from '@/app/navModel';
 import { swipeCompletes } from '@/app/navModel';
@@ -47,7 +47,7 @@ const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce
  * nothing left of Today, back to the page a stacked page was opened from.
  */
 export function SwipeView({ viewKey, content, transition, render }: { viewKey: string; content: ReactNode; transition: NavTransition; render: (screen: ScreenId) => ReactNode }) {
-  const { swipe, completeSwipe, scrollOf } = useNav();
+  const { swipe, completeSwipe, scrollOf, entryMotion } = useNav();
   const viewRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
   const gesture = useRef<Gesture | null>(null);
@@ -168,9 +168,11 @@ export function SwipeView({ viewKey, content, transition, render }: { viewKey: s
         <div ref={layerRef} className="nav-layer" data-kind={layer.action.kind} style={{ left: layer.left, width: layer.width }} aria-hidden="true" inert>
           <div style={{ transform: `translateY(${-scrollOf(layer.action.revealKey ?? '')}px)` }}>
             <ViewActiveContext.Provider value={false}>
-              <BackLabelContext.Provider value={layer.action.kind === 'back' ? backLabelFor(layer.action.under) : null}>
-                <DraftStepContext.Provider value={layer.action.kind === 'back' ? (layer.action.step ?? null) : null}>{render(layer.action.reveal)}</DraftStepContext.Provider>
-              </BackLabelContext.Provider>
+              <EntryMotionContext.Provider value={false}>
+                <BackLabelContext.Provider value={layer.action.kind === 'back' ? backLabelFor(layer.action.under) : null}>
+                  <DraftStepContext.Provider value={layer.action.kind === 'back' ? (layer.action.step ?? null) : null}>{render(layer.action.reveal)}</DraftStepContext.Provider>
+                </BackLabelContext.Provider>
+              </EntryMotionContext.Provider>
             </ViewActiveContext.Provider>
           </div>
         </div>
@@ -180,6 +182,7 @@ export function SwipeView({ viewKey, content, transition, render }: { viewKey: s
         ref={viewRef}
         className="nav-view"
         data-transition={transition}
+        data-entry={entryMotion ? undefined : 'settled'}
         data-swiping={layer !== null || undefined}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -187,7 +190,7 @@ export function SwipeView({ viewKey, content, transition, render }: { viewKey: s
         onPointerCancel={(e) => release(e, true)}
         onClickCapture={onClickCapture}
       >
-        {content}
+        <EntryMotionContext.Provider value={entryMotion}>{content}</EntryMotionContext.Provider>
       </div>
     </>
   );

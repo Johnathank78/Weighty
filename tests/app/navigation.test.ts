@@ -5,7 +5,7 @@
  * simulated browser history.
  */
 import { describe, expect, it } from 'vitest';
-import { activeTab, canGoBack, currentKey, currentScreen, initialNav, navBack, navCloseSheet, navGo, navOpenSheet, navSelectTab, navSwipe, rootKey, swipeActions, swipeCompletes, TABS } from '@/app/navModel';
+import { activeTab, canGoBack, currentKey, currentScreen, displayKey, entryAnimated, initialNav, keptArrival, navBack, navCloseSheet, navGo, navOpenSheet, navSelectTab, navSwipe, rootKey, swipeActions, swipeArrival, swipeCompletes, TABS } from '@/app/navModel';
 import type { NavState, ScreenId, SwipeAction } from '@/app/navModel';
 import { createHistorySync } from '@/app/navHistory';
 import type { HistoryLike } from '@/app/navHistory';
@@ -264,5 +264,64 @@ describe('swipe release', () => {
     expect(swipeCompletes(110, 0.1, 375)).toBe(false);
     expect(swipeCompletes(40, 0.8, 375)).toBe(true);
     expect(swipeCompletes(10, 2, 375)).toBe(false);
+  });
+});
+
+describe('entrance animations after a swipe (UX pass 2, point 1)', () => {
+  const swipeLeft = (s: NavState): { s: NavState; arrival: string } => {
+    const a = swipeActions(s).left as SwipeAction;
+    return { s: navSwipe(s, a), arrival: swipeArrival(s, a) };
+  };
+
+  it('the screen a swipe lands on shows in its final state, every section and every way', () => {
+    let s = home();
+    for (const tab of TABS.slice(1)) {
+      const r = swipeLeft(s);
+      expect(currentScreen(r.s)).toBe(tab);
+      expect(r.arrival).toBe(rootKey(tab));
+      expect(entryAnimated(r.s, r.arrival)).toBe(false);
+      s = r.s;
+    }
+    for (let a = swipeActions(s).right; a; a = swipeActions(s).right) {
+      const arrival = swipeArrival(s, a);
+      s = navSwipe(s, a);
+      expect(entryAnimated(s, arrival)).toBe(false);
+    }
+    expect(currentScreen(s)).toBe('today');
+  });
+
+  it('a stacked page swiped back, and an onboarding step swiped back', () => {
+    const page = navGo(home(), 'macros');
+    const back = swipeActions(page).right as SwipeAction;
+    expect(entryAnimated(navSwipe(page, back), swipeArrival(page, back))).toBe(false);
+
+    let onb = navGo(navGo(initialNav('splash'), 'intro', { replace: true }), 'onboarding');
+    onb = { ...onb, draft: { ...onb.draft, step: nextStep(onb.draft) as typeof onb.draft.step } };
+    onb = { ...onb, draft: { ...onb.draft, step: nextStep(onb.draft) as typeof onb.draft.step } };
+    const prev = swipeActions(onb).right as SwipeAction;
+    const landed = navSwipe(onb, prev);
+    const arrival = swipeArrival(onb, prev);
+    expect(entryAnimated(landed, arrival)).toBe(false);
+    // The next step (same screen, another step) is something else on display: it animates.
+    const forward = { ...landed, draft: { ...landed.draft, step: nextStep(landed.draft) as typeof landed.draft.step } };
+    expect(keptArrival(arrival, forward)).toBeNull();
+  });
+
+  it('a tap in the bar or a page opened keeps the animations, and coming back by the bar animates again', () => {
+    const r = swipeLeft(home());
+    expect(entryAnimated(navSelectTab(r.s, 'suivi'), r.arrival)).toBe(true);
+    expect(entryAnimated(navGo(r.s, 'macros'), r.arrival)).toBe(true);
+    // Elsewhere, the arrival is forgotten; back on the screen by the bar, it animates.
+    const away = navSelectTab(r.s, 'suivi');
+    const kept = keptArrival(r.arrival, away);
+    expect(kept).toBeNull();
+    expect(entryAnimated(navSelectTab(away, r.s.tab), kept)).toBe(true);
+    // A sheet opened on the screen a swipe landed on changes nothing (same screen on display).
+    expect(keptArrival(r.arrival, navOpenSheet(r.s, 'weigh'))).toBe(r.arrival);
+  });
+
+  it('without a swipe (start, released swipe), the screen animates as before', () => {
+    expect(entryAnimated(home(), null)).toBe(true);
+    expect(displayKey(home())).toBe(currentKey(home()));
   });
 });

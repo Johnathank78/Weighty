@@ -517,7 +517,7 @@ describe('point 6: personal target', () => {
     expect((checkPersonalTarget(t, (a.kcal + b.kcal) / 2) as { text: string }).text).toMatch(/^Vitesse estimée au départ : .* par semaine\. Tes pesées diront la vraie\.$/);
   });
 
-  it('the plan in force is the chosen target, own source, a rate inside the limits requested; method unchanged; no periodic replan; no slider', () => {
+  it('the plan in force is the chosen target, own source, a rate inside the limits requested; method unchanged; no periodic replan; the slider (UX pass 2)', () => {
     const s = live(onboard(), 0, 10, (i) => ({ kg: 75 - 0.05 * i, adherence: 'on_plan' }));
     const r = choosePersonalTarget(s, day(10), 1650);
     if (!r.ok) throw new Error(r.reason);
@@ -531,8 +531,9 @@ describe('point 6: personal target', () => {
     expect(personalTargetLine(r.store)).toBe(`Ta cible personnelle : 1${THIN_SPACE}650 kcal par jour. L’app l’ajustera à ta première recalibration.`);
     expect(periodicReplan(r.store, day(60), { nowIso: at(day(60)) }).status).toBe('not_due');
     expect(runDailyChecks(r.store, day(60), at(day(60))).plan?.calorieTarget).toBe(1650);
-    expect(balanceSliderAvailable(r.store)).toBe(false);
-    expect(applyPathSliderSteps(r.store, day(10), 9000)).toEqual({ ok: false, reason: 'personal_target' });
+    // UX pass 2, point 2 (before: no slider): the slider moves the target with the steps, the plan stays the user's.
+    expect(balanceSliderAvailable(r.store)).toBe(true);
+    expect(applyPathSliderSteps(r.store, day(10), 9000)).toMatchObject({ ok: true, store: { plan: { source: 'personal_target', stepTarget: 9000 } } });
     expect(personalTargetAvailable(aligned(16))).toBe(false);
     expect(choosePersonalTarget(aligned(16), day(16), 1650)).toMatchObject({ ok: false, reason: 'journal_path' });
   });
