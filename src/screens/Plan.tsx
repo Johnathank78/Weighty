@@ -139,7 +139,8 @@ export function PlanScreen() {
             {formatWeight(target, units)} {weightUnitLabel(units)}
           </span>
         </div>
-        {plan.goal !== 'maintenance' ? (
+        {/* Report 47: on a personal target the rate of the plan is not the user's (their target is); the line above says it. */}
+        {plan.goal !== 'maintenance' && !personalLine ? (
           <div className="row">
             <span className="row__label">Vitesse</span>
             <span className="row__value">
