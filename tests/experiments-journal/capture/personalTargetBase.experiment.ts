@@ -7,8 +7,8 @@ import { writeFileSync } from 'node:fs';
 import { it } from 'vitest';
 import { personalTargetFixture } from '../../helpers/personalTargetFixture';
 
-it('personal target fixture', () => {
-  const file = process.env.PT_OUT;
-  if (!file) throw new Error('PT_OUT is required');
-  writeFileSync(file, `${JSON.stringify(personalTargetFixture())}\n`);
+// Only on demand: the non-regression capture (filter "capture") runs this folder without PT_OUT.
+const file = process.env.PT_OUT;
+it.runIf(file !== undefined)('personal target fixture', () => {
+  writeFileSync(file as string,`${JSON.stringify(personalTargetFixture())}\n`);
 });
