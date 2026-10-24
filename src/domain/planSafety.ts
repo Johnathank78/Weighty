@@ -16,8 +16,10 @@ import { fastestRateReachableWithSteps, guardrailMaxWeeklyRate, stepsToHoldRateA
 import type { GoalPlan, PlanContext } from '@/science/goals';
 import { bmi, weightAtBmi } from '@/science/macros';
 import type { CalibrationState, PlanBuildResult } from './engine';
-import { enforcePlanGuardrails, ensureDailyLogs, periodicReplan, recordPlanEvent, trendOf } from './engine';
-import { PLAN_MESSAGE } from './planMessages';
+import { enforcePlanGuardrails, ensureDailyLogs, journalMethodOf, periodicReplan, recordPlanEvent, trendOf } from './engine';
+import { deduceAdherenceFromJournal, enforceMeasuredGuardrails, measuredPeriodicReplan, runJournalDailyChecks } from './journalPath';
+import { PLAN_MESSAGE, SHORT_MESSAGE } from './planMessages';
+import type { ShortText } from './planMessages';
 import type { PlanEvent, PlanEventRule, WheightyStore } from './types';
 import { projectionFromToday } from './views';
 
@@ -83,26 +85,50 @@ export type DailyCheckOptions = {
    * reports 38 and 39, which checks them once a week, turns it off on the other days.
    */
   guardrails?: boolean;
+  /**
+   * Run the weekly evaluation of the journal path here (default true). It is heavy (the journal fit of the measured habit):
+   * the app runs it in a worker (StoreProvider) and passes false.
+   */
+  journalWeek?: boolean;
 };
 
 /**
  * What runs when the day changes (opening of the app, return to the foreground; StoreProvider): the logs up to today, the
- * guardrails (G1, G2), the periodic replan when due, the underweight alert. Evaluated once on the day's state: after days
+ * adherence of the past days deduced from the journal (fixes of pass 5b), the guardrails (G1, G2), the periodic replan when
+ * due, the underweight alert. Evaluated once on the day's state: after days
  * without opening nothing is replayed. Returns the same store when nothing changes.
  */
 export function runDailyChecks(store: WheightyStore, today: string, nowIso: string, options: DailyCheckOptions = {}): WheightyStore {
   if (!store.plan || !store.profile) return store;
   let s = ensureDailyLogs(store, today);
-  if (options.guardrails !== false) s = enforcePlanGuardrails(s, today, { nowIso }).store;
-  const periodic = periodicReplan(s, today, { nowIso });
-  if (periodic.status !== 'not_due') s = periodic.store;
+  // Pass 5b fixes, point 4: the past days logged in full and not declared get the category of their journal, first, so that
+  // every check of the day reads them.
+  s = deduceAdherenceFromJournal(s, today);
+  if (options.guardrails !== false) s = guardrailsOnPath(s, today, nowIso);
+  // Journal path (pass 5b): proposal, weigh-in encouragement, weekly evaluation (after the guardrails, as the prototype).
+  s = runJournalDailyChecks(s, today, nowIso, { week: options.journalWeek !== false });
+  if (journalMethodOf(s) === 'measured') {
+    const periodic = measuredPeriodicReplan(s, today, nowIso);
+    if (periodic.status !== 'not_due') s = periodic.store;
+  } else {
+    const periodic = periodicReplan(s, today, { nowIso });
+    if (periodic.status !== 'not_due') s = periodic.store;
+  }
   return checkUnderweight(s, today, nowIso);
+}
+
+/**
+ * Guardrails of the plan in force on the journal path: those of pass 5a (with the floor x 1.10 on the aligned target, and
+ * G1 only on the aligned target itself), or those of the measured habit (pass 5b).
+ */
+export function guardrailsOnPath(store: WheightyStore, today: string, nowIso: string): WheightyStore {
+  return journalMethodOf(store) === 'measured' ? enforceMeasuredGuardrails(store, today, nowIso) : enforcePlanGuardrails(store, today, { nowIso }).store;
 }
 
 /** What runs after each weigh-in: the guardrails and the underweight alert, on the new trend weight. */
 export function runWeighInChecks(store: WheightyStore, today: string, nowIso: string): WheightyStore {
   if (!store.plan || !store.profile) return store;
-  return checkUnderweight(enforcePlanGuardrails(store, today, { nowIso }).store, today, nowIso);
+  return checkUnderweight(guardrailsOnPath(store, today, nowIso), today, nowIso);
 }
 
 // ---------------------------------------------------------------------------
@@ -168,10 +194,13 @@ export function floorAdviceOf(result: PlanBuildResult | { ok: false; reason: str
 // Message zone of Aujourd'hui and Suivi (UX pass 1, G1)
 // ---------------------------------------------------------------------------
 
-export type PlanNoticeKind = 'underweight' | 'guardrail' | 'bmi20_warning' | 'target_migration' | 'periodic_replan';
+export type PlanNoticeKind = 'underweight' | 'guardrail' | 'bmi20_warning' | 'target_migration' | 'journal' | 'personal_target' | 'periodic_replan';
 
-/** Priority of the message zone, first shown first. */
-export const PLAN_NOTICE_ORDER: readonly PlanNoticeKind[] = ['underweight', 'guardrail', 'bmi20_warning', 'target_migration', 'periodic_replan'];
+/**
+ * Priority of the message zone, first shown first. Journal path messages (pass 5b), then the takeover of a personal target
+ * (report 47), come before the periodic replan.
+ */
+export const PLAN_NOTICE_ORDER: readonly PlanNoticeKind[] = ['underweight', 'guardrail', 'bmi20_warning', 'target_migration', 'journal', 'personal_target', 'periodic_replan'];
 
 /** Messages visible at once; the others wait behind "Voir les autres messages". */
 export const PLAN_NOTICES_VISIBLE = 2;
@@ -180,9 +209,12 @@ export type PlanNotice = {
   kind: PlanNoticeKind;
   /** Trace entry closed by "OK"; null for the warning ahead of BMI 20, which is not an entry. */
   eventId: string | null;
+  /** Short format (pass 5b fixes, point 5): title and one line; `text`, the long text, behind "Détails". */
+  title: string;
+  line: string;
   text: string;
   tone: 'warn' | 'calm';
-  /** Weeks announced by the warning ahead of BMI 20 (its compact line). */
+  /** Weeks announced by the warning ahead of BMI 20. */
   weeks?: number;
 };
 
@@ -193,6 +225,17 @@ const KIND_OF_RULE: Record<PlanEventRule, PlanNoticeKind> = {
   G2: 'guardrail',
   target_bmi_20: 'target_migration',
   periodic_replan: 'periodic_replan',
+  personal_target_set: 'personal_target',
+  personal_target_takeover: 'personal_target',
+  journal_switch: 'journal',
+  journal_proposal_declined: 'journal',
+  journal_log_more: 'journal',
+  journal_weigh_daily: 'journal',
+  journal_measured_offer: 'journal',
+  journal_measured_enter: 'journal',
+  journal_measured_update: 'journal',
+  journal_offer_declined: 'journal',
+  journal_measured_exit: 'journal',
 };
 
 /**
@@ -202,6 +245,57 @@ const KIND_OF_RULE: Record<PlanEventRule, PlanNoticeKind> = {
 export function planEventText(e: PlanEvent): string | null {
   if (e.rule === 'periodic_replan' && e.message !== null && e.before && e.after) return PLAN_MESSAGE.periodicReplan(e.before.calorieTarget, e.after.calorieTarget, e.after.goal);
   return e.message;
+}
+
+/**
+ * Short format of a trace entry (pass 5b fixes, point 5), from its rule and the plans it keeps, so that an entry written
+ * before the fixes reads like a new one. The target migration keeps no plan: its weight is read in its message (written by
+ * `PLAN_MESSAGE.targetRaised`). Null for an entry without message, or of a rule without a short text.
+ */
+export function planEventShort(e: PlanEvent): ShortText | null {
+  if (e.message === null) return null;
+  switch (e.rule) {
+    case 'G1':
+      return SHORT_MESSAGE.guardrailBmi20;
+    case 'G2':
+      return e.after ? SHORT_MESSAGE.guardrailRateCap(e.after.weeklyRateTarget) : null;
+    case 'periodic_replan':
+      return e.before && e.after ? SHORT_MESSAGE.periodicReplan(e.before.calorieTarget, e.after.calorieTarget, e.after.goal) : null;
+    case 'target_bmi_20': {
+      const kg = /(\d+(?:,\d+)?) kg/.exec(e.message)?.[1];
+      return kg === undefined ? null : SHORT_MESSAGE.targetRaised(Number(kg.replace(',', '.')));
+    }
+    case 'underweight_bmi':
+    case 'underweight_decline':
+      return SHORT_MESSAGE.underweight;
+    case 'journal_switch':
+      return e.after ? SHORT_MESSAGE.floorRaised(e.after.calorieTarget) : null;
+    case 'journal_log_more':
+      return SHORT_MESSAGE.logMore;
+    case 'journal_weigh_daily':
+      return SHORT_MESSAGE.weighDaily;
+    case 'journal_measured_exit':
+      return e.reason === 'logging' ? SHORT_MESSAGE.exitLogging : SHORT_MESSAGE.exitWeighIns;
+    case 'personal_target_takeover': {
+      if (!e.before || !e.after) return null;
+      const [before, after, goal, rate] = [e.before.calorieTarget, e.after.calorieTarget, e.after.goal, e.after.weeklyRateTarget];
+      switch (e.personalTarget?.case) {
+        case 'within':
+          return SHORT_MESSAGE.takeoverWithin(after, goal, rate);
+        case 'too_fast':
+          return SHORT_MESSAGE.takeoverTooFast(before, after, rate);
+        case 'too_slow':
+        case 'opposite':
+          return SHORT_MESSAGE.takeoverTooSlow(before, after, goal, rate);
+        case 'maintenance':
+          return SHORT_MESSAGE.takeoverMaintenance(before, after);
+        default:
+          return null;
+      }
+    }
+    default:
+      return null;
+  }
 }
 
 /**
@@ -215,9 +309,14 @@ export function planNotices(unseen: readonly PlanEvent[], warning: { weeks: numb
     const text = planEventText(e);
     if (text === null) continue;
     const kind = KIND_OF_RULE[e.rule];
-    out.push({ kind, eventId: e.id, text, tone: kind === 'underweight' || e.rule === 'G1' ? 'warn' : 'calm' });
+    // A message without a short text (none today) shows its text as the line.
+    const short = planEventShort(e) ?? { title: '', line: text };
+    out.push({ kind, eventId: e.id, title: short.title, line: short.line, text, tone: kind === 'underweight' || e.rule === 'G1' ? 'warn' : 'calm' });
   }
-  if (warning) out.push({ kind: 'bmi20_warning', eventId: null, text: warning.message, tone: 'warn', weeks: warning.weeks });
+  if (warning) {
+    const short = SHORT_MESSAGE.bmi20Warning(warning.weeks);
+    out.push({ kind: 'bmi20_warning', eventId: null, title: short.title, line: short.line, text: warning.message, tone: 'warn', weeks: warning.weeks });
+  }
   const rank = (k: PlanNoticeKind) => PLAN_NOTICE_ORDER.indexOf(k);
   return out.map((n, i) => ({ n, i })).sort((a, b) => rank(a.n.kind) - rank(b.n.kind) || a.i - b.i).map(({ n }) => n);
 }

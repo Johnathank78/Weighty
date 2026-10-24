@@ -5,6 +5,7 @@ import { BottomSheet } from '@/components/BottomSheet';
 import { Mascot } from '@/components/Mascot';
 import { ResultExplanationView } from '@/components/ResultExplanationView';
 import { explainCurrentPlan, explainPreview } from '@/domain/explain';
+import { measuredWhyText } from '@/domain/journalPath';
 import { draftToEvidence, draftToProfile } from '@/domain/onboarding';
 
 export function WhySheet() {
@@ -14,12 +15,14 @@ export function WhySheet() {
   const details = store.preferences.showScientificDetails;
   const units = store.preferences.units;
   // Explanation of the plan actually shown: the stored plan in the app, the draft preview on the Result screen.
+  // Pass 5b fixes, point 7: the measured habit has its own short explanation (the explanation describes the current method).
+  const measured = open && whyTopic === 'estimate' ? measuredWhyText(store) : null;
   const explanation = useMemo(() => {
-    if (!open || whyTopic !== 'estimate') return null;
+    if (!open || whyTopic !== 'estimate' || measured !== null) return null;
     if (store.plan && store.profile) return explainCurrentPlan(store, today);
     const profile = draftToProfile(draft, units);
     return profile ? explainPreview(profile, today, draftToEvidence(draft, units, today)) : null;
-  }, [open, whyTopic, store, today, draft, units]);
+  }, [open, whyTopic, store, today, draft, units, measured]);
 
   const title = whyTopic === 'macros' ? 'Comment tes macros sont calculées ?' : whyTopic === 'recalibration' ? 'Pourquoi ce changement ?' : whyTopic === 'nodata' ? 'Comment Wheighty apprend ?' : 'Pourquoi ce résultat ?';
 
@@ -54,6 +57,10 @@ export function WhySheet() {
           </p>
           <p className="body" style={{ marginBottom: 20 }}>Plus tes pesées et tes journées notées sont régulières, plus l’estimation peut s’affiner.</p>
         </>
+      ) : measured ? (
+        <p className="body" style={{ marginBottom: 20 }}>
+          {measured}
+        </p>
       ) : explanation ? (
         <ResultExplanationView x={explanation} units={units} details={details} />
       ) : (

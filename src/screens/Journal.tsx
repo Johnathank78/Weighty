@@ -8,6 +8,7 @@ import { NumberField, parseDecimal, Segmented } from '@/components/controls';
 import { formatDayMonth, formatGrams, formatInteger, formatKcal, formatNumber } from '@/domain/format';
 import { addFoodEntry, addPortion, consumptionDate, deleteFoodEntry, foodKey, hourGroupKcal, hourGroups, intakeGauge, intakeTotals, journalDay, kcalWithoutMacros, MACRO_KEYS, MANUAL_DEFAULT_NAME, maskedGaugeParts, missingMacros, localTimeOf, nutrientsForGrams, portionsFor, replaceManualEntry, restoreFoodEntry } from '@/domain/journal';
 import type { ManualFood, NewEntryInput, RecentFood, ResolvedFood } from '@/domain/journal';
+import { incompleteDayLine } from '@/domain/journalPath';
 import { buildSearchIndex, loadCiqual, resolveCiqualFood, searchIndex } from '@/domain/foodSearch';
 import { libraryFoodToManual, libraryFoodToResolved, previousFoods, productLibraryKey, rememberManualFood, rememberProduct, touchLibraryFood } from '@/domain/foodLibrary';
 import type { CiqualFood, CiqualTable, SearchIndex } from '@/domain/foodSearch';
@@ -69,6 +70,8 @@ export function JournalScreen() {
   const groupKcal = hourGroupKcal(groups, (e) => !isMasked(mask, e.id));
   const kcal = intakeGauge(visible.energyKcal, targetKcal);
   const guidance = JOURNAL_TEXT.completenessGuidance;
+  // Decision 8 (pass 5b): a past day far under the usual totals is not counted by the plan; a discreet line says so.
+  const incomplete8 = incompleteDayLine(store, date, today);
 
   const remove = (entry: FoodEntry) => {
     update((s) => deleteFoodEntry(s, entry.id));
@@ -163,6 +166,11 @@ export function JournalScreen() {
         ) : null}
       </section>
 
+      {incomplete8 ? (
+        <p className="small" style={{ margin: '-8px 0 18px' }}>
+          {incomplete8}
+        </p>
+      ) : null}
       {guidance ? (
         <div className="note" style={{ marginBottom: 18 }}>
           <span>{guidance}</span>

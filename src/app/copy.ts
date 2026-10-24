@@ -122,6 +122,7 @@ export const PLAN_SOURCE_LABEL = {
   user_adjusted_slider: 'ajusté',
   guardrail: 'ajusté par un garde-fou',
   periodic_replan: 'recalculé',
+  personal_target: 'personnel',
 } as const;
 
 export const PLAN_ERROR_TEXT: Record<string, string> = {
@@ -220,13 +221,12 @@ export const PLAN_NOTICE_TEXT = {
   closeLabel: 'Fermer ce message',
   more: (n: number) => `Voir les autres messages (${n})`,
   less: 'Masquer les autres messages',
-  /** G2: the warning ahead of BMI 20 stays visible (no stored dismissal without a schema change), on one line. */
-  bmi20Short: (weeks: number) => `IMC sous 20 possible d’ici ${weeks} semaine${weeks > 1 ? 's' : ''}`,
-  bmi20Expand: 'Voir le détail',
+  /** Pass 5b fixes, point 5: the long text of a short message. */
+  details: 'Détails',
 } as const;
 
-/** UX pass 1, G5: title of the recalibration screen when the preview refuses the new plan. */
-export const RECALIBRATION_REFUSED_TITLE = 'Recalibration impossible pour l’instant';
+/** UX pass 1, G5: title of the recalibration screen when the preview refuses the new plan (short title of the fixes of 5b). */
+export const RECALIBRATION_REFUSED_TITLE = 'Recalibration impossible';
 
 /** UX pass 1, G7: legend of the projection band of the Suivi chart. */
 export const CHART_BAND_LABEL = 'zone probable';

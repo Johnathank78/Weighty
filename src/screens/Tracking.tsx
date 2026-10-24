@@ -9,8 +9,11 @@ import { PlanNotices } from '@/components/PlanNotices';
 import { ConfidenceBar, ConfidenceGauge, NavRow, Segmented } from '@/components/controls';
 import { WeightChart } from '@/components/WeightChart';
 import { applyRecalibration, applyRecalibrationAsMaintenance, buildPlanFromStore, deleteWeight, markRecalibrationSeen, trendOf } from '@/domain/engine';
-import { recalibrationRefusedText } from '@/domain/planMessages';
+import { recalibrationRefusedText, SHORT_MESSAGE } from '@/domain/planMessages';
+import { ShortNotice } from '@/components/ShortNotice';
 import { floorAdviceOf } from '@/domain/planSafety';
+import { journalRead } from '@/domain/journalPath';
+import { JOURNAL_MESSAGE } from '@/domain/planMessages';
 import { formatDayMonth, formatInteger, formatKcal, formatKcalRange, formatShortMonth, formatSignedKcal, formatSignedWeight, formatSteps, formatWeight, weightUnitLabel } from '@/domain/format';
 import { adherenceSummary, analysisView, averageLoggedSteps, gateCriterionValue, gateProgress, recentWeights, trackingChart, weeksOfTracking } from '@/domain/views';
 import type { ChartSeries } from '@/domain/views';
@@ -269,7 +272,7 @@ export function AnalyseScreen() {
         <ConfidenceGauge level={view.confidence} />
       </div>
       <div className="eyebrow" style={{ marginBottom: 2 }}>
-        Maintien estimé aujourd’hui
+        {journalRead(store) ? JOURNAL_MESSAGE.balanceLabel : 'Maintien estimé aujourd’hui'}
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, marginBottom: 10 }}>
         <span className="num-xl">{formatKcal(view.maintenanceKcal)}</span>
@@ -389,15 +392,18 @@ export function RecalibrationScreen() {
     return () => cancelAnimationFrame(raf);
   }, [target, plan]);
 
+  // Report 47, point 1d: no recalibration screen while a personal target is in force (the app takes it over by itself).
+  const personal = plan?.source === 'personal_target';
+
   useEffect(() => {
-    if (live && !marked.current && !calibrationPending && state?.surfaced && state.candidate) {
+    if (live && !personal && !marked.current && !calibrationPending && state?.surfaced && state.candidate) {
       marked.current = true;
       // Seen: surfacing thresholds now compare against this event (05 s12). The plan is unchanged until applied.
       commit(markRecalibrationSeen(store, state, today));
     }
-  }, [live, state, calibrationPending, store, today, commit]);
+  }, [live, personal, state, calibrationPending, store, today, commit]);
 
-  if (!plan || !state?.candidate || target === null) {
+  if (!plan || personal || !state?.candidate || target === null) {
     return (
       <main className="screen--moment">
         <div style={{ display: 'grid', placeItems: 'center', marginTop: 40 }}>
@@ -420,7 +426,7 @@ export function RecalibrationScreen() {
   const apply = () => {
     const r = applyRecalibration(store, state, today, nowIso());
     if (!r.ok) {
-      showToast(recalibrationRefusedText(r.reason, build && !build.ok ? build.floorKcal : null));
+      showToast(SHORT_MESSAGE.recalibrationRefused(r.reason, build && !build.ok ? build.floorKcal : null).line);
       return;
     }
     commit(r.store);
@@ -432,7 +438,7 @@ export function RecalibrationScreen() {
     // The new estimate is applied, then the plan switches to maintenance.
     const r = applyRecalibrationAsMaintenance(store, state, today, nowIso());
     if (!r.ok) {
-      showToast(recalibrationRefusedText(r.reason, null));
+      showToast(SHORT_MESSAGE.recalibrationRefused(r.reason, null).line);
       return;
     }
     commit(r.store);
@@ -498,12 +504,14 @@ export function RecalibrationScreen() {
         </p>
       </div>
       {build && !build.ok ? (
-        <div className="note note--warn" role="status" style={{ marginTop: 14 }}>
-          <Mascot variant="search" width={36} />
-          <span>
-            {recalibrationRefusedText(build.reason, build.floorKcal)}
-            {build.reason === 'no_feasible_speed' && build.advice ? ` ${build.advice.lines[1]}` : ''}
-          </span>
+        // Pass 5b fixes, point 5: the short reason; the sentence of pass 5a (and the steps advice) behind "Détails".
+        <div role="status" style={{ marginTop: 14 }}>
+          <ShortNotice
+            title=""
+            line={SHORT_MESSAGE.recalibrationRefused(build.reason, build.floorKcal).line}
+            detail={`${recalibrationRefusedText(build.reason, build.floorKcal)}${build.reason === 'no_feasible_speed' && build.advice ? ` ${build.advice.lines[1]}` : ''}`}
+            tone="warn"
+          />
         </div>
       ) : null}
       {build?.ok && build.advice ? (

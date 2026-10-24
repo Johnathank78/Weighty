@@ -10,6 +10,8 @@ import type { CalibrationFit, CalibrationInput, GateStatus } from '@/science/cal
 import {
   GOAL_SOLVER_HORIZON_DAYS,
   HALL_BODY_FAT_MIN_QUALITY,
+  JOURNAL_ALIGNED_FIRST_RECAL_DAYS,
+  JOURNAL_FLOOR_FACTOR,
   LOSS_RATE_CAUTION_ABOVE,
   LOSS_UNAVAILABLE_BMI_BELOW,
   PERIODIC_REPLAN_EVERY_DAYS,
@@ -23,17 +25,18 @@ import {
   effectiveMinSliderSteps,
   fastestRateReachableWithSteps,
   guardrailMaxWeeklyRate,
-  hardFloorKcal,
   maintenanceZone,
   maxSelectableWeeklyRate,
   projectPlan,
   sliderBounds,
   snapWeeklyRate,
   solveRoundedSliderPoint,
+  planHardFloorKcal,
   speedZoneFor,
   stepsToHoldRateAtFloor,
   weeklyRateRange,
   baselineWeightAtHorizon,
+  macrosFor,
 } from '@/science/goals';
 import type { GoalPlan, PlanContext, RateDefinition, SelectableRateLimit, SliderBaseline, SliderBounds, SliderPoint, SolverOptions, SolverStart } from '@/science/goals';
 import { bmi } from '@/science/macros';
@@ -46,7 +49,7 @@ import { intervalWidth } from '@/science/uncertainty';
 import { buildWarmStartSnapshot, validateHistoricalEvidence, warmStartPosterior } from '@/science/warmStart';
 import type { WarmStartResult } from '@/science/warmStart';
 import { PLAN_MESSAGE } from './planMessages';
-import type { CurrentPlan, PlanEvent, PlanSummary, StoredWeight, WheightyStore } from './types';
+import type { AdherenceSource, CurrentPlan, JournalMethod, PlanEvent, PlanSummary, StoredWeight, WheightyStore } from './types';
 
 export const MAINTENANCE_PROJECTION_DAYS = 84;
 
@@ -74,6 +77,11 @@ export type PlanBuildInput = {
   weeklyRate?: number;
   /** Solver options of the plan context (modeled body included). Absent: the production request, without a modeled body. */
   solver?: SolverOptions;
+  /**
+   * Journal path (pass 5b, prompt 41 s3.2): `hardFloorMultiplier` of the plan context (the solved target is checked against
+   * the hard floor x this factor). Absent: the hard floor, unchanged.
+   */
+  hardFloorMultiplier?: number;
 };
 
 /** Solver request (K2 of report 38): start, rate definition and horizon. The domain adds the modeled body. */
@@ -81,6 +89,11 @@ export type SolverRequest = {
   solverStart?: SolverStart;
   rateDefinition?: RateDefinition;
   solverHorizonDays?: number;
+  /**
+   * Journal path (pass 5b, prompt 41 s3.2): floor multiplier of every plan rebuilt with this request (recalibration,
+   * periodic replan, guardrails, goal change), passed to the plan context as `hardFloorMultiplier`. Absent: the hard floor.
+   */
+  hardFloorMultiplier?: number;
 };
 
 /**
@@ -88,7 +101,7 @@ export type SolverRequest = {
  * latest applied calibration (equilibrium before any), the requested rate is held on the tissue mass (definition (a)),
  * over a 28-day horizon. Every plan-building path passes it by default.
  */
-export const PRODUCTION_SOLVER: Readonly<Required<SolverRequest>> = { solverStart: 'currentState', rateDefinition: 'sustainedTissue', solverHorizonDays: GOAL_SOLVER_HORIZON_DAYS };
+export const PRODUCTION_SOLVER: Readonly<Required<Omit<SolverRequest, 'hardFloorMultiplier'>>> = { solverStart: 'currentState', rateDefinition: 'sustainedTissue', solverHorizonDays: GOAL_SOLVER_HORIZON_DAYS };
 
 export type PlanBuildResult =
   | { ok: true; plan: CurrentPlan; assessment: BaselineAssessment; goalPlan: GoalPlan; context: PlanContext }
@@ -101,7 +114,8 @@ export function buildPlan(input: PlanBuildInput): PlanBuildResult {
 
   const offset = input.personalOffsetKcal ?? 0;
   const maintenanceKcal = assessment.populationTdeeKcal + offset;
-  const context: PlanContext = { ...planContextFrom(profile, assessment, maintenanceKcal), solver: input.solver ?? { ...PRODUCTION_SOLVER } };
+  const withSolver: PlanContext = { ...planContextFrom(profile, assessment, maintenanceKcal), solver: input.solver ?? { ...PRODUCTION_SOLVER } };
+  const context: PlanContext = input.hardFloorMultiplier !== undefined ? { ...withSolver, hardFloorMultiplier: input.hardFloorMultiplier } : withSolver;
   const goal = input.goal ?? profile.goal;
   const targetWeightKg = goal === 'maintenance' ? (input.targetWeightKg ?? profile.targetWeightKg) : (input.targetWeightKg ?? profile.targetWeightKg);
   const weeklyRate = goal === 'maintenance' ? 0 : (input.weeklyRate ?? profile.weeklyRateTarget);
@@ -218,7 +232,9 @@ type RebuildOptions = {
  * is null and the solver keeps the equilibrium start.
  */
 export function solverOptionsFor(store: WheightyStore, today: string, snapshot: CalibrationSnapshot | null, request: SolverRequest = PRODUCTION_SOLVER): SolverOptions {
-  const out: SolverOptions = { ...request };
+  // The floor multiplier (pass 5b) is not a solver option: it reaches the plan context through `buildPlanFromStore`.
+  const { hardFloorMultiplier: _floor, ...options } = request;
+  const out: SolverOptions = { ...options };
   if (request.solverStart === 'currentState' && snapshot) {
     const input = calibrationInputFromStore(store, today);
     const median = snapshot.posteriorMedianOffsetKcal;
@@ -229,9 +245,49 @@ export function solverOptionsFor(store: WheightyStore, today: string, snapshot: 
   return out;
 }
 
+/**
+ * Journal path (pass 5b): the method in force. 'assumed': the target is assumed to be followed (the current method);
+ * 'aligned': the target was aligned on the journal, then the current method with every target floored at the hard floor x
+ * JOURNAL_FLOOR_FACTOR; 'measured': the plan is built from the journal and the measured habit (src/domain/journalPath.ts).
+ */
+export function journalMethodOf(store: WheightyStore): JournalMethod {
+  return store.meta.journalPath.method;
+}
+
+/**
+ * Solver request of a plan of the current method on the store's journal path (pass 5b, prompt 41 s3.2): the production
+ * request, with the floor factor of the aligned target once the user has switched to it.
+ */
+export function pathSolverRequest(store: WheightyStore): SolverRequest {
+  return journalMethodOf(store) === 'aligned' ? { ...PRODUCTION_SOLVER, hardFloorMultiplier: JOURNAL_FLOOR_FACTOR } : PRODUCTION_SOLVER;
+}
+
+/** Floor multiplier of the plan contexts built from the store (aligned target: JOURNAL_FLOOR_FACTOR), else nothing. */
+function pathFloorMultiplier(store: WheightyStore): { hardFloorMultiplier?: number } {
+  const m = pathSolverRequest(store).hardFloorMultiplier;
+  return m === undefined ? {} : { hardFloorMultiplier: m };
+}
+
+/**
+ * The plan in force is no longer the aligned target (report 40 s3.10): once a plan of the current method, a guardrail or a
+ * goal change replaces it, the periodic replan and the rate guardrail apply again.
+ */
+export function endChosenTarget(store: WheightyStore): WheightyStore {
+  const path = store.meta.journalPath;
+  return path.chosenTargetActive ? { ...store, meta: { ...store.meta, journalPath: { ...path, chosenTargetActive: false } } } : store;
+}
+
+/** A goal or profile change also drops a plan of the measured habit awaiting confirmation (built for the previous goal). */
+function endChosenTargetAndOffer(store: WheightyStore): WheightyStore {
+  const s = endChosenTarget(store);
+  const path = s.meta.journalPath;
+  return path.offer ? { ...s, meta: { ...s.meta, journalPath: { ...path, offer: null } } } : s;
+}
+
 export function buildPlanFromStore(store: WheightyStore, today: string, options: RebuildOptions): PlanBuildResult | { ok: false; reason: 'no_profile' } {
   const profile = store.profile;
   if (!profile) return { ok: false, reason: 'no_profile' };
+  const request = options.solver ?? pathSolverRequest(store);
   const snapshot = options.snapshot === undefined ? latestAppliedSnapshot(store) : options.snapshot;
   const weight = currentWeightKg(store) ?? profile.currentWeightKg;
   return buildPlan({
@@ -251,7 +307,8 @@ export function buildPlanFromStore(store: WheightyStore, today: string, options:
     ...(options.goal ? { goal: options.goal } : {}),
     ...(options.targetWeightKg !== undefined ? { targetWeightKg: options.targetWeightKg } : {}),
     ...(options.weeklyRate !== undefined ? { weeklyRate: options.weeklyRate } : {}),
-    solver: solverOptionsFor(store, today, snapshot, options.solver ?? PRODUCTION_SOLVER),
+    solver: solverOptionsFor(store, today, snapshot, request),
+    ...(request.hardFloorMultiplier !== undefined ? { hardFloorMultiplier: request.hardFloorMultiplier } : {}),
   });
 }
 
@@ -268,7 +325,7 @@ export function rebuildContextFromStore(store: WheightyStore, today: string): Pl
   const assessment = assessBaseline(profile, today, { weightKg: weight, ...(palCategory ? { palCategory } : {}) });
   const snapshot = latestAppliedSnapshot(store);
   const offset = snapshot?.posteriorMedianOffsetKcal ?? 0;
-  return { ...planContextFrom(profile, assessment, assessment.populationTdeeKcal + offset), solver: solverOptionsFor(store, today, snapshot) };
+  return { ...planContextFrom(profile, assessment, assessment.populationTdeeKcal + offset), solver: solverOptionsFor(store, today, snapshot), ...pathFloorMultiplier(store) };
 }
 
 /** Day the plan in force was built (its `createdAt` date). */
@@ -294,7 +351,7 @@ export function contextForCurrentPlan(store: WheightyStore, today: string): Plan
   if (!profile || !plan) return null;
   const weight = plan.planWeightKg ?? profile.currentWeightKg;
   const assessment = assessBaseline(profile, today, { weightKg: weight, palCategory: plan.palCategory });
-  return { ...planContextFrom(profile, assessment, plan.maintenanceKcal), solver: planSolverOptions(store, plan) };
+  return { ...planContextFrom(profile, assessment, plan.maintenanceKcal), solver: planSolverOptions(store, plan), ...pathFloorMultiplier(store) };
 }
 
 // ---------------------------------------------------------------------------
@@ -472,7 +529,7 @@ export function speedSliderModelFor(ctx: PlanContext, goal: Goal): SpeedSliderMo
     cautionAboveRate: goal === 'loss' ? LOSS_RATE_CAUTION_ABOVE : null,
     zones: zonesFor(goal, range.minRate, range.maxRate, range.step),
     weightKg: ctx.currentWeightKg,
-    floorKcal: hardFloorKcal(ctx.reeKcal, ctx.sex),
+    floorKcal: planHardFloorKcal(ctx),
     floorSteps,
   };
 }
@@ -525,6 +582,11 @@ export function ensureDailyLogs(store: WheightyStore, today: string): WheightySt
   return { ...store, dailyLogs: [...store.dailyLogs, ...added].sort((a, b) => (a.date < b.date ? -1 : 1)) };
 }
 
+/** Logs up to `today`, then today's log follows the plan in force (pass 5b: the journal path applies its plans this way). */
+export function syncTodayLog(store: WheightyStore, today: string): WheightyStore {
+  return syncTodayLogTargets(ensureDailyLogs(store, today), today);
+}
+
 /** Today's log follows the plan in force; past days are never rewritten. */
 function syncTodayLogTargets(store: WheightyStore, today: string): WheightyStore {
   const plan = store.plan;
@@ -536,14 +598,18 @@ function syncTodayLogTargets(store: WheightyStore, today: string): WheightyStore
   };
 }
 
-export function setAdherence(store: WheightyStore, date: string, adherence: DailyLog['adherence'] | null): WheightyStore {
+/**
+ * Declared adherence of a day, with its source (schema 9): 'user' by default (a declaration, always kept), 'journal' when
+ * deduced from the journal (fixes of pass 5b, point 4). Clearing removes both.
+ */
+export function setAdherence(store: WheightyStore, date: string, adherence: DailyLog['adherence'] | null, source: AdherenceSource = 'user'): WheightyStore {
   const withLogs = ensureDailyLogs(store, date);
   return {
     ...withLogs,
     dailyLogs: withLogs.dailyLogs.map((l) => {
       if (l.date !== date) return l;
-      const { adherence: _previous, ...rest } = l;
-      return adherence ? { ...rest, adherence } : rest;
+      const { adherence: _previous, adherenceSource: _source, ...rest } = l;
+      return adherence ? { ...rest, adherence, adherenceSource: source } : rest;
     }),
   };
 }
@@ -581,6 +647,11 @@ export function deleteWeight(store: WheightyStore, id: string): WheightyStore {
 
 export type SliderSession = {
   context: PlanContext;
+  /**
+   * Habit h of the measured habit (pass 5b fixes, point 2), 1 otherwise: the slider trades the intake to aim at I* (logged
+   * kcal) and the displayed target is I* / h.
+   */
+  habit: number;
   baseline: SliderBaseline;
   /** Horizon value of the baseline plan (tissue mass at the solver horizon, K2), held by every point of the slider. */
   baselineAtHorizon: number;
@@ -589,12 +660,18 @@ export type SliderSession = {
   pointAt: (steps: number) => SliderPoint;
 };
 
-export function createSliderSession(store: WheightyStore, today: string): SliderSession | null {
+/**
+ * Slider on another context than the plan's own (pass 5b fixes, point 2, the measured habit): the context of the plans of the
+ * habit, h, and the intake to aim at of the plan at its baseline steps (logged kcal).
+ */
+export type SliderContextOverride = { context: PlanContext; habit: number; baselineCalorieKcal: number };
+
+export function createSliderSession(store: WheightyStore, today: string, override?: SliderContextOverride): SliderSession | null {
   const plan = store.plan;
-  const context = contextForCurrentPlan(store, today);
+  const context = override ? override.context : contextForCurrentPlan(store, today);
   if (!plan || !context) return null;
   const baselineSteps = plan.baselineStepTarget ?? plan.stepTarget;
-  const baselineCalories = plan.baselineCalorieTarget ?? plan.calorieTarget;
+  const baselineCalories = override ? override.baselineCalorieKcal : (plan.baselineCalorieTarget ?? plan.calorieTarget);
   const baseline: SliderBaseline = { goal: plan.goal, scenario: { calorieTargetKcal: baselineCalories, stepsPerDay: baselineSteps } };
   const baselineAtHorizon = baselineWeightAtHorizon(context, baseline);
   const cache = new Map<number, SliderPoint>();
@@ -608,6 +685,7 @@ export function createSliderSession(store: WheightyStore, today: string): Slider
   };
   return {
     context,
+    habit: override?.habit ?? 1,
     baseline,
     baselineAtHorizon,
     bounds: sliderBounds(baselineSteps),
@@ -622,16 +700,27 @@ export function createSliderSession(store: WheightyStore, today: string): Slider
  * tissue mass at the same horizon); it does not refresh the rate from today's state. The periodic replan, which does, keeps
  * its 28-day cadence from that solve, and carries the chosen steps over (`periodicReplan` keeps the step target).
  */
-export function applySliderSteps(store: WheightyStore, today: string, steps: number): { ok: true; store: WheightyStore } | { ok: false; reason: string } {
+export function applySliderSteps(store: WheightyStore, today: string, steps: number, override?: SliderContextOverride): { ok: true; store: WheightyStore } | { ok: false; reason: string } {
   const plan = store.plan;
   const profile = store.profile;
   if (!plan || !profile) return { ok: false, reason: 'no_plan' };
-  const session = createSliderSession(store, today);
+  // Journal path (pass 5b): not on the aligned target itself (the user's own figure); in the measured habit, only on the
+  // context of the habit (`override`, pass 5b fixes, point 2).
+  if (store.meta.journalPath.chosenTargetActive || (store.meta.journalPath.method === 'measured' && !override)) return { ok: false, reason: 'journal_path' };
+  // The target chosen by the user is theirs (fixes of pass 5b, point 6): "Choisir ma cible" changes it.
+  if (plan.source === 'personal_target') return { ok: false, reason: 'personal_target' };
+  const session = createSliderSession(store, today, override);
   if (!session) return { ok: false, reason: 'no_plan' };
   const clamped = Math.min(session.bounds.maxSteps, Math.max(session.effectiveMinSteps, steps));
   const point = session.pointAt(clamped);
   if (point.belowHardFloor || !point.macroFeasible || !point.converged) return { ok: false, reason: 'blocked' };
   const context = session.context;
+  const isBaseline = point.stepsPerDay === (plan.baselineStepTarget ?? plan.stepTarget);
+  // Measured habit: displayed target = I* / h, with the macros of that target (as the plans of the habit).
+  const h = session.habit;
+  const calorieTarget = h === 1 ? (isBaseline ? (plan.baselineCalorieTarget ?? point.calorieTargetKcal) : point.calorieTargetKcal) : (isBaseline ? session.baseline.scenario.calorieTargetKcal : point.calorieTargetKcal) / h;
+  const macros = h === 1 ? point.macros : macrosFor(context, plan.goal, calorieTarget);
+  if (!macros.feasible) return { ok: false, reason: 'blocked' };
   const projection = projectPlan(context, {
     goal: plan.goal,
     scenario: { calorieTargetKcal: point.calorieTargetKcal, stepsPerDay: point.stepsPerDay },
@@ -639,21 +728,20 @@ export function applySliderSteps(store: WheightyStore, today: string, steps: num
     maintenanceOffsets80: [plan.maintenanceInterval80[0] - plan.maintenanceKcal, plan.maintenanceInterval80[1] - plan.maintenanceKcal],
     maintenanceHorizonDays: MAINTENANCE_PROJECTION_DAYS,
   });
-  const isBaseline = point.stepsPerDay === (plan.baselineStepTarget ?? plan.stepTarget);
   const nextPlan: CurrentPlan = {
     ...plan,
     source: isBaseline ? plan.source : 'user_adjusted_slider',
-    calorieTarget: isBaseline ? (plan.baselineCalorieTarget ?? point.calorieTargetKcal) : point.calorieTargetKcal,
+    calorieTarget,
     stepTarget: point.stepsPerDay,
-    macros: { ...point.macros.exact },
-    macrosDisplay: { ...point.macros.display },
+    macros: { ...macros.exact },
+    macrosDisplay: { ...macros.display },
     projection: {
       ...(projection.approximateWeeks !== undefined ? { approximateWeeks: projection.approximateWeeks } : {}),
       trajectory: projection.trajectory,
       lower80: projection.lower80,
       upper80: projection.upper80,
     },
-    proteinRule: point.macros.proteinRule,
+    proteinRule: macros.proteinRule,
   };
   const withLogs = ensureDailyLogs(store, today);
   return { ok: true, store: syncTodayLogTargets({ ...withLogs, plan: nextPlan }, today) };
@@ -686,7 +774,7 @@ export function changeGoal(
   if (!result.ok) return { ok: false, reason: result.reason };
   // A maintenance imposed by the BMI-20 guardrail is dated; any goal the user chooses ends it (underweight alert, pass 5a).
   const meta = { ...withLogs.meta, guardrailMaintenanceSince: options?.source === 'guardrail' ? today : null };
-  return { ok: true, store: syncTodayLogTargets({ ...withLogs, profile, meta, plan: result.plan }, today) };
+  return { ok: true, store: endChosenTargetAndOffer(syncTodayLogTargets({ ...withLogs, profile, meta, plan: result.plan }, today)) };
 }
 
 export function updateProfile(store: WheightyStore, today: string, profile: UserProfile): { ok: true; store: WheightyStore } | { ok: false; reason: string } {
@@ -702,7 +790,7 @@ export function updateProfile(store: WheightyStore, today: string, profile: User
   const next: WheightyStore = { ...withLogs, profile, meta };
   const result = buildPlanFromStore(next, today, { source: 'initial' });
   if (!result.ok) return { ok: false, reason: result.reason };
-  return { ok: true, store: syncTodayLogTargets({ ...next, plan: result.plan }, today) };
+  return { ok: true, store: endChosenTargetAndOffer(syncTodayLogTargets({ ...next, plan: result.plan }, today)) };
 }
 
 // ---------------------------------------------------------------------------
@@ -753,6 +841,18 @@ export function calibrationInputFromStore(store: WheightyStore, today: string): 
   };
 }
 
+/**
+ * Journal path (pass 5b): whether the current method may surface a recalibration today. Never in the measured habit (its
+ * own weekly evaluation replaces it, prompt 41 s3.1.12); on the aligned target, from JOURNAL_ALIGNED_FIRST_RECAL_DAYS (7)
+ * days after the switch (the first weekly evaluation of the prototype, report 40).
+ */
+export function currentMethodMaySurface(store: WheightyStore, today: string): boolean {
+  const path = store.meta.journalPath;
+  if (path.method === 'measured') return false;
+  if (path.method === 'aligned' && path.switchedOn !== null && daysBetween(path.switchedOn, today) < JOURNAL_ALIGNED_FIRST_RECAL_DAYS) return false;
+  return true;
+}
+
 export function computeCalibrationState(store: WheightyStore, today: string, nowIso: string): CalibrationState | null {
   const plan = store.plan;
   const profile = store.profile;
@@ -782,7 +882,7 @@ export function computeCalibrationState(store: WheightyStore, today: string, now
 
   const proposedMaintenanceKcal = populationNow + candidate.posteriorMedianOffsetKcal;
   const reference = store.meta.lastSurfacedCalibration ?? { tdeeKcal: plan.maintenanceKcal, interval80Width: intervalWidth(plan.maintenanceInterval80), surfacedOn: null };
-  const surfaced = shouldSurfaceRecalibration(gate, { tdeeKcal: proposedMaintenanceKcal, interval80Width: intervalWidth(candidate.interval80) }, reference, today);
+  const surfaced = currentMethodMaySurface(store, today) && shouldSurfaceRecalibration(gate, { tdeeKcal: proposedMaintenanceKcal, interval80Width: intervalWidth(candidate.interval80) }, reference, today);
   return {
     gate,
     fit,
@@ -804,7 +904,7 @@ export function markRecalibrationSeen(store: WheightyStore, state: CalibrationSt
   };
 }
 
-export function applyRecalibration(store: WheightyStore, state: CalibrationState, today: string, nowIso: string, solver: SolverRequest = PRODUCTION_SOLVER): { ok: true; store: WheightyStore } | { ok: false; reason: string } {
+export function applyRecalibration(store: WheightyStore, state: CalibrationState, today: string, nowIso: string, solver: SolverRequest = pathSolverRequest(store)): { ok: true; store: WheightyStore } | { ok: false; reason: string } {
   if (!state.candidate || !state.gate.met) return { ok: false, reason: 'gate_not_met' };
   const snapshot: CalibrationSnapshot = { ...state.candidate, appliedAt: nowIso };
   const withLogs = ensureDailyLogs(store, today);
@@ -812,7 +912,7 @@ export function applyRecalibration(store: WheightyStore, state: CalibrationState
   const result = buildPlanFromStore(withSnapshot, today, { source: 'recalibrated', snapshot, ...(store.plan ? { stepTarget: store.plan.stepTarget } : {}), solver });
   if (!result.ok) return { ok: false, reason: result.reason };
   const seen = markRecalibrationSeen(withSnapshot, state, today);
-  return { ok: true, store: syncTodayLogTargets({ ...seen, plan: result.plan }, today) };
+  return { ok: true, store: endChosenTarget(syncTodayLogTargets({ ...seen, plan: result.plan }, today)) };
 }
 
 /**
@@ -901,13 +1001,16 @@ export function periodicReplan(store: WheightyStore, today: string, options: { n
   const plan = store.plan;
   if (!plan || !store.profile) return { status: 'not_due', ageDays: 0 };
   const ageDays = planAgeDays(plan, today);
+  // Journal path (report 40 s3.10): no periodic replan while the plan in force is the aligned target itself; nor while it is
+  // the target chosen by the user (fixes of pass 5b, point 6).
+  if (store.meta.journalPath.chosenTargetActive || plan.source === 'personal_target') return { status: 'not_due', ageDays };
   if (daysSincePeriodicCheck(store, plan, today) < PERIODIC_REPLAN_EVERY_DAYS) return { status: 'not_due', ageDays };
   const nowIso = options.nowIso ?? `${today}T00:00:00.000Z`;
   const withLogs = ensureDailyLogs(store, today);
   const checked: WheightyStore = { ...withLogs, meta: { ...withLogs.meta, periodicReplanCheckedOn: today } };
   const snapshot = latestAppliedSnapshot(store);
   if (!snapshot) return { status: 'no_snapshot', ageDays, store: checked };
-  const result = buildPlanFromStore(withLogs, today, { source: 'periodic_replan', snapshot, stepTarget: plan.stepTarget, solver: options.solver ?? PRODUCTION_SOLVER });
+  const result = buildPlanFromStore(withLogs, today, { source: 'periodic_replan', snapshot, stepTarget: plan.stepTarget, solver: options.solver ?? pathSolverRequest(store) });
   if (!result.ok) {
     const failed = recordPlanEvent(checked, { date: today, rule: 'periodic_replan', status: 'failed', reason: result.reason, before: planSummary(plan), after: null, message: null }, nowIso);
     return { status: 'failed', ageDays, reason: result.reason, store: failed };
@@ -950,7 +1053,7 @@ export function switchToMaintenance(
   store: WheightyStore,
   today: string,
   source: CurrentPlan['source'] = 'initial',
-  solver: SolverRequest = PRODUCTION_SOLVER,
+  solver: SolverRequest = pathSolverRequest(store),
 ): { ok: true; store: WheightyStore } | { ok: false; reason: string } {
   const weight = guardrailWeightKg(store);
   if (weight === null) return { ok: false, reason: 'no_profile' };
@@ -967,6 +1070,8 @@ export function switchToMaintenance(
  * - G2: otherwise, a loss plan whose `weeklyRateTarget` exceeds `guardrailMaxWeeklyRate('loss', BMI)` is rebuilt with the
  *   rules of a recalculation (`buildPlanFromStore`: requested rate of the profile capped, floors, macro feasibility), with
  *   the step target of the plan in force.
+ * G2 does not apply while the plan in force is a target chosen by the user: the aligned target itself (report 40 s3.10) or a
+ * personal target (report 47, point 1b), whose rate is an estimate, not a request.
  * Both use the production solver from the latest applied calibration snapshot (the population estimate before any), are
  * applied without confirmation (source 'guardrail'), and leave a trace entry with the message shown. A maintenance or gain
  * plan, or a loss plan within both rules, comes back unchanged (same object).
@@ -979,7 +1084,7 @@ export function enforcePlanGuardrails(store: WheightyStore, today: string, optio
   const currentBmi = bmi(weight, profile.heightCm);
   if (plan.goal !== 'loss') return { status: 'none', bmi: currentBmi, store };
   const nowIso = options.nowIso ?? `${today}T00:00:00.000Z`;
-  const solver = options.solver ?? PRODUCTION_SOLVER;
+  const solver = options.solver ?? pathSolverRequest(store);
   const failed = (rule: PlanGuardrailRule, reason: string): PlanGuardrailResult => {
     // A rebuild that keeps failing is recorded once a day.
     const known = store.meta.planEvents.some((e) => e.rule === rule && e.status === 'failed' && e.date === today);
@@ -993,12 +1098,15 @@ export function enforcePlanGuardrails(store: WheightyStore, today: string, optio
     const next = recordPlanEvent(r.store, { date: today, rule: 'G1', status: 'applied', before: planSummary(plan), after: planSummary(after), message: PLAN_MESSAGE.guardrailBmi20 }, nowIso);
     return { status: 'applied', rule: 'G1', bmi: currentBmi, store: next };
   }
+  // Journal path (report 40 s3.10): on the aligned target itself (chosen by the user, not prescribed), G1 only; the same on a
+  // personal target (report 47, point 1b).
+  if (store.meta.journalPath.chosenTargetActive || plan.source === 'personal_target') return { status: 'none', bmi: currentBmi, store };
   const cap = guardrailMaxWeeklyRate('loss', currentBmi);
   if (cap === null || !(plan.weeklyRateTarget > cap + 1e-9)) return { status: 'none', bmi: currentBmi, store };
   const withLogs = ensureDailyLogs(store, today);
   const result = buildPlanFromStore(withLogs, today, { source: 'guardrail', stepTarget: plan.stepTarget, solver });
   if (!result.ok) return failed('G2', result.reason);
-  const rebuilt = syncTodayLogTargets({ ...withLogs, plan: result.plan }, today);
+  const rebuilt = endChosenTarget(syncTodayLogTargets({ ...withLogs, plan: result.plan }, today));
   const next = recordPlanEvent(
     rebuilt,
     { date: today, rule: 'G2', status: 'applied', before: planSummary(plan), after: planSummary(result.plan), message: PLAN_MESSAGE.guardrailRateCap(result.plan.weeklyRateTarget) },

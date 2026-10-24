@@ -15,6 +15,7 @@ import { formatInteger } from './format';
 import { snapWeeklyRate, speedZoneFor } from '@/science/goals';
 import type { CalibrationState } from './engine';
 import { contextForCurrentPlan, goalStatus, latestAppliedSnapshot, latestRawWeight, MAINTENANCE_PROJECTION_DAYS, solverOptionsFor, trendOf, weighInDue } from './engine';
+import { measuredProjectionContext } from './journalPath';
 import { localTimeOf } from './journal';
 import type { CurrentPlan, WheightyStore } from './types';
 
@@ -193,6 +194,15 @@ export function projectionFromToday(store: WheightyStore, today: string, state: 
   const profile = store.profile;
   const latest = trendOf(store).summary.latest;
   if (!plan || !profile || !latest) return null;
+  if (measuredHabit(store) !== null) {
+    // Measured habit (pass 5b): the journal maintenance of the day, the modeled body of the journal, the intake the plan
+    // expects (displayed target x h), as the plans of the habit are solved.
+    const m = measuredProjectionContext(store, today);
+    if (!m) return null;
+    const baseM = { goal: plan.goal, scenario: { calorieTargetKcal: m.calorieTargetKcal, stepsPerDay: plan.stepTarget }, maintenanceOffsets80: m.maintenanceOffsets80 };
+    if (frame) return projectPlanWindow(m.context, baseM, frame);
+    return projectPlan(m.context, { ...baseM, targetWeightKg: plan.targetWeightKg ?? profile.targetWeightKg, maintenanceHorizonDays: MAINTENANCE_PROJECTION_DAYS });
+  }
   const maintenanceKcal = state?.currentMaintenanceKcal ?? plan.maintenanceKcal;
   const interval80 = state?.currentInterval80 ?? plan.maintenanceInterval80;
   const assessment = assessBaseline(profile, today, { weightKg: latest.trendKg, palCategory: plan.palCategory });
@@ -221,7 +231,7 @@ export function trackingChart(store: WheightyStore, today: string, rangeDays: nu
   const horizonAhead = Math.max(21, Math.round(Math.max(28, todayDay) / 3));
   // While the first calibration is not reached, the estimate is still the onboarding prior: no curve is
   // drawn ahead rather than a confident looking one (decision of the product owner).
-  const learning = !(state?.gate.met && state.candidate);
+  const learning = measuredHabit(store) === null && !(state?.gate.met && state.candidate);
   const live = learning ? null : projectionFromToday(store, today, state);
   let projection: ChartSeries['projection'] = [];
   let band: ChartSeries['band'] = [];
@@ -298,6 +308,23 @@ export type AnalysisView = {
 export function analysisView(store: WheightyStore, state: CalibrationState | null): AnalysisView | null {
   const plan = store.plan;
   if (!plan) return null;
+  if (measuredHabit(store) !== null) {
+    // Measured habit (pass 5b): the balance of the journal of the plan in force; no recalibration of the current method.
+    return {
+      calibrated: true,
+      maintenanceKcal: plan.maintenanceKcal,
+      initialMaintenanceKcal: null,
+      changeSinceInitialKcal: null,
+      interval80: plan.maintenanceInterval80,
+      interval95: plan.maintenanceInterval95,
+      confidence: state?.confidence ?? latestAppliedSnapshot(store)?.confidence ?? 'low',
+      surfaced: false,
+      weighInCount: store.weights.length,
+      appliedCalibrations: appliedWeightCalibrations(store),
+      posteriorSdKcal: null,
+      observationSpanDays: 0,
+    };
+  }
   const calibrated = Boolean(state?.gate.met && state.candidate);
   const maintenanceKcal = state?.currentMaintenanceKcal ?? plan.maintenanceKcal;
   const initial = store.meta.initialMaintenanceKcal;
@@ -309,7 +336,8 @@ export function analysisView(store: WheightyStore, state: CalibrationState | nul
     interval80: state?.currentInterval80 ?? plan.maintenanceInterval80,
     interval95: state?.currentInterval95 ?? plan.maintenanceInterval95,
     confidence: state?.confidence ?? latestAppliedSnapshot(store)?.confidence ?? 'low',
-    surfaced: state?.surfaced ?? false,
+    // A personal target is taken over by the app at its first recalibration, without a screen (report 47, point 1d).
+    surfaced: (state?.surfaced ?? false) && plan.source !== 'personal_target',
     weighInCount: state?.gate.weighInCount ?? store.weights.length,
     appliedCalibrations: appliedWeightCalibrations(store),
     posteriorSdKcal: state?.fit?.posterior.sdKcal ?? null,
@@ -320,10 +348,18 @@ export function analysisView(store: WheightyStore, state: CalibrationState | nul
 /** Day-0 energy balance of the current plan on the dynamic model (intake minus expenditure), from the plan's own solve start. */
 export function planEnergyBalanceKcal(store: WheightyStore, today: string): number | null {
   const plan = store.plan;
-  const ctx = contextForCurrentPlan(store, today);
+  // Measured habit (pass 5b): the intake the plan expects (displayed target x h) against the journal model of the day.
+  const m = measuredHabit(store) !== null ? measuredProjectionContext(store, today) : null;
+  const ctx = m?.context ?? contextForCurrentPlan(store, today);
   if (!plan || !ctx) return null;
-  const balance = initialEnergyBalanceKcal(ctx, plan.goal, { calorieTargetKcal: plan.calorieTarget, stepsPerDay: plan.stepTarget });
+  const balance = initialEnergyBalanceKcal(ctx, plan.goal, { calorieTargetKcal: m?.calorieTargetKcal ?? plan.calorieTarget, stepsPerDay: plan.stepTarget });
   return Number.isFinite(balance) ? balance : null;
+}
+
+/** h of the plan in force in the measured habit (pass 5b), null otherwise. */
+export function measuredHabit(store: WheightyStore): number | null {
+  const path = store.meta.journalPath;
+  return path.method === 'measured' ? (path.habit?.h ?? null) : null;
 }
 
 export { goalStatus };

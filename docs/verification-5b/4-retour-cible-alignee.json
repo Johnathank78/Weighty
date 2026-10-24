@@ -1,0 +1,4447 @@
+{
+  "format": "wheighty-export",
+  "formatVersion": 1,
+  "exportedAt": "2026-10-24T08:00:00.000Z",
+  "store": {
+    "schemaVersion": 10,
+    "scientificModelVersion": "1.7.0",
+    "profile": {
+      "ageYears": 35,
+      "sexForEquation": "female",
+      "heightCm": 165,
+      "currentWeightKg": 75,
+      "averageSteps7d": 7000,
+      "walkingPace": "normal",
+      "occupation": "seated",
+      "activities": [],
+      "goal": "loss",
+      "targetWeightKg": 64,
+      "weeklyRateTarget": 0.005,
+      "firstName": "Test retour"
+    },
+    "plan": {
+      "createdAt": "2026-10-10T00:00:00.000Z",
+      "source": "recalibrated",
+      "maintenanceKcal": 2472.5975255830463,
+      "maintenanceInterval80": [
+        2334.1465979424106,
+        2614.4905533743554
+      ],
+      "maintenanceInterval95": [
+        2261.2443419758815,
+        2692.0487926411292
+      ],
+      "calorieTarget": 1755.7762340775098,
+      "stepTarget": 7000,
+      "macros": {
+        "proteinG": 112.29072386270076,
+        "carbsG": 194.97011710086346,
+        "fatG": 58.525874469250326
+      },
+      "macrosDisplay": {
+        "proteinG": 112,
+        "carbsG": 195,
+        "fatG": 59
+      },
+      "reeKcal": 1440.093254975393,
+      "reeMethod": "mifflin_st_jeor",
+      "palCategory": "low_active",
+      "provisionalPal": 1.5311076515020468,
+      "goal": "loss",
+      "weeklyRateTarget": 0.005,
+      "projection": {
+        "approximateWeeks": 36,
+        "trajectory": [
+          {
+            "day": 0,
+            "weightKg": 75
+          },
+          {
+            "day": 7,
+            "weightKg": 73.90677516255303
+          },
+          {
+            "day": 14,
+            "weightKg": 73.51628322877349
+          },
+          {
+            "day": 21,
+            "weightKg": 73.14501945959044
+          },
+          {
+            "day": 28,
+            "weightKg": 72.78672268945368
+          },
+          {
+            "day": 35,
+            "weightKg": 72.43820195639339
+          },
+          {
+            "day": 42,
+            "weightKg": 72.09750039360334
+          },
+          {
+            "day": 49,
+            "weightKg": 71.76341058585766
+          },
+          {
+            "day": 56,
+            "weightKg": 71.43518081442362
+          },
+          {
+            "day": 63,
+            "weightKg": 71.11233643307085
+          },
+          {
+            "day": 70,
+            "weightKg": 70.79457126627443
+          },
+          {
+            "day": 77,
+            "weightKg": 70.48168158589316
+          },
+          {
+            "day": 84,
+            "weightKg": 70.17352597499053
+          },
+          {
+            "day": 91,
+            "weightKg": 69.87000092937006
+          },
+          {
+            "day": 98,
+            "weightKg": 69.57102602615832
+          },
+          {
+            "day": 105,
+            "weightKg": 69.27653490810262
+          },
+          {
+            "day": 112,
+            "weightKg": 68.98646980315633
+          },
+          {
+            "day": 119,
+            "weightKg": 68.70077819313045
+          },
+          {
+            "day": 126,
+            "weightKg": 68.41941078877542
+          },
+          {
+            "day": 133,
+            "weightKg": 68.1423202990899
+          },
+          {
+            "day": 140,
+            "weightKg": 67.86946068351261
+          },
+          {
+            "day": 147,
+            "weightKg": 67.60078669774622
+          },
+          {
+            "day": 154,
+            "weightKg": 67.33625361817683
+          },
+          {
+            "day": 161,
+            "weightKg": 67.07581707496361
+          },
+          {
+            "day": 168,
+            "weightKg": 66.81943295129314
+          },
+          {
+            "day": 175,
+            "weightKg": 66.56705732295998
+          },
+          {
+            "day": 182,
+            "weightKg": 66.31864642256575
+          },
+          {
+            "day": 189,
+            "weightKg": 66.07415661878612
+          },
+          {
+            "day": 196,
+            "weightKg": 65.83354440489809
+          },
+          {
+            "day": 203,
+            "weightKg": 65.59676639303402
+          },
+          {
+            "day": 210,
+            "weightKg": 65.36377931201167
+          },
+          {
+            "day": 217,
+            "weightKg": 65.13454000742925
+          },
+          {
+            "day": 224,
+            "weightKg": 64.90900544322486
+          },
+          {
+            "day": 231,
+            "weightKg": 64.68713270421001
+          },
+          {
+            "day": 238,
+            "weightKg": 64.46887899927476
+          },
+          {
+            "day": 245,
+            "weightKg": 64.25420166507674
+          },
+          {
+            "day": 252,
+            "weightKg": 64.04305817009534
+          },
+          {
+            "day": 254,
+            "weightKg": 63.98337459339793
+          }
+        ],
+        "lower80": [
+          {
+            "day": 0,
+            "weightKg": 75
+          },
+          {
+            "day": 7,
+            "weightKg": 73.41421014414877
+          },
+          {
+            "day": 14,
+            "weightKg": 72.76262782451018
+          },
+          {
+            "day": 21,
+            "weightKg": 72.14442681766977
+          },
+          {
+            "day": 28,
+            "weightKg": 71.54961173927764
+          },
+          {
+            "day": 35,
+            "weightKg": 70.97277268124176
+          },
+          {
+            "day": 42,
+            "weightKg": 70.4105777847575
+          },
+          {
+            "day": 49,
+            "weightKg": 69.86096012020073
+          },
+          {
+            "day": 56,
+            "weightKg": 69.32262327217835
+          },
+          {
+            "day": 63,
+            "weightKg": 68.79474018357553
+          },
+          {
+            "day": 70,
+            "weightKg": 68.27676974827865
+          },
+          {
+            "day": 77,
+            "weightKg": 67.76834512160787
+          },
+          {
+            "day": 84,
+            "weightKg": 67.26920570317134
+          },
+          {
+            "day": 91,
+            "weightKg": 66.77915571093088
+          },
+          {
+            "day": 98,
+            "weightKg": 66.2980389451969
+          },
+          {
+            "day": 105,
+            "weightKg": 65.8257234096633
+          },
+          {
+            "day": 112,
+            "weightKg": 65.36209193393314
+          },
+          {
+            "day": 119,
+            "weightKg": 64.90703645031849
+          },
+          {
+            "day": 126,
+            "weightKg": 64.46045449599126
+          },
+          {
+            "day": 133,
+            "weightKg": 64.02224707061275
+          },
+          {
+            "day": 140,
+            "weightKg": 63.592317319911935
+          },
+          {
+            "day": 147,
+            "weightKg": 63.17056972287764
+          },
+          {
+            "day": 154,
+            "weightKg": 62.75690958636685
+          },
+          {
+            "day": 161,
+            "weightKg": 62.35124272772129
+          },
+          {
+            "day": 168,
+            "weightKg": 61.95347527273234
+          },
+          {
+            "day": 175,
+            "weightKg": 61.56351352475166
+          },
+          {
+            "day": 182,
+            "weightKg": 61.18126387806766
+          },
+          {
+            "day": 189,
+            "weightKg": 60.80663275921028
+          },
+          {
+            "day": 196,
+            "weightKg": 60.4395265862611
+          },
+          {
+            "day": 203,
+            "weightKg": 60.079851740147426
+          },
+          {
+            "day": 210,
+            "weightKg": 59.72751454426889
+          },
+          {
+            "day": 217,
+            "weightKg": 59.38242125024471
+          },
+          {
+            "day": 224,
+            "weightKg": 59.04447802843942
+          },
+          {
+            "day": 231,
+            "weightKg": 58.7135909624515
+          },
+          {
+            "day": 238,
+            "weightKg": 58.389666047062796
+          },
+          {
+            "day": 245,
+            "weightKg": 58.072609189334266
+          },
+          {
+            "day": 252,
+            "weightKg": 57.76232621264101
+          },
+          {
+            "day": 254,
+            "weightKg": 57.67490492760188
+          }
+        ],
+        "upper80": [
+          {
+            "day": 0,
+            "weightKg": 75
+          },
+          {
+            "day": 7,
+            "weightKg": 74.46814728936782
+          },
+          {
+            "day": 14,
+            "weightKg": 74.34242002626472
+          },
+          {
+            "day": 21,
+            "weightKg": 74.22294518282753
+          },
+          {
+            "day": 28,
+            "weightKg": 74.10729789278989
+          },
+          {
+            "day": 35,
+            "weightKg": 73.99446603096466
+          },
+          {
+            "day": 42,
+            "weightKg": 73.88383153174553
+          },
+          {
+            "day": 49,
+            "weightKg": 73.7750145964023
+          },
+          {
+            "day": 56,
+            "weightKg": 73.6677800780628
+          },
+          {
+            "day": 63,
+            "weightKg": 73.56198065687353
+          },
+          {
+            "day": 70,
+            "weightKg": 73.45752234754235
+          },
+          {
+            "day": 77,
+            "weightKg": 73.35434356328935
+          },
+          {
+            "day": 84,
+            "weightKg": 73.25240240852109
+          },
+          {
+            "day": 91,
+            "weightKg": 73.15166896616648
+          },
+          {
+            "day": 98,
+            "weightKg": 73.05212061659925
+          },
+          {
+            "day": 105,
+            "weightKg": 72.95373919659956
+          },
+          {
+            "day": 112,
+            "weightKg": 72.85650927512376
+          },
+          {
+            "day": 119,
+            "weightKg": 72.76041710691135
+          },
+          {
+            "day": 126,
+            "weightKg": 72.66544999749475
+          },
+          {
+            "day": 133,
+            "weightKg": 72.57159591790077
+          },
+          {
+            "day": 140,
+            "weightKg": 72.47884327089388
+          },
+          {
+            "day": 147,
+            "weightKg": 72.38718074919069
+          },
+          {
+            "day": 154,
+            "weightKg": 72.2965972494901
+          },
+          {
+            "day": 161,
+            "weightKg": 72.20708182037497
+          },
+          {
+            "day": 168,
+            "weightKg": 72.11862363076685
+          },
+          {
+            "day": 175,
+            "weightKg": 72.03121195085036
+          },
+          {
+            "day": 182,
+            "weightKg": 71.94483614056155
+          },
+          {
+            "day": 189,
+            "weightKg": 71.85948564266197
+          },
+          {
+            "day": 196,
+            "weightKg": 71.77514997859215
+          },
+          {
+            "day": 203,
+            "weightKg": 71.69181874600706
+          },
+          {
+            "day": 210,
+            "weightKg": 71.60948161732816
+          },
+          {
+            "day": 217,
+            "weightKg": 71.52812833890796
+          },
+          {
+            "day": 224,
+            "weightKg": 71.44774873056195
+          },
+          {
+            "day": 231,
+            "weightKg": 71.3683326853189
+          },
+          {
+            "day": 238,
+            "weightKg": 71.28987016929955
+          },
+          {
+            "day": 245,
+            "weightKg": 71.21235122166848
+          },
+          {
+            "day": 252,
+            "weightKg": 71.13576595462648
+          },
+          {
+            "day": 254,
+            "weightKg": 71.11405456679178
+          }
+        ]
+      },
+      "scientificModelVersion": "1.7.0",
+      "planWeightKg": 74.48432549753929,
+      "targetWeightKg": 64,
+      "requestedWeeklyRate": 0.005,
+      "maintenanceStepsPerDay": 7000,
+      "baselineStepTarget": 7000,
+      "baselineCalorieTarget": 1755.7762340775098,
+      "populationTdeeKcal": 2323.6597115401273,
+      "personalOffsetKcal": 148.93781404291892,
+      "hardFloorKcal": 1320,
+      "warnings": {
+        "belowRee": false,
+        "lowEnergyAvailability": false,
+        "gainWithoutResistance": false,
+        "lowCarbForEndurance": false,
+        "lowCarbForResistance": false
+      },
+      "proteinRule": "loss_1_6"
+    },
+    "weights": [
+      {
+        "id": "w-20260905080000000-45gbp3",
+        "date": "2026-09-05",
+        "weightKg": 75,
+        "createdAt": "2026-09-05T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260906080000000-ahdnjd",
+        "date": "2026-09-06",
+        "weightKg": 75,
+        "createdAt": "2026-09-06T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260907080000000-bpx96o",
+        "date": "2026-09-07",
+        "weightKg": 75,
+        "createdAt": "2026-09-07T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260908080000000-7h4iy6",
+        "date": "2026-09-08",
+        "weightKg": 74.9,
+        "createdAt": "2026-09-08T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260909080000000-aqrki7",
+        "date": "2026-09-09",
+        "weightKg": 74.9,
+        "createdAt": "2026-09-09T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260910080000000-6edd37",
+        "date": "2026-09-10",
+        "weightKg": 74.9,
+        "createdAt": "2026-09-10T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260911080000000-dbfwvt",
+        "date": "2026-09-11",
+        "weightKg": 74.9,
+        "createdAt": "2026-09-11T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260912080000000-7rc3tu",
+        "date": "2026-09-12",
+        "weightKg": 74.9,
+        "createdAt": "2026-09-12T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260913080000000-175auo",
+        "date": "2026-09-13",
+        "weightKg": 74.8,
+        "createdAt": "2026-09-13T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260914080000000-3m53vr",
+        "date": "2026-09-14",
+        "weightKg": 74.8,
+        "createdAt": "2026-09-14T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260915080000000-eojfu",
+        "date": "2026-09-15",
+        "weightKg": 74.8,
+        "createdAt": "2026-09-15T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260916080000000-8e2bt5",
+        "date": "2026-09-16",
+        "weightKg": 74.8,
+        "createdAt": "2026-09-16T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260917080000000-7g11oq",
+        "date": "2026-09-17",
+        "weightKg": 74.8,
+        "createdAt": "2026-09-17T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260918080000000-co9mkq",
+        "date": "2026-09-18",
+        "weightKg": 74.7,
+        "createdAt": "2026-09-18T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260919080000000-39n6uo",
+        "date": "2026-09-19",
+        "weightKg": 74.7,
+        "createdAt": "2026-09-19T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260920080000000-f6peal",
+        "date": "2026-09-20",
+        "weightKg": 74.7,
+        "createdAt": "2026-09-20T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260921080000000-as04aj",
+        "date": "2026-09-21",
+        "weightKg": 74.7,
+        "createdAt": "2026-09-21T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260922080000000-8nxink",
+        "date": "2026-09-22",
+        "weightKg": 74.7,
+        "createdAt": "2026-09-22T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260923080000000-ar0bvm",
+        "date": "2026-09-23",
+        "weightKg": 74.6,
+        "createdAt": "2026-09-23T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260924080000000-5cdqj9",
+        "date": "2026-09-24",
+        "weightKg": 74.6,
+        "createdAt": "2026-09-24T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260925080000000-7z4hwa",
+        "date": "2026-09-25",
+        "weightKg": 74.6,
+        "createdAt": "2026-09-25T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260926080000000-7upr5c",
+        "date": "2026-09-26",
+        "weightKg": 74.6,
+        "createdAt": "2026-09-26T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260927080000000-9k4g25",
+        "date": "2026-09-27",
+        "weightKg": 74.6,
+        "createdAt": "2026-09-27T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260928080000000-d08hux",
+        "date": "2026-09-28",
+        "weightKg": 74.5,
+        "createdAt": "2026-09-28T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260929080000000-e6e5fg",
+        "date": "2026-09-29",
+        "weightKg": 74.5,
+        "createdAt": "2026-09-29T08:00:00.000Z"
+      },
+      {
+        "id": "w-20260930080000000-db21ui",
+        "date": "2026-09-30",
+        "weightKg": 74.5,
+        "createdAt": "2026-09-30T08:00:00.000Z"
+      },
+      {
+        "id": "w-20261001080000000-78o1wx",
+        "date": "2026-10-01",
+        "weightKg": 74.5,
+        "createdAt": "2026-10-01T08:00:00.000Z"
+      },
+      {
+        "id": "w-20261002080000000-4v5k9s",
+        "date": "2026-10-02",
+        "weightKg": 74.5,
+        "createdAt": "2026-10-02T08:00:00.000Z"
+      },
+      {
+        "id": "w-20261003080000000-zo4j7",
+        "date": "2026-10-03",
+        "weightKg": 74.4,
+        "createdAt": "2026-10-03T08:00:00.000Z"
+      },
+      {
+        "id": "w-20261004080000000-8g84k9",
+        "date": "2026-10-04",
+        "weightKg": 74.4,
+        "createdAt": "2026-10-04T08:00:00.000Z"
+      },
+      {
+        "id": "w-20261005080000000-qbhe1",
+        "date": "2026-10-05",
+        "weightKg": 74.4,
+        "createdAt": "2026-10-05T08:00:00.000Z"
+      },
+      {
+        "id": "w-20261006080000000-3ku3gn",
+        "date": "2026-10-06",
+        "weightKg": 74.4,
+        "createdAt": "2026-10-06T08:00:00.000Z"
+      },
+      {
+        "id": "w-20261007080000000-e1ese0",
+        "date": "2026-10-07",
+        "weightKg": 74.4,
+        "createdAt": "2026-10-07T08:00:00.000Z"
+      },
+      {
+        "id": "w-20261008080000000-yx3fr",
+        "date": "2026-10-08",
+        "weightKg": 74.3,
+        "createdAt": "2026-10-08T08:00:00.000Z"
+      },
+      {
+        "id": "w-20261009080000000-5ar0x2",
+        "date": "2026-10-09",
+        "weightKg": 74.3,
+        "createdAt": "2026-10-09T08:00:00.000Z"
+      },
+      {
+        "id": "w-20261010080000000-axbyzl",
+        "date": "2026-10-10",
+        "weightKg": 74.3,
+        "createdAt": "2026-10-10T08:00:00.000Z"
+      },
+      {
+        "id": "w-20261011080000000-erm5x4",
+        "date": "2026-10-11",
+        "weightKg": 74.3,
+        "createdAt": "2026-10-11T08:00:00.000Z"
+      },
+      {
+        "id": "w-20261012080000000-g0dd6j",
+        "date": "2026-10-12",
+        "weightKg": 74.3,
+        "createdAt": "2026-10-12T08:00:00.000Z"
+      },
+      {
+        "id": "w-20261013080000000-cnlkd6",
+        "date": "2026-10-13",
+        "weightKg": 74.2,
+        "createdAt": "2026-10-13T08:00:00.000Z"
+      },
+      {
+        "id": "w-20261014080000000-3x4c64",
+        "date": "2026-10-14",
+        "weightKg": 74.2,
+        "createdAt": "2026-10-14T08:00:00.000Z"
+      },
+      {
+        "id": "w-20261015080000000-adu0tc",
+        "date": "2026-10-15",
+        "weightKg": 74.2,
+        "createdAt": "2026-10-15T08:00:00.000Z"
+      },
+      {
+        "id": "w-20261016080000000-27g6pz",
+        "date": "2026-10-16",
+        "weightKg": 74.2,
+        "createdAt": "2026-10-16T08:00:00.000Z"
+      },
+      {
+        "id": "w-20261017080000000-13pfhy",
+        "date": "2026-10-17",
+        "weightKg": 74.2,
+        "createdAt": "2026-10-17T08:00:00.000Z"
+      },
+      {
+        "id": "w-20261019080000000-f56mqz",
+        "date": "2026-10-19",
+        "weightKg": 74.1,
+        "createdAt": "2026-10-19T08:00:00.000Z"
+      },
+      {
+        "id": "w-20261021080000000-3addhs",
+        "date": "2026-10-21",
+        "weightKg": 74.1,
+        "createdAt": "2026-10-21T08:00:00.000Z"
+      },
+      {
+        "id": "w-20261023080000000-gbbrdm",
+        "date": "2026-10-23",
+        "weightKg": 74,
+        "createdAt": "2026-10-23T08:00:00.000Z"
+      }
+    ],
+    "dailyLogs": [
+      {
+        "date": "2026-09-05",
+        "calorieTargetForDay": 1808.31298828125,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.56300000000002,
+          "carbsG": 203.89177294921876,
+          "fatG": 60.277099609375
+        },
+        "adherence": "major_deviation",
+        "adherenceSource": "user"
+      },
+      {
+        "date": "2026-09-06",
+        "calorieTargetForDay": 1808.31298828125,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.56300000000002,
+          "carbsG": 203.89177294921876,
+          "fatG": 60.277099609375
+        },
+        "adherence": "major_deviation",
+        "adherenceSource": "user"
+      },
+      {
+        "date": "2026-09-07",
+        "calorieTargetForDay": 1808.31298828125,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.56300000000002,
+          "carbsG": 203.89177294921876,
+          "fatG": 60.277099609375
+        },
+        "adherence": "major_deviation",
+        "adherenceSource": "user"
+      },
+      {
+        "date": "2026-09-08",
+        "calorieTargetForDay": 1808.31298828125,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.56300000000002,
+          "carbsG": 203.89177294921876,
+          "fatG": 60.277099609375
+        },
+        "adherence": "major_deviation",
+        "adherenceSource": "user"
+      },
+      {
+        "date": "2026-09-09",
+        "calorieTargetForDay": 1808.31298828125,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.56300000000002,
+          "carbsG": 203.89177294921876,
+          "fatG": 60.277099609375
+        },
+        "adherence": "major_deviation",
+        "adherenceSource": "user"
+      },
+      {
+        "date": "2026-09-10",
+        "calorieTargetForDay": 1808.31298828125,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.56300000000002,
+          "carbsG": 203.89177294921876,
+          "fatG": 60.277099609375
+        },
+        "adherence": "major_deviation",
+        "adherenceSource": "user"
+      },
+      {
+        "date": "2026-09-11",
+        "calorieTargetForDay": 1808.31298828125,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.56300000000002,
+          "carbsG": 203.89177294921876,
+          "fatG": 60.277099609375
+        },
+        "adherence": "major_deviation",
+        "adherenceSource": "user"
+      },
+      {
+        "date": "2026-09-12",
+        "calorieTargetForDay": 1808.31298828125,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.56300000000002,
+          "carbsG": 203.89177294921876,
+          "fatG": 60.277099609375
+        },
+        "adherence": "major_deviation",
+        "adherenceSource": "user"
+      },
+      {
+        "date": "2026-09-13",
+        "calorieTargetForDay": 1808.31298828125,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.56300000000002,
+          "carbsG": 203.89177294921876,
+          "fatG": 60.277099609375
+        },
+        "adherence": "major_deviation",
+        "adherenceSource": "user"
+      },
+      {
+        "date": "2026-09-14",
+        "calorieTargetForDay": 1808.31298828125,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.56300000000002,
+          "carbsG": 203.89177294921876,
+          "fatG": 60.277099609375
+        },
+        "adherence": "major_deviation",
+        "adherenceSource": "user"
+      },
+      {
+        "date": "2026-09-15",
+        "calorieTargetForDay": 1808.31298828125,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.56300000000002,
+          "carbsG": 203.89177294921876,
+          "fatG": 60.277099609375
+        },
+        "adherence": "major_deviation",
+        "adherenceSource": "user"
+      },
+      {
+        "date": "2026-09-16",
+        "calorieTargetForDay": 1808.31298828125,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.56300000000002,
+          "carbsG": 203.89177294921876,
+          "fatG": 60.277099609375
+        },
+        "adherence": "major_deviation",
+        "adherenceSource": "user"
+      },
+      {
+        "date": "2026-09-17",
+        "calorieTargetForDay": 1808.31298828125,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.56300000000002,
+          "carbsG": 203.89177294921876,
+          "fatG": 60.277099609375
+        },
+        "adherence": "major_deviation",
+        "adherenceSource": "user"
+      },
+      {
+        "date": "2026-09-18",
+        "calorieTargetForDay": 1808.31298828125,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.56300000000002,
+          "carbsG": 203.89177294921876,
+          "fatG": 60.277099609375
+        },
+        "adherence": "major_deviation",
+        "adherenceSource": "user"
+      },
+      {
+        "date": "2026-09-19",
+        "calorieTargetForDay": 2100,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.49040468703271,
+          "carbsG": 255.0095953129673,
+          "fatG": 70
+        }
+      },
+      {
+        "date": "2026-09-20",
+        "calorieTargetForDay": 2100,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.49040468703271,
+          "carbsG": 255.0095953129673,
+          "fatG": 70
+        }
+      },
+      {
+        "date": "2026-09-21",
+        "calorieTargetForDay": 2100,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.49040468703271,
+          "carbsG": 255.0095953129673,
+          "fatG": 70
+        }
+      },
+      {
+        "date": "2026-09-22",
+        "calorieTargetForDay": 2100,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.49040468703271,
+          "carbsG": 255.0095953129673,
+          "fatG": 70
+        }
+      },
+      {
+        "date": "2026-09-23",
+        "calorieTargetForDay": 2100,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.49040468703271,
+          "carbsG": 255.0095953129673,
+          "fatG": 70
+        }
+      },
+      {
+        "date": "2026-09-24",
+        "calorieTargetForDay": 2100,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.49040468703271,
+          "carbsG": 255.0095953129673,
+          "fatG": 70
+        }
+      },
+      {
+        "date": "2026-09-25",
+        "calorieTargetForDay": 2100,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.49040468703271,
+          "carbsG": 255.0095953129673,
+          "fatG": 70
+        }
+      },
+      {
+        "date": "2026-09-26",
+        "calorieTargetForDay": 2100,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.49040468703271,
+          "carbsG": 255.0095953129673,
+          "fatG": 70
+        }
+      },
+      {
+        "date": "2026-09-27",
+        "calorieTargetForDay": 2100,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.49040468703271,
+          "carbsG": 255.0095953129673,
+          "fatG": 70
+        }
+      },
+      {
+        "date": "2026-09-28",
+        "calorieTargetForDay": 2100,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.49040468703271,
+          "carbsG": 255.0095953129673,
+          "fatG": 70
+        }
+      },
+      {
+        "date": "2026-09-29",
+        "calorieTargetForDay": 2100,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.49040468703271,
+          "carbsG": 255.0095953129673,
+          "fatG": 70
+        }
+      },
+      {
+        "date": "2026-09-30",
+        "calorieTargetForDay": 2100,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.49040468703271,
+          "carbsG": 255.0095953129673,
+          "fatG": 70
+        }
+      },
+      {
+        "date": "2026-10-01",
+        "calorieTargetForDay": 2100,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.49040468703271,
+          "carbsG": 255.0095953129673,
+          "fatG": 70
+        }
+      },
+      {
+        "date": "2026-10-02",
+        "calorieTargetForDay": 2100,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.49040468703271,
+          "carbsG": 255.0095953129673,
+          "fatG": 70
+        }
+      },
+      {
+        "date": "2026-10-03",
+        "calorieTargetForDay": 2100,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.49040468703271,
+          "carbsG": 255.0095953129673,
+          "fatG": 70
+        }
+      },
+      {
+        "date": "2026-10-04",
+        "calorieTargetForDay": 2100,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.49040468703271,
+          "carbsG": 255.0095953129673,
+          "fatG": 70
+        }
+      },
+      {
+        "date": "2026-10-05",
+        "calorieTargetForDay": 2100,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.49040468703271,
+          "carbsG": 255.0095953129673,
+          "fatG": 70
+        }
+      },
+      {
+        "date": "2026-10-06",
+        "calorieTargetForDay": 2100,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.49040468703271,
+          "carbsG": 255.0095953129673,
+          "fatG": 70
+        }
+      },
+      {
+        "date": "2026-10-07",
+        "calorieTargetForDay": 2100,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.49040468703271,
+          "carbsG": 255.0095953129673,
+          "fatG": 70
+        }
+      },
+      {
+        "date": "2026-10-08",
+        "calorieTargetForDay": 2100,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.49040468703271,
+          "carbsG": 255.0095953129673,
+          "fatG": 70
+        }
+      },
+      {
+        "date": "2026-10-09",
+        "calorieTargetForDay": 2100,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.49040468703271,
+          "carbsG": 255.0095953129673,
+          "fatG": 70
+        }
+      },
+      {
+        "date": "2026-10-10",
+        "calorieTargetForDay": 1755.7762340775098,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.29072386270076,
+          "carbsG": 194.97011710086346,
+          "fatG": 58.525874469250326
+        }
+      },
+      {
+        "date": "2026-10-11",
+        "calorieTargetForDay": 1755.7762340775098,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.29072386270076,
+          "carbsG": 194.97011710086346,
+          "fatG": 58.525874469250326
+        }
+      },
+      {
+        "date": "2026-10-12",
+        "calorieTargetForDay": 1755.7762340775098,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.29072386270076,
+          "carbsG": 194.97011710086346,
+          "fatG": 58.525874469250326
+        }
+      },
+      {
+        "date": "2026-10-13",
+        "calorieTargetForDay": 1755.7762340775098,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.29072386270076,
+          "carbsG": 194.97011710086346,
+          "fatG": 58.525874469250326
+        }
+      },
+      {
+        "date": "2026-10-14",
+        "calorieTargetForDay": 1755.7762340775098,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.29072386270076,
+          "carbsG": 194.97011710086346,
+          "fatG": 58.525874469250326
+        }
+      },
+      {
+        "date": "2026-10-15",
+        "calorieTargetForDay": 1755.7762340775098,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.29072386270076,
+          "carbsG": 194.97011710086346,
+          "fatG": 58.525874469250326
+        }
+      },
+      {
+        "date": "2026-10-16",
+        "calorieTargetForDay": 1755.7762340775098,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.29072386270076,
+          "carbsG": 194.97011710086346,
+          "fatG": 58.525874469250326
+        }
+      },
+      {
+        "date": "2026-10-17",
+        "calorieTargetForDay": 1755.7762340775098,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.29072386270076,
+          "carbsG": 194.97011710086346,
+          "fatG": 58.525874469250326
+        }
+      },
+      {
+        "date": "2026-10-18",
+        "calorieTargetForDay": 1755.7762340775098,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.29072386270076,
+          "carbsG": 194.97011710086346,
+          "fatG": 58.525874469250326
+        }
+      },
+      {
+        "date": "2026-10-19",
+        "calorieTargetForDay": 1755.7762340775098,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.29072386270076,
+          "carbsG": 194.97011710086346,
+          "fatG": 58.525874469250326
+        }
+      },
+      {
+        "date": "2026-10-20",
+        "calorieTargetForDay": 1755.7762340775098,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.29072386270076,
+          "carbsG": 194.97011710086346,
+          "fatG": 58.525874469250326
+        }
+      },
+      {
+        "date": "2026-10-21",
+        "calorieTargetForDay": 1755.7762340775098,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.29072386270076,
+          "carbsG": 194.97011710086346,
+          "fatG": 58.525874469250326
+        }
+      },
+      {
+        "date": "2026-10-22",
+        "calorieTargetForDay": 1755.7762340775098,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.29072386270076,
+          "carbsG": 194.97011710086346,
+          "fatG": 58.525874469250326
+        }
+      },
+      {
+        "date": "2026-10-23",
+        "calorieTargetForDay": 1755.7762340775098,
+        "stepTargetForDay": 7000,
+        "macrosForDay": {
+          "proteinG": 112.29072386270076,
+          "carbsG": 194.97011710086346,
+          "fatG": 58.525874469250326
+        }
+      }
+    ],
+    "calibrationSnapshots": [],
+    "historicalEvidence": null,
+    "foodJournal": {
+      "journalVersion": 1,
+      "startedOn": "2026-09-05",
+      "entries": [
+        {
+          "id": "f-20260905080000000-58ali7",
+          "date": "2026-09-05",
+          "loggedAt": "2026-09-05T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-05T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260905080000000-1ho6t",
+          "date": "2026-09-05",
+          "loggedAt": "2026-09-05T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-05T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260905080000000-92dp4q",
+          "date": "2026-09-05",
+          "loggedAt": "2026-09-05T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-05T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260906080000000-7n2op7",
+          "date": "2026-09-06",
+          "loggedAt": "2026-09-06T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-06T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260906080000000-bjhv7g",
+          "date": "2026-09-06",
+          "loggedAt": "2026-09-06T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-06T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260906080000000-eop5aw",
+          "date": "2026-09-06",
+          "loggedAt": "2026-09-06T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-06T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260907080000000-5z5vbi",
+          "date": "2026-09-07",
+          "loggedAt": "2026-09-07T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-07T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260907080000000-3xjzmp",
+          "date": "2026-09-07",
+          "loggedAt": "2026-09-07T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-07T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260907080000000-fkx7be",
+          "date": "2026-09-07",
+          "loggedAt": "2026-09-07T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-07T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260908080000000-7w9cy1",
+          "date": "2026-09-08",
+          "loggedAt": "2026-09-08T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-08T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260908080000000-9hpvt5",
+          "date": "2026-09-08",
+          "loggedAt": "2026-09-08T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-08T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260908080000000-80hx3a",
+          "date": "2026-09-08",
+          "loggedAt": "2026-09-08T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-08T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260909080000000-7acs9u",
+          "date": "2026-09-09",
+          "loggedAt": "2026-09-09T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-09T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260909080000000-a5re78",
+          "date": "2026-09-09",
+          "loggedAt": "2026-09-09T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-09T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260909080000000-8rndst",
+          "date": "2026-09-09",
+          "loggedAt": "2026-09-09T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-09T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260910080000000-azo77d",
+          "date": "2026-09-10",
+          "loggedAt": "2026-09-10T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-10T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260910080000000-67bvyw",
+          "date": "2026-09-10",
+          "loggedAt": "2026-09-10T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-10T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260910080000000-7p3rso",
+          "date": "2026-09-10",
+          "loggedAt": "2026-09-10T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-10T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260911080000000-ddty69",
+          "date": "2026-09-11",
+          "loggedAt": "2026-09-11T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-11T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260911080000000-5ki570",
+          "date": "2026-09-11",
+          "loggedAt": "2026-09-11T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-11T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260911080000000-eu5xqc",
+          "date": "2026-09-11",
+          "loggedAt": "2026-09-11T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-11T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260912080000000-1gnaj9",
+          "date": "2026-09-12",
+          "loggedAt": "2026-09-12T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-12T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260912080000000-9pa4kq",
+          "date": "2026-09-12",
+          "loggedAt": "2026-09-12T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-12T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260912080000000-ep6fl2",
+          "date": "2026-09-12",
+          "loggedAt": "2026-09-12T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-12T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260913080000000-euqh8e",
+          "date": "2026-09-13",
+          "loggedAt": "2026-09-13T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-13T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260913080000000-apq0jt",
+          "date": "2026-09-13",
+          "loggedAt": "2026-09-13T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-13T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260913080000000-chjtsd",
+          "date": "2026-09-13",
+          "loggedAt": "2026-09-13T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-13T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260914080000000-d3ej2q",
+          "date": "2026-09-14",
+          "loggedAt": "2026-09-14T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-14T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260914080000000-8nq9is",
+          "date": "2026-09-14",
+          "loggedAt": "2026-09-14T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-14T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260914080000000-ev79fe",
+          "date": "2026-09-14",
+          "loggedAt": "2026-09-14T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-14T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260915080000000-2g51zb",
+          "date": "2026-09-15",
+          "loggedAt": "2026-09-15T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-15T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260915080000000-352t5m",
+          "date": "2026-09-15",
+          "loggedAt": "2026-09-15T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-15T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260915080000000-dd3ep3",
+          "date": "2026-09-15",
+          "loggedAt": "2026-09-15T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-15T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260916080000000-4wirn4",
+          "date": "2026-09-16",
+          "loggedAt": "2026-09-16T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-16T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260916080000000-cya4v3",
+          "date": "2026-09-16",
+          "loggedAt": "2026-09-16T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-16T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260916080000000-fiooh7",
+          "date": "2026-09-16",
+          "loggedAt": "2026-09-16T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-16T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260917080000000-2lziai",
+          "date": "2026-09-17",
+          "loggedAt": "2026-09-17T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-17T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260917080000000-1v2c0j",
+          "date": "2026-09-17",
+          "loggedAt": "2026-09-17T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-17T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260917080000000-12xt3e",
+          "date": "2026-09-17",
+          "loggedAt": "2026-09-17T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-17T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260918080000000-85gg5",
+          "date": "2026-09-18",
+          "loggedAt": "2026-09-18T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-18T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260918080000000-3seaq5",
+          "date": "2026-09-18",
+          "loggedAt": "2026-09-18T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-18T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260918080000000-1d02qo",
+          "date": "2026-09-18",
+          "loggedAt": "2026-09-18T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-18T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260919080000000-47jal8",
+          "date": "2026-09-19",
+          "loggedAt": "2026-09-19T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-19T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 578,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260919080000000-27z2b3",
+          "date": "2026-09-19",
+          "loggedAt": "2026-09-19T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-19T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 924,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260919080000000-as6cz7",
+          "date": "2026-09-19",
+          "loggedAt": "2026-09-19T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-19T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 809,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260920080000000-f850q7",
+          "date": "2026-09-20",
+          "loggedAt": "2026-09-20T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-20T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 578,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260920080000000-1k1m2a",
+          "date": "2026-09-20",
+          "loggedAt": "2026-09-20T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-20T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 924,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260920080000000-b5g36i",
+          "date": "2026-09-20",
+          "loggedAt": "2026-09-20T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-20T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 809,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260921080000000-2rqcrx",
+          "date": "2026-09-21",
+          "loggedAt": "2026-09-21T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-21T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 578,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260921080000000-t15h7",
+          "date": "2026-09-21",
+          "loggedAt": "2026-09-21T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-21T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 924,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260921080000000-eh870a",
+          "date": "2026-09-21",
+          "loggedAt": "2026-09-21T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-21T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 809,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260922080000000-2pbksi",
+          "date": "2026-09-22",
+          "loggedAt": "2026-09-22T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-22T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 578,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260922080000000-3umkyn",
+          "date": "2026-09-22",
+          "loggedAt": "2026-09-22T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-22T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 924,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260922080000000-7y6han",
+          "date": "2026-09-22",
+          "loggedAt": "2026-09-22T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-22T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 809,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260923080000000-g4elam",
+          "date": "2026-09-23",
+          "loggedAt": "2026-09-23T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-23T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 578,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260923080000000-ap48d9",
+          "date": "2026-09-23",
+          "loggedAt": "2026-09-23T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-23T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 924,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260923080000000-apn6lo",
+          "date": "2026-09-23",
+          "loggedAt": "2026-09-23T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-23T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 809,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260924080000000-47z4rg",
+          "date": "2026-09-24",
+          "loggedAt": "2026-09-24T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-24T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 578,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260924080000000-1qpxnj",
+          "date": "2026-09-24",
+          "loggedAt": "2026-09-24T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-24T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 924,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260924080000000-bi674x",
+          "date": "2026-09-24",
+          "loggedAt": "2026-09-24T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-24T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 809,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260925080000000-c7603q",
+          "date": "2026-09-25",
+          "loggedAt": "2026-09-25T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-25T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 578,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260925080000000-64lvmf",
+          "date": "2026-09-25",
+          "loggedAt": "2026-09-25T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-25T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 924,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260925080000000-wnjdr",
+          "date": "2026-09-25",
+          "loggedAt": "2026-09-25T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-25T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 809,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260926080000000-ds4kld",
+          "date": "2026-09-26",
+          "loggedAt": "2026-09-26T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-26T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 578,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260926080000000-drnoai",
+          "date": "2026-09-26",
+          "loggedAt": "2026-09-26T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-26T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 924,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260926080000000-14xcvg",
+          "date": "2026-09-26",
+          "loggedAt": "2026-09-26T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-26T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 809,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260927080000000-1a9v8w",
+          "date": "2026-09-27",
+          "loggedAt": "2026-09-27T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-27T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 578,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260927080000000-g1gz4y",
+          "date": "2026-09-27",
+          "loggedAt": "2026-09-27T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-27T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 924,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260927080000000-ejl6x6",
+          "date": "2026-09-27",
+          "loggedAt": "2026-09-27T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-27T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 809,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260928080000000-imfr4",
+          "date": "2026-09-28",
+          "loggedAt": "2026-09-28T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-28T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 578,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260928080000000-8w5ub",
+          "date": "2026-09-28",
+          "loggedAt": "2026-09-28T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-28T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 924,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260928080000000-10aoo1",
+          "date": "2026-09-28",
+          "loggedAt": "2026-09-28T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-28T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 809,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260929080000000-2ulcu",
+          "date": "2026-09-29",
+          "loggedAt": "2026-09-29T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-29T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 578,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260929080000000-2sd8q",
+          "date": "2026-09-29",
+          "loggedAt": "2026-09-29T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-29T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 924,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260929080000000-4ze35w",
+          "date": "2026-09-29",
+          "loggedAt": "2026-09-29T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-29T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 809,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260930080000000-1zcxjd",
+          "date": "2026-09-30",
+          "loggedAt": "2026-09-30T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-30T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 578,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260930080000000-7c5ad9",
+          "date": "2026-09-30",
+          "loggedAt": "2026-09-30T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-30T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 924,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20260930080000000-610ysl",
+          "date": "2026-09-30",
+          "loggedAt": "2026-09-30T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-09-30T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 809,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261001080000000-4jkk6s",
+          "date": "2026-10-01",
+          "loggedAt": "2026-10-01T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-01T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 578,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261001080000000-c30kp9",
+          "date": "2026-10-01",
+          "loggedAt": "2026-10-01T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-01T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 924,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261001080000000-ag00c2",
+          "date": "2026-10-01",
+          "loggedAt": "2026-10-01T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-01T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 809,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261002080000000-4jjzf9",
+          "date": "2026-10-02",
+          "loggedAt": "2026-10-02T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-02T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 578,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261002080000000-dug9k9",
+          "date": "2026-10-02",
+          "loggedAt": "2026-10-02T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-02T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 924,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261002080000000-19lz0s",
+          "date": "2026-10-02",
+          "loggedAt": "2026-10-02T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-02T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 809,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261003080000000-8pqlk2",
+          "date": "2026-10-03",
+          "loggedAt": "2026-10-03T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-03T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 578,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261003080000000-clr0k0",
+          "date": "2026-10-03",
+          "loggedAt": "2026-10-03T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-03T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 924,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261003080000000-7mhvx",
+          "date": "2026-10-03",
+          "loggedAt": "2026-10-03T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-03T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 809,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261004080000000-2665xa",
+          "date": "2026-10-04",
+          "loggedAt": "2026-10-04T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-04T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 578,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261004080000000-185rxf",
+          "date": "2026-10-04",
+          "loggedAt": "2026-10-04T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-04T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 924,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261004080000000-cwh81l",
+          "date": "2026-10-04",
+          "loggedAt": "2026-10-04T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-04T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 809,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261005080000000-b53bmx",
+          "date": "2026-10-05",
+          "loggedAt": "2026-10-05T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-05T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 578,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261005080000000-1qfqpi",
+          "date": "2026-10-05",
+          "loggedAt": "2026-10-05T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-05T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 924,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261005080000000-dzq1w1",
+          "date": "2026-10-05",
+          "loggedAt": "2026-10-05T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-05T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 809,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261006080000000-ghejf2",
+          "date": "2026-10-06",
+          "loggedAt": "2026-10-06T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-06T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 578,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261006080000000-bnvvbh",
+          "date": "2026-10-06",
+          "loggedAt": "2026-10-06T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-06T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 924,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261006080000000-5c6t8p",
+          "date": "2026-10-06",
+          "loggedAt": "2026-10-06T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-06T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 809,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261007080000000-6zuslb",
+          "date": "2026-10-07",
+          "loggedAt": "2026-10-07T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-07T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 578,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261007080000000-dt0ugp",
+          "date": "2026-10-07",
+          "loggedAt": "2026-10-07T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-07T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 924,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261007080000000-88o6d2",
+          "date": "2026-10-07",
+          "loggedAt": "2026-10-07T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-07T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 809,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261008080000000-1ekpda",
+          "date": "2026-10-08",
+          "loggedAt": "2026-10-08T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-08T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 578,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261008080000000-aa3pca",
+          "date": "2026-10-08",
+          "loggedAt": "2026-10-08T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-08T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 924,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261008080000000-1gwlmt",
+          "date": "2026-10-08",
+          "loggedAt": "2026-10-08T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-08T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 809,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261009080000000-9wbufc",
+          "date": "2026-10-09",
+          "loggedAt": "2026-10-09T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-09T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 578,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261009080000000-d7jrd",
+          "date": "2026-10-09",
+          "loggedAt": "2026-10-09T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-09T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 924,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261009080000000-8jghpe",
+          "date": "2026-10-09",
+          "loggedAt": "2026-10-09T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-09T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 809,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261010080000000-74b8ej",
+          "date": "2026-10-10",
+          "loggedAt": "2026-10-10T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-10T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261010080000000-52w0o9",
+          "date": "2026-10-10",
+          "loggedAt": "2026-10-10T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-10T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261010080000000-tghw7",
+          "date": "2026-10-10",
+          "loggedAt": "2026-10-10T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-10T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261011080000000-5zegzs",
+          "date": "2026-10-11",
+          "loggedAt": "2026-10-11T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-11T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261011080000000-c6v0je",
+          "date": "2026-10-11",
+          "loggedAt": "2026-10-11T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-11T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261011080000000-esharf",
+          "date": "2026-10-11",
+          "loggedAt": "2026-10-11T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-11T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261012080000000-f2u1mb",
+          "date": "2026-10-12",
+          "loggedAt": "2026-10-12T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-12T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261012080000000-5e5udf",
+          "date": "2026-10-12",
+          "loggedAt": "2026-10-12T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-12T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261012080000000-3rbzhv",
+          "date": "2026-10-12",
+          "loggedAt": "2026-10-12T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-12T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261013080000000-bp7jyy",
+          "date": "2026-10-13",
+          "loggedAt": "2026-10-13T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-13T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261013080000000-7l4yxe",
+          "date": "2026-10-13",
+          "loggedAt": "2026-10-13T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-13T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261013080000000-5aech3",
+          "date": "2026-10-13",
+          "loggedAt": "2026-10-13T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-13T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261014080000000-4uatm5",
+          "date": "2026-10-14",
+          "loggedAt": "2026-10-14T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-14T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261014080000000-esk56r",
+          "date": "2026-10-14",
+          "loggedAt": "2026-10-14T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-14T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261014080000000-4btr3v",
+          "date": "2026-10-14",
+          "loggedAt": "2026-10-14T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-14T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261015080000000-cdz3lt",
+          "date": "2026-10-15",
+          "loggedAt": "2026-10-15T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-15T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261015080000000-ey23r0",
+          "date": "2026-10-15",
+          "loggedAt": "2026-10-15T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-15T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261015080000000-7gz8od",
+          "date": "2026-10-15",
+          "loggedAt": "2026-10-15T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-15T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261016080000000-ea4i47",
+          "date": "2026-10-16",
+          "loggedAt": "2026-10-16T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-16T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261016080000000-73wrpc",
+          "date": "2026-10-16",
+          "loggedAt": "2026-10-16T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-16T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261016080000000-9cn1i0",
+          "date": "2026-10-16",
+          "loggedAt": "2026-10-16T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-16T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261017080000000-7kfnng",
+          "date": "2026-10-17",
+          "loggedAt": "2026-10-17T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-17T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261017080000000-856h1f",
+          "date": "2026-10-17",
+          "loggedAt": "2026-10-17T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-17T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261017080000000-5g7riw",
+          "date": "2026-10-17",
+          "loggedAt": "2026-10-17T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-17T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261018080000000-6tpfcs",
+          "date": "2026-10-18",
+          "loggedAt": "2026-10-18T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-18T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261018080000000-7d4b8e",
+          "date": "2026-10-18",
+          "loggedAt": "2026-10-18T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-18T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261018080000000-21zbv9",
+          "date": "2026-10-18",
+          "loggedAt": "2026-10-18T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-18T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261019080000000-8tg9z7",
+          "date": "2026-10-19",
+          "loggedAt": "2026-10-19T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-19T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261019080000000-euic4k",
+          "date": "2026-10-19",
+          "loggedAt": "2026-10-19T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-19T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261019080000000-bk0zq",
+          "date": "2026-10-19",
+          "loggedAt": "2026-10-19T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-19T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261020080000000-ilmnz",
+          "date": "2026-10-20",
+          "loggedAt": "2026-10-20T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-20T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261020080000000-a96lpt",
+          "date": "2026-10-20",
+          "loggedAt": "2026-10-20T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-20T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261020080000000-8c4124",
+          "date": "2026-10-20",
+          "loggedAt": "2026-10-20T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-20T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261021080000000-b8khgt",
+          "date": "2026-10-21",
+          "loggedAt": "2026-10-21T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-21T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261021080000000-4qct77",
+          "date": "2026-10-21",
+          "loggedAt": "2026-10-21T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-21T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261021080000000-8g4w17",
+          "date": "2026-10-21",
+          "loggedAt": "2026-10-21T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-21T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261022080000000-6xs3f",
+          "date": "2026-10-22",
+          "loggedAt": "2026-10-22T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-22T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261022080000000-dae1xg",
+          "date": "2026-10-22",
+          "loggedAt": "2026-10-22T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-22T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261022080000000-bcqqpc",
+          "date": "2026-10-22",
+          "loggedAt": "2026-10-22T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-22T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261023080000000-1n0dxq",
+          "date": "2026-10-23",
+          "loggedAt": "2026-10-23T08:00:00.000Z",
+          "localTime": "08:00",
+          "consumedTime": "08:00",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-23T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 525,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261023080000000-al0jmh",
+          "date": "2026-10-23",
+          "loggedAt": "2026-10-23T08:00:00.000Z",
+          "localTime": "12:30",
+          "consumedTime": "12:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-23T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 840,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        },
+        {
+          "id": "f-20261023080000000-ft48ib",
+          "date": "2026-10-23",
+          "loggedAt": "2026-10-23T08:00:00.000Z",
+          "localTime": "19:30",
+          "consumedTime": "19:30",
+          "name": "Repas",
+          "source": "manual",
+          "sourceId": null,
+          "sourceVersion": null,
+          "resolvedAt": "2026-10-23T08:00:00.000Z",
+          "per100g": null,
+          "quantity": null,
+          "intake": {
+            "energyKcal": 735,
+            "proteinG": null,
+            "carbsG": null,
+            "fatG": null
+          }
+        }
+      ],
+      "portions": [],
+      "library": []
+    },
+    "preferences": {
+      "theme": "light",
+      "units": "metric",
+      "weighInReminder": true,
+      "showScientificDetails": false,
+      "productSearchEnabled": false
+    },
+    "meta": {
+      "onboardingDate": "2026-09-05",
+      "initialMaintenanceKcal": 2329.92,
+      "initialInterval80": [
+        1974.737983621675,
+        2685.102016378325
+      ],
+      "initialPalCategory": "low_active",
+      "initialProvisionalPal": 1.5311076515020468,
+      "initialWeightKg": 75,
+      "lastSurfacedCalibration": null,
+      "recoveredCorruptData": null,
+      "planEvents": [
+        {
+          "date": "2026-09-19",
+          "rule": "journal_switch",
+          "status": "applied",
+          "before": {
+            "createdAt": "2026-09-05T00:00:00.000Z",
+            "source": "initial",
+            "goal": "loss",
+            "calorieTarget": 1808.31298828125,
+            "stepTarget": 7000,
+            "weeklyRateTarget": 0.005,
+            "requestedWeeklyRate": 0.005,
+            "maintenanceKcal": 2329.92,
+            "targetWeightKg": 64
+          },
+          "after": {
+            "createdAt": "2026-09-05T00:00:00.000Z",
+            "source": "initial",
+            "goal": "loss",
+            "calorieTarget": 2100,
+            "stepTarget": 7000,
+            "weeklyRateTarget": 0.005,
+            "requestedWeeklyRate": 0.005,
+            "maintenanceKcal": 2329.92,
+            "targetWeightKg": 64
+          },
+          "message": null,
+          "id": "e-20260919080000000-92mr6x",
+          "seen": true
+        },
+        {
+          "date": "2026-10-10",
+          "rule": "journal_measured_offer",
+          "status": "applied",
+          "before": {
+            "createdAt": "2026-09-05T00:00:00.000Z",
+            "source": "initial",
+            "goal": "loss",
+            "calorieTarget": 2100,
+            "stepTarget": 7000,
+            "weeklyRateTarget": 0.005,
+            "requestedWeeklyRate": 0.005,
+            "maintenanceKcal": 2329.92,
+            "targetWeightKg": 64
+          },
+          "after": {
+            "createdAt": "2026-10-10T00:00:00.000Z",
+            "source": "recalibrated",
+            "goal": "loss",
+            "calorieTarget": 1755.7762340775098,
+            "stepTarget": 7000,
+            "weeklyRateTarget": 0.005,
+            "requestedWeeklyRate": 0.005,
+            "maintenanceKcal": 2472.5975255830463,
+            "targetWeightKg": 64
+          },
+          "message": null,
+          "id": "e-20261010080000000-e7bznn",
+          "seen": true
+        },
+        {
+          "date": "2026-10-10",
+          "rule": "journal_measured_enter",
+          "status": "applied",
+          "before": {
+            "createdAt": "2026-09-05T00:00:00.000Z",
+            "source": "initial",
+            "goal": "loss",
+            "calorieTarget": 2100,
+            "stepTarget": 7000,
+            "weeklyRateTarget": 0.005,
+            "requestedWeeklyRate": 0.005,
+            "maintenanceKcal": 2329.92,
+            "targetWeightKg": 64
+          },
+          "after": {
+            "createdAt": "2026-10-10T00:00:00.000Z",
+            "source": "recalibrated",
+            "goal": "loss",
+            "calorieTarget": 1755.7762340775098,
+            "stepTarget": 7000,
+            "weeklyRateTarget": 0.005,
+            "requestedWeeklyRate": 0.005,
+            "maintenanceKcal": 2472.5975255830463,
+            "targetWeightKg": 64
+          },
+          "message": null,
+          "id": "e-20261010080000000-dzzs9u",
+          "seen": true
+        }
+      ],
+      "periodicReplanCheckedOn": null,
+      "guardrailMaintenanceSince": null,
+      "journalPath": {
+        "method": "measured",
+        "switchedOn": "2026-09-19",
+        "alignedTarget": {
+          "medianKcal": 2100,
+          "roundedKcal": 2100,
+          "finalKcal": 2100,
+          "floorKcal": 1320,
+          "raised": false
+        },
+        "chosenTargetActive": false,
+        "proposalOpenedOn": null,
+        "proposalDeclinedOn": null,
+        "firstPlanDeclinedOn": null,
+        "measuredSince": "2026-10-10",
+        "lastEvaluatedOn": "2026-10-17",
+        "estimate": {
+          "offsetKcal": 148.93781404291892,
+          "interval80": [
+            10.486886402283314,
+            290.8308418342282
+          ],
+          "interval95": [
+            -62.415369564245616,
+            368.38908110100186
+          ]
+        },
+        "habit": {
+          "h": 1.1004761904761904,
+          "raw": 1.1004761904761904,
+          "bound": null,
+          "days": 21
+        },
+        "surfacingReference": {
+          "tdeeKcal": 2246.8432729227166,
+          "interval80Width": 254.74786084252892,
+          "surfacedOn": "2026-10-10"
+        },
+        "offer": null,
+        "gate": {
+          "date": "2026-10-10",
+          "met": true,
+          "missing": [],
+          "missedWeighIns": 0,
+          "unusableDays": 0
+        },
+        "lastExit": null
+      }
+    }
+  }
+}

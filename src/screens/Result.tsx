@@ -5,20 +5,35 @@ import { useWheighty } from '@/store/StoreProvider';
 import { CONFIDENCE_LABEL, PLAN_ERROR_TEXT, WARM_START_TEXT } from '@/app/copy';
 import { Mascot } from '@/components/Mascot';
 import { ConfidenceBar } from '@/components/controls';
-import { completeOnboarding, previewInitialPlan, updateProfile } from '@/domain/engine';
+import { completeOnboarding, previewInitialPlan } from '@/domain/engine';
+import { journalRead, updateProfileOnPath } from '@/domain/journalPath';
+import { JOURNAL_MESSAGE, PERSONAL_TARGET_MESSAGE } from '@/domain/planMessages';
+import { checkPersonalTarget, completeOnboardingWithTarget, onboardingPersonalTargetTable, withPersonalTarget } from '@/domain/personalTarget';
 import { formatGrams, formatKcal, formatKcalRange, formatRatePercent, formatSteps } from '@/domain/format';
 import { draftToEvidence, draftToProfile } from '@/domain/onboarding';
 import { floorAdviceOf } from '@/domain/planSafety';
 import { displayMacros, warmStartView } from '@/domain/views';
+import type { WheightyStore } from '@/domain/types';
 
 export function ResultScreen() {
-  const { draft, go, openSheet, showToast } = useNav();
+  const { draft, setDraft, go, openSheet, showToast } = useNav();
   const { store, commit, today, nowIso } = useWheighty();
   const profile = useMemo(() => draftToProfile(draft, store.preferences.units), [draft, store.preferences.units]);
   const evidence = useMemo(() => draftToEvidence(draft, store.preferences.units, today), [draft, store.preferences.units, today]);
   const preview = useMemo(() => (profile ? previewInitialPlan(profile, today, evidence) : null), [profile, today, evidence]);
   // Pass 5a s6: when the floor limits the speed, the floor and the steps that would hold the requested speed.
   const advice = useMemo(() => (preview && profile ? floorAdviceOf(preview, profile.averageSteps7d) : null), [preview, profile]);
+  // Pass 5b fixes, point 1: editing the profile on the journal path, the preview is the plan that will be applied (the
+  // measured habit rebuilds with its own method, the aligned target itself stays in force), not the population estimate.
+  // Report 47, point 2: on the target assumed to be followed too (from the applied calibration; a personal target in force
+  // kept or replaced as `updateProfileOnPath` does).
+  const pathPreview = useMemo(() => (draft.mode === 'edit' && profile && store.plan ? updateProfileOnPath(store, today, profile) : null), [draft.mode, profile, store, today]);
+  // Fixes of pass 5b, point 6: "J'ai déjà ma cible" on the first plan; the target kept in the draft, checked again here.
+  const personal = useMemo(() => {
+    if (draft.mode === 'edit' || draft.personalTargetKcal === null || !profile) return null;
+    const table = onboardingPersonalTargetTable(profile, today, evidence);
+    return table ? checkPersonalTarget(table, draft.personalTargetKcal) : null;
+  }, [draft.mode, draft.personalTargetKcal, profile, today, evidence]);
 
   if (!profile || !preview) {
     return (
@@ -38,7 +53,8 @@ export function ResultScreen() {
     );
   }
 
-  if (!preview.ok) {
+  const pathError = pathPreview && !pathPreview.ok ? pathPreview.reason : null;
+  if (!preview.ok || pathError !== null) {
     return (
       <main className="screen--moment">
         <div style={{ display: 'grid', placeItems: 'center', marginTop: 40 }}>
@@ -48,9 +64,9 @@ export function ResultScreen() {
           Ajustons ton objectif
         </h2>
         <p className="body" style={{ textAlign: 'center', marginTop: 10 }}>
-          {PLAN_ERROR_TEXT[preview.reason] ?? PLAN_ERROR_TEXT.no_feasible_speed}
+          {PLAN_ERROR_TEXT[pathError ?? (preview.ok ? '' : preview.reason)] ?? PLAN_ERROR_TEXT.no_feasible_speed}
         </p>
-        {advice ? (
+        {advice && pathError === null ? (
           <p className="body" style={{ textAlign: 'center', marginTop: 10 }}>
             {advice.lines.join(' ')}
           </p>
@@ -63,13 +79,16 @@ export function ResultScreen() {
     );
   }
 
-  const { plan, goalPlan } = preview;
+  const { goalPlan } = preview;
+  const onPath = pathPreview?.ok ? pathPreview.store : null;
+  // The personal target shown with its own macros, as it will be applied (fixes of pass 5b, point 6).
+  const plan = onPath?.plan ?? (personal?.ok && preview.context ? withPersonalTarget(preview.plan, preview.context, profile.goal, profile.targetWeightKg, personal.target, personal.goalRate) : preview.plan);
   const macros = displayMacros(plan);
   const warm = warmStartView(preview.warmStart);
 
   const start = () => {
     if (draft.mode === 'edit') {
-      const r = updateProfile(store, today, profile);
+      const r = updateProfileOnPath(store, today, profile);
       if (!r.ok) {
         showToast(PLAN_ERROR_TEXT[r.reason] ?? 'Impossible de recalculer le plan.');
         return;
@@ -79,9 +98,11 @@ export function ResultScreen() {
       go('plan', { replace: true });
       return;
     }
-    const r = completeOnboarding(store, profile, today, nowIso(), evidence);
+    const r: { ok: true; store: WheightyStore } | { ok: false; reason: string; text?: string } = personal?.ok
+      ? completeOnboardingWithTarget(store, profile, today, nowIso(), evidence, personal.kcal)
+      : completeOnboarding(store, profile, today, nowIso(), evidence);
     if (!r.ok) {
-      showToast(PLAN_ERROR_TEXT[r.reason] ?? 'Impossible de créer le plan.');
+      showToast(r.text ?? PLAN_ERROR_TEXT[r.reason] ?? 'Impossible de créer le plan.');
       return;
     }
     commit(r.store);
@@ -108,6 +129,11 @@ export function ResultScreen() {
           <div className="eyebrow" style={{ fontSize: 13, marginTop: 4 }}>
             kcal par jour
           </div>
+          {personal ? (
+            <p className="small" style={{ margin: '10px 0 0' }} role={personal.ok ? undefined : 'alert'}>
+              {personal.text}
+            </p>
+          ) : null}
         </div>
         <div style={{ display: 'flex', gap: 22, justifyContent: 'center', marginTop: 18 }}>
           <div style={{ textAlign: 'center' }}>
@@ -120,7 +146,7 @@ export function ResultScreen() {
           <div style={{ textAlign: 'center' }}>
             <div className="tabular" style={{ font: '600 26px/1 var(--font)', letterSpacing: '-0.03em' }}>{formatKcal(plan.maintenanceKcal)}</div>
             <div className="eyebrow" style={{ fontSize: 11.5, marginTop: 4 }}>
-              maintien estimé
+              {onPath && journalRead(onPath) ? JOURNAL_MESSAGE.balanceLabel.toLocaleLowerCase('fr-FR') : 'maintien estimé'}
             </div>
           </div>
         </div>
@@ -144,37 +170,56 @@ export function ResultScreen() {
           ))}
         </div>
 
-        <div className="card" style={{ marginBottom: 12, padding: 14 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <span style={{ font: '500 12.5px var(--font)', color: 'var(--ink2)' }}>Confiance du modèle</span>
-            <span style={{ font: '600 12.5px var(--font)' }}>{CONFIDENCE_LABEL[preview.confidence]}</span>
+        {onPath ? null : (
+          <div className="card" style={{ marginBottom: 12, padding: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <span style={{ font: '500 12.5px var(--font)', color: 'var(--ink2)' }}>Confiance du modèle</span>
+              <span style={{ font: '600 12.5px var(--font)' }}>{CONFIDENCE_LABEL[preview.confidence]}</span>
+            </div>
+            <ConfidenceBar level={preview.confidence} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)' }}>
+              <span style={{ font: '500 12.5px var(--font)', color: 'var(--ink2)' }}>Fourchette actuelle</span>
+              <span className="tabular" style={{ font: '600 13px var(--font)', whiteSpace: 'nowrap' }}>
+                {formatKcalRange(plan.maintenanceInterval80)} kcal
+              </span>
+            </div>
+            <p style={{ margin: '8px 0 0', font: '400 12px/1.45 var(--font)', color: 'var(--ink2)' }}>
+              Ton maintien réel a 8 chances sur 10 d’être dans cette fourchette. Tes pesées l’affineront.
+              {warm.given ? ` ${warm.reason === 'used' ? WARM_START_TEXT.used : WARM_START_TEXT[warm.reason ?? 'invalid']}` : ''}
+            </p>
           </div>
-          <ConfidenceBar level={preview.confidence} />
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)' }}>
-            <span style={{ font: '500 12.5px var(--font)', color: 'var(--ink2)' }}>Fourchette actuelle</span>
-            <span className="tabular" style={{ font: '600 13px var(--font)', whiteSpace: 'nowrap' }}>
-              {formatKcalRange(plan.maintenanceInterval80)} kcal
-            </span>
-          </div>
-          <p style={{ margin: '8px 0 0', font: '400 12px/1.45 var(--font)', color: 'var(--ink2)' }}>
-            Ton maintien réel a 8 chances sur 10 d’être dans cette fourchette. Tes pesées l’affineront.
-            {warm.given ? ` ${warm.reason === 'used' ? WARM_START_TEXT.used : WARM_START_TEXT[warm.reason ?? 'invalid']}` : ''}
-          </p>
-        </div>
+        )}
 
-        {warm.conflict ? <ResultNote>{WARM_START_TEXT.conflict}</ResultNote> : null}
-        {goalPlan.rateAdjusted ? (
+        {warm.conflict && !onPath ? <ResultNote>{WARM_START_TEXT.conflict}</ResultNote> : null}
+        {goalPlan.rateAdjusted && !onPath && !personal?.ok ? (
           <ResultNote warn>
             Vitesse ajustée à {formatRatePercent(goalPlan.weeklyRateTarget)} par semaine pour respecter les limites de sécurité.{advice ? ` ${advice.lines.join(' ')}` : ''}
           </ResultNote>
         ) : null}
-        {goalPlan.warnings.belowRee ? <ResultNote>Cet apport est inférieur à ton métabolisme au repos estimé. Ce n’est pas dangereux en soi, mais c’est un rythme exigeant.</ResultNote> : null}
-        {goalPlan.warnings.lowEnergyAvailability ? <ResultNote warn>Avec ton volume d’entraînement, l’énergie disponible serait basse. Préfère une vitesse plus douce et surveille ta fatigue.</ResultNote> : null}
-        {goalPlan.warnings.gainWithoutResistance ? <ResultNote>Une prise de poids rapide sans entraînement de résistance favorise moins la prise de masse maigre.</ResultNote> : null}
+        {/* Report 47, point 2: the same note from the plan that will be applied, on the target assumed to be followed. */}
+        {onPath && store.meta.journalPath.method === 'assumed' && plan.source !== 'personal_target' && plan.requestedWeeklyRate !== undefined && plan.weeklyRateTarget < plan.requestedWeeklyRate - 1e-9 ? (
+          <ResultNote warn>Vitesse ajustée à {formatRatePercent(plan.weeklyRateTarget)} par semaine pour respecter les limites de sécurité.</ResultNote>
+        ) : null}
+        {(onPath ? plan.warnings?.belowRee : goalPlan.warnings.belowRee) ? <ResultNote>Cet apport est inférieur à ton métabolisme au repos estimé. Ce n’est pas dangereux en soi, mais c’est un rythme exigeant.</ResultNote> : null}
+        {(onPath ? plan.warnings?.lowEnergyAvailability : goalPlan.warnings.lowEnergyAvailability) ? <ResultNote warn>Avec ton volume d’entraînement, l’énergie disponible serait basse. Préfère une vitesse plus douce et surveille ta fatigue.</ResultNote> : null}
+        {(onPath ? plan.warnings?.gainWithoutResistance : goalPlan.warnings.gainWithoutResistance) ? <ResultNote>Une prise de poids rapide sans entraînement de résistance favorise moins la prise de masse maigre.</ResultNote> : null}
 
-        <button type="button" className="link" style={{ width: '100%', textAlign: 'center' }} onClick={() => openSheet('why', 'estimate')}>
-          Pourquoi ce résultat ?
-        </button>
+        {personal?.ok ? null : (
+          <button type="button" className="link" style={{ width: '100%', textAlign: 'center' }} onClick={() => openSheet('why', 'estimate')}>
+            Pourquoi ce résultat ?
+          </button>
+        )}
+        {draft.mode === 'edit' ? null : (
+          // Fixes of pass 5b, point 6: the secondary action of the first plan.
+          <button
+            type="button"
+            className="link"
+            style={{ width: '100%', textAlign: 'center' }}
+            onClick={() => (draft.personalTargetKcal === null ? openSheet('personalTarget') : setDraft((d) => ({ ...d, personalTargetKcal: null })))}
+          >
+            {draft.personalTargetKcal === null ? PERSONAL_TARGET_MESSAGE.action : PERSONAL_TARGET_MESSAGE.useComputed}
+          </button>
+        )}
         <div className="sticky-cta">
           <button type="button" className="btn btn--primary" onClick={start}>
             {draft.mode === 'edit' ? 'Appliquer ce plan' : 'C’est parti'}

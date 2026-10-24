@@ -8,6 +8,8 @@ import { formatDayMonth, formatGrams, formatInteger, formatKcal, formatLongDate,
 import { displayMacros, gateProgress, goalStatus, nextWeighInDate, reminderDue, todayLog } from '@/domain/views';
 import { trendOf } from '@/domain/engine';
 import { profileInitials } from '@/domain/onboarding';
+import { adherenceAsked, alignedStatusLine, journalRead, suggestedAdherence } from '@/domain/journalPath';
+import { JOURNAL_MESSAGE } from '@/domain/planMessages';
 
 export function TodayScreen() {
   const { go, openSheet } = useNav();
@@ -27,11 +29,18 @@ export function TodayScreen() {
   const journal = journalDay(store, today);
   // Same neutral gauge as the journal: logged kcal against today's target, never read by the engine.
   const kcalGauge = intakeGauge(journal.intakeLoggedKcal, log?.calorieTargetForDay ?? plan.calorieTarget);
-  // A result computed for an older store never announces a recalibration.
-  const recalibrationReady = calibration?.surfaced === true && !calibrationPending;
+  // A result computed for an older store never announces a recalibration; nor a personal target, which the app takes over
+  // by itself at its first recalibration (report 47, point 1d).
+  const recalibrationReady = calibration?.surfaced === true && !calibrationPending && plan.source !== 'personal_target';
 
+  const alignedLine = alignedStatusLine(store, today);
+  const deduced = log?.adherence ? null : suggestedAdherence(store, today);
   let statusTitle: string;
-  if (recalibrationReady) statusTitle = 'Une recalibration est prête.';
+  // Measured habit (pass 5b): the plan follows the journal; the gate of the current method does not apply.
+  if (journalRead(store)) statusTitle = JOURNAL_MESSAGE.statusMeasured;
+  else if (recalibrationReady) statusTitle = 'Une recalibration est prête.';
+  // Pass 5b fixes, point 7: on the aligned target, the days before the next recalibration rather than the deviation days.
+  else if (alignedLine !== null) statusTitle = alignedLine;
   else if (!gate.met && gate.remainingWeighIns > 0) statusTitle = `Encore ${gate.remainingWeighIns} pesée${gate.remainingWeighIns > 1 ? 's' : ''} avant la première mise à jour.`;
   else if (!gate.met && gate.remainingDays > 0) statusTitle = `Encore ${gate.remainingDays} jour${gate.remainingDays > 1 ? 's' : ''} de suivi avant la première mise à jour.`;
   else if (!gate.met && gate.criteria.some((c) => c.key === 'cleanWeighIns' && !c.met)) statusTitle = 'Encore quelques pesées en dehors des journées d’écart important.';
@@ -159,11 +168,21 @@ export function TodayScreen() {
             <div style={{ font: '600 16px/1.25 var(--font)' }}>Ajouter</div>
           )}
         </button>
-        <button type="button" className="tile" onClick={() => openSheet('adherence')}>
-          <div style={{ font: '500 11.5px var(--font)', color: 'var(--ink2)', marginBottom: 6 }}>Adhérence</div>
-          <div style={{ font: '600 16px/1.25 var(--font)' }}>{log?.adherence ? ADHERENCE_LABEL[log.adherence] : 'À noter'}</div>
-          <div style={{ font: '500 12px var(--font)', color: 'var(--ink2)', marginTop: 5 }}>Toucher pour noter</div>
-        </button>
+        {/* Measured habit (decision D4): the journal replaces the daily declaration. */}
+        {adherenceAsked(store) ? (
+          <button type="button" className="tile" onClick={() => openSheet('adherence')}>
+            <div style={{ font: '500 11.5px var(--font)', color: 'var(--ink2)', marginBottom: 6 }}>Adhérence</div>
+            {/* Pass 5b fixes, point 4: without a declaration, the category its journal gives today, provisional. */}
+            {log?.adherence ? (
+              <div style={{ font: '600 16px/1.25 var(--font)' }}>{ADHERENCE_LABEL[log.adherence]}</div>
+            ) : deduced ? (
+              <div style={{ font: '600 14px/1.3 var(--font)' }}>{deduced.text}</div>
+            ) : (
+              <div style={{ font: '600 16px/1.25 var(--font)' }}>À noter</div>
+            )}
+            <div style={{ font: '500 12px var(--font)', color: 'var(--ink2)', marginTop: 5 }}>{!log?.adherence && deduced ? JOURNAL_MESSAGE.deducedAdherenceHint : 'Toucher pour noter'}</div>
+          </button>
+        ) : null}
       </div>
 
       {due && store.preferences.weighInReminder ? (

@@ -5,7 +5,9 @@ import { PLAN_ERROR_TEXT } from '@/app/copy';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Mascot } from '@/components/Mascot';
 import { Range } from '@/components/controls';
-import { applySliderSteps, createSliderSession } from '@/domain/engine';
+import { alignedLockLine, applyPathSliderSteps, balanceSliderAvailable, pathSliderSession } from '@/domain/journalPath';
+import { JOURNAL_MESSAGE } from '@/domain/planMessages';
+import { personalTargetLine } from '@/domain/personalTarget';
 import { formatKcal, formatSignedKcal, formatSignedWeight, formatSteps, weightUnitLabel } from '@/domain/format';
 
 export function BalanceSheet() {
@@ -15,7 +17,8 @@ export function BalanceSheet() {
   const plan = store.plan;
   const units = store.preferences.units;
   // Heavy solve done once per opening; each position is then cached by the session.
-  const session = useMemo(() => (open && plan ? createSliderSession(store, today) : null), [open, plan?.createdAt, plan?.maintenanceKcal, today]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Pass 5b fixes, point 2: in the measured habit, the slider runs on the context of the plan of the habit (I* / h).
+  const session = useMemo(() => (open && plan && balanceSliderAvailable(store) ? pathSliderSession(store, today) : null), [open, plan?.createdAt, plan?.maintenanceKcal, today]); // eslint-disable-line react-hooks/exhaustive-deps
   const [steps, setSteps] = useState(plan?.stepTarget ?? 0);
 
   useEffect(() => {
@@ -23,11 +26,23 @@ export function BalanceSheet() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  if (open && plan && (!balanceSliderAvailable(store) || !session)) {
+    return (
+      <BottomSheet open onClose={closeSheet} title="Manger ↔ Marcher">
+        <div className="note">
+          <Mascot variant="search" width={38} />
+          <span>{alignedLockLine(store, today) ?? personalTargetLine(store) ?? JOURNAL_MESSAGE.sliderUnavailable}</span>
+        </div>
+      </BottomSheet>
+    );
+  }
   if (!open || !plan || !session) return null;
 
   const { bounds, effectiveMinSteps } = session;
   const clamped = Math.min(bounds.maxSteps, Math.max(effectiveMinSteps, steps));
   const point = session.pointAt(clamped);
+  // Displayed target: the intake to aim at / h in the measured habit (h = 1 otherwise).
+  const shownKcal = point.calorieTargetKcal / session.habit;
   const atFloor = clamped <= effectiveMinSteps && effectiveMinSteps > bounds.minSteps;
 
   let warn: string;
@@ -46,7 +61,7 @@ export function BalanceSheet() {
   }
 
   const save = () => {
-    const r = applySliderSteps(store, today, clamped);
+    const r = applyPathSliderSteps(store, today, clamped);
     if (!r.ok) {
       showToast(PLAN_ERROR_TEXT[r.reason] ?? 'Réglage impossible.');
       return;
@@ -61,7 +76,7 @@ export function BalanceSheet() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 26 }} aria-live="polite">
         <div>
           <div className="tabular" style={{ font: '600 46px/1 var(--font)', letterSpacing: '-0.045em' }}>
-            {formatKcal(point.calorieTargetKcal)}
+            {formatKcal(shownKcal)}
           </div>
           <div className="eyebrow" style={{ fontSize: 12, marginTop: 5 }}>
             kcal / jour
@@ -88,7 +103,7 @@ export function BalanceSheet() {
         zone={[bounds.recommendedMinSteps, bounds.recommendedMaxSteps]}
         onChange={setSteps}
         label="Équilibre entre calories et pas"
-        valueText={`${formatSteps(clamped)} pas, ${formatKcal(point.calorieTargetKcal)} kilocalories`}
+        valueText={`${formatSteps(clamped)} pas, ${formatKcal(shownKcal)} kilocalories`}
       />
       <div className="range-legend" style={{ marginBottom: 20 }}>
         <span>Manger moins</span>

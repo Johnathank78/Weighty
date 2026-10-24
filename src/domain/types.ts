@@ -25,8 +25,19 @@ import type {
  * Version 7 (model 1.4.0, pass 5a): plan sources 'guardrail' and 'periodic_replan'; `AppMeta.planEvents` (persistent trace
  * of guardrails, periodic replans, target migration and underweight alerts), `periodicReplanCheckedOn` and
  * `guardrailMaintenanceSince`; loss targets below the BMI-20 weight raised to it.
+ * Version 8 (model 1.5.0, pass 5b): `AppMeta.journalPath`, the journal path of the user (method in force, switch date,
+ * refusals, gate and habit of the measured habit, offer awaiting confirmation, last return to the aligned target), and the
+ * trace rules of the journal path. Loaded from schema 7 with the method 'assumed' (the target is assumed to be followed).
+ * Version 9 (model 1.6.0, fixes of pass 5b): `StoredDailyLog.adherenceSource` (who gave the declaration: the user, or the
+ * journal), plan source 'personal_target' and `CurrentPlan.personalTarget` (the target chosen by the user). The lock of the
+ * aligned target is not stored: it is the plan in force being the aligned target itself (`chosenTargetActive`). Loaded from
+ * schema 8 with every existing declaration from the user.
+ * Version 10 (model 1.7.0, second fixes of pass 5b): the personal target keeps the rate estimated at the start, signed, and
+ * whether it lies beyond the slider grid (`PersonalTarget`); the trace rules 'personal_target_set' and
+ * 'personal_target_takeover', with their `PlanEvent.personalTarget`. Loaded from schema 9: the predicted rate becomes the
+ * signed estimated rate, and the rates of the profile and of the plan are brought inside the range of the goal.
  */
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 10;
 
 /**
  * A weigh-in as this app stores it: the engine contract (`WeightEntry`, science) plus fields that are
@@ -35,6 +46,18 @@ export const SCHEMA_VERSION = 7;
 export type StoredWeight = WeightEntry & {
   /** Noted by the user on the weigh-in (C-01). Absent means not noted; only ever written when true. */
   menstruating?: boolean;
+};
+
+/**
+ * Who gave the declared adherence of a day (schema 9): 'user' (declared, or imported), 'journal' (deduced from a day logged
+ * in full, fixes of pass 5b, point 4). A declaration from the user is never replaced by the journal.
+ */
+export type AdherenceSource = 'user' | 'journal';
+export const ADHERENCE_SOURCES: readonly AdherenceSource[] = ['user', 'journal'];
+
+/** A daily log as this app stores it: the engine contract (`DailyLog`) plus the source of its declaration (schema 9). */
+export type StoredDailyLog = DailyLog & {
+  adherenceSource?: AdherenceSource;
 };
 
 export type ThemePreference = 'light' | 'dark' | 'system';
@@ -145,10 +168,11 @@ export type FoodJournal = {
 
 /**
  * Source of a plan. 'guardrail': rebuilt by a guardrail of the plan in force (BMI 20 or rate cap, pass 5a);
- * 'periodic_replan': rebuilt every 28 days from the day's state, without a new calibration (pass 5a).
+ * 'periodic_replan': rebuilt every 28 days from the day's state, without a new calibration (pass 5a); 'personal_target': the
+ * target chosen by the user (schema 9, fixes of pass 5b, point 6).
  */
-export type PlanSource = 'initial' | 'recalibrated' | 'user_adjusted_slider' | 'guardrail' | 'periodic_replan';
-export const PLAN_SOURCES: readonly PlanSource[] = ['initial', 'recalibrated', 'user_adjusted_slider', 'guardrail', 'periodic_replan'];
+export type PlanSource = 'initial' | 'recalibrated' | 'user_adjusted_slider' | 'guardrail' | 'periodic_replan' | 'personal_target';
+export const PLAN_SOURCES: readonly PlanSource[] = ['initial', 'recalibrated', 'user_adjusted_slider', 'guardrail', 'periodic_replan', 'personal_target'];
 
 export type CurrentPlan = {
   createdAt: string;
@@ -209,7 +233,27 @@ export type CurrentPlan = {
     lowCarbForResistance: boolean;
   };
   proteinRule?: string;
+  /** The target chosen by the user (schema 9, source 'personal_target'; shape of schema 10). */
+  personalTarget?: PersonalTarget;
 };
+
+/**
+ * The target chosen by the user (schema 10, second fixes of pass 5b, point 1): kcal/day, and the weekly rate the model
+ * estimates with it at the start, for display only (fraction of body weight per week, signed: negative, a loss; positive, a
+ * gain). `beyondGrid`: the target lies beyond the last notch of the slider grid ("plus de {max} %"), the rate is that notch's.
+ * The rates requested and applied of the profile and of the plan stay inside the limits of the goal and of the BMI.
+ */
+export type PersonalTarget = { kcal: number; estimatedRate: number; beyondGrid: boolean };
+
+/**
+ * How the app takes a personal target over at its first recalibration (second fixes of pass 5b, point 1c), from the rate the
+ * personal target gives on the new estimate: 'within' the limits of the goal and of the BMI (that rate, on the slider grid);
+ * 'too_fast' (the allowed rate); 'too_slow' (slower than the minimum of the goal: the minimum); 'opposite' (the wrong
+ * direction: the minimum); 'maintenance' (a maintenance goal: the maintenance plan). The same rule gives the rate of the
+ * profile when the personal target is set.
+ */
+export type PersonalTargetCase = 'within' | 'too_fast' | 'too_slow' | 'opposite' | 'maintenance';
+export const PERSONAL_TARGET_CASES: readonly PersonalTargetCase[] = ['within', 'too_fast', 'too_slow', 'opposite', 'maintenance'];
 
 /** What the trace keeps of a plan (pass 5a): enough to say what changed, without the projection. */
 export type PlanSummary = {
@@ -229,10 +273,63 @@ export type PlanSummary = {
  * - 'G1': a loss plan under BMI 20 switched to maintenance; 'G2': a loss rate above the cap of the current BMI brought to it;
  * - 'periodic_replan': the plan rebuilt 28 days after the last solve;
  * - 'target_bmi_20': a stored loss target under the BMI-20 weight raised to it (migration to schema 7);
- * - 'underweight_bmi': trend under BMI 18.5; 'underweight_decline': trend down 4 weeks running in a maintenance imposed by G1.
+ * - 'underweight_bmi': trend under BMI 18.5; 'underweight_decline': trend down 4 weeks running in a maintenance imposed by G1;
+ * - 'personal_target_set': the user set their own target (no message; schema 10);
+ * - 'personal_target_takeover': the app took the personal target over at its first recalibration, with its message (schema
+ *   10; failed: the build failed, the personal target stays, no message).
  */
-export type PlanEventRule = 'G1' | 'G2' | 'periodic_replan' | 'target_bmi_20' | 'underweight_bmi' | 'underweight_decline';
-export const PLAN_EVENT_RULES: readonly PlanEventRule[] = ['G1', 'G2', 'periodic_replan', 'target_bmi_20', 'underweight_bmi', 'underweight_decline'];
+export type PlanEventRule =
+  | 'G1'
+  | 'G2'
+  | 'periodic_replan'
+  | 'target_bmi_20'
+  | 'underweight_bmi'
+  | 'underweight_decline'
+  | 'personal_target_set'
+  | 'personal_target_takeover'
+  | JournalEventRule;
+
+/**
+ * Rules of the journal path (pass 5b):
+ * - 'journal_switch': the user aligned the target on the journal (message when the floor raised it);
+ * - 'journal_proposal_declined': the automatic proposal was refused ("Garder ma cible");
+ * - 'journal_log_more': deviations dominate but the journal is too short (invitation to log for two weeks);
+ * - 'journal_weigh_daily': on the aligned target, the encouragement to weigh in every day;
+ * - 'journal_measured_offer': a plan of the measured habit is offered for confirmation (failed: its build failed, silent);
+ * - 'journal_measured_enter': the first plan of the measured habit was confirmed; 'journal_measured_update': a later one;
+ * - 'journal_offer_declined': an offered plan of the measured habit was refused ("Plus tard");
+ * - 'journal_measured_exit': back to the aligned target (reason 'weighins' or 'logging'), with its message.
+ */
+export type JournalEventRule =
+  | 'journal_switch'
+  | 'journal_proposal_declined'
+  | 'journal_log_more'
+  | 'journal_weigh_daily'
+  | 'journal_measured_offer'
+  | 'journal_measured_enter'
+  | 'journal_measured_update'
+  | 'journal_offer_declined'
+  | 'journal_measured_exit';
+
+export const PLAN_EVENT_RULES: readonly PlanEventRule[] = [
+  'G1',
+  'G2',
+  'periodic_replan',
+  'target_bmi_20',
+  'underweight_bmi',
+  'underweight_decline',
+  'personal_target_set',
+  'personal_target_takeover',
+  'journal_switch',
+  'journal_proposal_declined',
+  'journal_log_more',
+  'journal_weigh_daily',
+  'journal_measured_offer',
+  'journal_measured_enter',
+  'journal_measured_update',
+  'journal_offer_declined',
+  'journal_measured_exit',
+];
 
 /** One entry of the persistent trace (pass 5a). `message`: the text shown, null when nothing is shown. */
 export type PlanEvent = {
@@ -248,7 +345,97 @@ export type PlanEvent = {
   message: string | null;
   /** The user closed the message (always true when there is none). */
   seen: boolean;
+  /**
+   * Rules 'personal_target_set' and 'personal_target_takeover' (schema 10): the personal target and the rate it gives
+   * (estimated at the start; read on the new estimate at the takeover), and the case the takeover retained.
+   */
+  personalTarget?: PersonalTarget & { case?: PersonalTargetCase };
 };
+
+// ---------------------------------------------------------------------------
+// Journal path (pass 5b, schema 8)
+// ---------------------------------------------------------------------------
+
+/**
+ * Method in force (pass 5b). 'assumed': "cible supposée tenue", the plan assumes the target is followed (every user until
+ * a switch). 'aligned': "cible alignée sur le journal", the target became what the journal says the user eats, then the
+ * same method with every target floored at the hard floor x 1.10. 'measured': "journal lu, habitude mesurée", the plan is
+ * built from the journal and the weigh-ins, displayed target = intake to aim at / habit h.
+ */
+export type JournalMethod = 'assumed' | 'aligned' | 'measured';
+export const JOURNAL_METHODS: readonly JournalMethod[] = ['assumed', 'aligned', 'measured'];
+
+/** Journal estimate of the measured habit: posterior median offset and intervals (relative to NASEM), kcal/day. */
+export type JournalEstimate = { offsetKcal: number; interval80: Interval; interval95: Interval };
+
+/** Habit h: logged total / total of the displayed targets, bounded; raw ratio, bound applied, days of its window. */
+export type HabitSummary = { h: number; raw: number; bound: 'low' | 'high' | null; days: number };
+
+/** Aligned target of the switch: median of the logged days, rounded, final (raised to the floor x 1.10 when needed). */
+export type AlignedTarget = { medianKcal: number; roundedKcal: number; finalKcal: number; floorKcal: number; raised: boolean };
+
+/** Last evaluation of the gate of the measured habit (weekly). `missing`: criteria not met. */
+export type JournalGateSummary = { date: string; met: boolean; missing: string[]; missedWeighIns: number; unusableDays: number };
+
+/** A plan of the measured habit awaiting the user's confirmation ('first': entry into the habit; 'update': a later one). */
+export type MeasuredOffer = {
+  kind: 'first' | 'update';
+  date: string;
+  plan: CurrentPlan;
+  estimate: JournalEstimate;
+  habit: HabitSummary;
+  /** Maintenance of the journal M (logged units) and the width of its 80 percent interval, kcal/day. */
+  maintenanceKcal: number;
+  interval80Width: number;
+  /** Intake to aim at I*, logged units (the displayed target is I* / h). */
+  intakeKcal: number;
+};
+
+export type JournalPathState = {
+  method: JournalMethod;
+  /** Day of the switch to the aligned target (kept through the measured habit and back). */
+  switchedOn: string | null;
+  alignedTarget: AlignedTarget | null;
+  /** The plan in force is still the aligned target itself (no periodic replan, guardrail G1 only). */
+  chosenTargetActive: boolean;
+  /** An automatic proposal is open since this day, until the user answers it. */
+  proposalOpenedOn: string | null;
+  proposalDeclinedOn: string | null;
+  firstPlanDeclinedOn: string | null;
+  /** Day the first plan of the measured habit was confirmed (current stay in the habit). */
+  measuredSince: string | null;
+  /** Last weekly evaluation of the journal path. */
+  lastEvaluatedOn: string | null;
+  /** Last journal estimate applied and h of the plan in force (measured habit): base of the periodic replan and guardrails. */
+  estimate: JournalEstimate | null;
+  habit: HabitSummary | null;
+  /** Surfacing reference of the measured habit: maintenance / h and 80 percent width / h of the last plan offered. */
+  surfacingReference: { tdeeKcal: number; interval80Width: number; surfacedOn: string } | null;
+  offer: MeasuredOffer | null;
+  gate: JournalGateSummary | null;
+  /** Last return to the aligned target and its reason. */
+  lastExit: { date: string; reason: 'weighins' | 'logging' } | null;
+};
+
+export function defaultJournalPath(): JournalPathState {
+  return {
+    method: 'assumed',
+    switchedOn: null,
+    alignedTarget: null,
+    chosenTargetActive: false,
+    proposalOpenedOn: null,
+    proposalDeclinedOn: null,
+    firstPlanDeclinedOn: null,
+    measuredSince: null,
+    lastEvaluatedOn: null,
+    estimate: null,
+    habit: null,
+    surfacingReference: null,
+    offer: null,
+    gate: null,
+    lastExit: null,
+  };
+}
 
 export type AppMeta = {
   /** ISO date of onboarding completion. */
@@ -269,6 +456,8 @@ export type AppMeta = {
   periodicReplanCheckedOn: string | null;
   /** Day the BMI-20 guardrail imposed the maintenance in force; null once the user chooses a goal again. */
   guardrailMaintenanceSince: string | null;
+  /** Journal path of the user (pass 5b, schema 8). */
+  journalPath: JournalPathState;
 };
 
 export type WheightyStore = {
@@ -277,7 +466,7 @@ export type WheightyStore = {
   profile: UserProfile | null;
   plan: CurrentPlan | null;
   weights: StoredWeight[];
-  dailyLogs: DailyLog[];
+  dailyLogs: StoredDailyLog[];
   calibrationSnapshots: CalibrationSnapshot[];
   /** Historical intake evidence given at onboarding (warm start), null when none (D-23). */
   historicalEvidence: HistoricalIntakeEvidence | null;
@@ -311,4 +500,5 @@ export const DEFAULT_META: AppMeta = {
   planEvents: [],
   periodicReplanCheckedOn: null,
   guardrailMaintenanceSince: null,
+  journalPath: defaultJournalPath(),
 };

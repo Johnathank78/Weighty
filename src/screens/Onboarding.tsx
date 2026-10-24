@@ -5,9 +5,11 @@ import { useWheighty } from '@/store/StoreProvider';
 import { ACTIVITY_LABEL, BODY_FAT_METHOD_LABEL, INTENSITY_LABEL, occupationLabel, ONBOARDING_SECTION_LABEL, PACE_LABEL, SCOPE_TEXT, TRACKING_QUALITY_LABEL, WARM_START_TEXT } from '@/app/copy';
 import { BottomSheet } from '@/components/BottomSheet';
 import { NumberField, OptionRows, Range, Segmented, Toggle, parseDecimal } from '@/components/controls';
+import { Mascot } from '@/components/Mascot';
 import { SpeedSlider } from '@/components/SpeedSlider';
 import { onboardingSpeedSliderModel } from '@/domain/engine';
 import type { SpeedSliderModel } from '@/domain/engine';
+import { alignedLockLine } from '@/domain/journalPath';
 import { KG_PER_LB, formatInteger, formatNumber, formatSignedWeight, formatWeight, kgToLb, lbToKg, weightUnitLabel } from '@/domain/format';
 import {
   AGE_PLACEHOLDER,
@@ -710,7 +712,10 @@ export function StepGoal({ draft, patch, errors, units, today }: StepProps & { t
 }
 
 export function StepSpeed({ draft, patch, units, today }: StepProps & { today: string }) {
+  const { store } = useWheighty();
   const goal = draft.goal;
+  // Pass 5b fixes, point 1a: editing the profile on the aligned target itself keeps its speed (same goal).
+  const lockLine = draft.mode === 'edit' && goal === store.plan?.goal ? alignedLockLine(store, today) : null;
   // The slider limit depends on the profile, activity and history answers, not on the current speed.
   const modelKey = JSON.stringify({ ...draft, step: '', weeklyRate: null });
   const model = useMemo(
@@ -722,8 +727,14 @@ export function StepSpeed({ draft, patch, units, today }: StepProps & { today: s
     <>
       <h2 className="h-flow">À quelle vitesse ?</h2>
       <p className="lead">En pourcentage de ton poids par semaine. Les limites s’adaptent à ton profil.</p>
-      {model && model.maxSelectableRate !== null ? <SpeedSlider model={model} value={Math.min(draft.weeklyRate ?? model.defaultRate, model.maxSelectableRate)} onChange={(r) => patch({ weeklyRate: r })} units={units} /> : null}
-      {model && model.maxSelectableRate === null ? (
+      {lockLine ? (
+        <div className="note">
+          <Mascot variant="search" width={36} />
+          <span>{lockLine}</span>
+        </div>
+      ) : null}
+      {!lockLine && model && model.maxSelectableRate !== null ? <SpeedSlider model={model} value={Math.min(draft.weeklyRate ?? model.defaultRate, model.maxSelectableRate)} onChange={(r) => patch({ weeklyRate: r })} units={units} /> : null}
+      {!lockLine && model && model.maxSelectableRate === null ? (
         <p className="small" style={{ margin: 0 }}>
           Aucune vitesse ne respecte les limites de sécurité pour ce profil. Le maintien reste disponible.
         </p>
