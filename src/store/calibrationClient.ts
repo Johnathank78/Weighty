@@ -4,10 +4,22 @@
  */
 import { computeCalibrationState } from '@/domain/engine';
 import type { CalibrationState } from '@/domain/engine';
+import { computePersonalTakeover } from '@/domain/personalTarget';
+import type { PersonalTakeover } from '@/domain/personalTarget';
 import type { WheightyStore } from '@/domain/types';
 
 export type CalibrationRequest = { id: number; store: WheightyStore; today: string; nowIso: string };
-export type CalibrationResponse = { id: number; ok: true; state: CalibrationState | null } | { id: number; ok: false; message: string };
+/**
+ * `takeover` (report 47, point 1c): when a personal target is in force and its first recalibration is ready, the takeover by
+ * the app, computed here next to the state (off the main thread); null otherwise.
+ */
+export type CalibrationResponse = { id: number; ok: true; state: CalibrationState | null; takeover: PersonalTakeover | null } | { id: number; ok: false; message: string };
+
+/** State of a request, and the takeover of a personal target when it is due. */
+export function calibrationAnswer(request: CalibrationRequest): { state: CalibrationState | null; takeover: PersonalTakeover | null } {
+  const state = computeCalibrationState(request.store, request.today, request.nowIso);
+  return { state, takeover: computePersonalTakeover(request.store, state, request.today, request.nowIso) };
+}
 
 export type CalibrationRunner = {
   run: (request: CalibrationRequest, onResult: (response: CalibrationResponse) => void) => void;
@@ -18,7 +30,7 @@ function synchronousRunner(): CalibrationRunner {
   return {
     run: (request, onResult) => {
       try {
-        onResult({ id: request.id, ok: true, state: computeCalibrationState(request.store, request.today, request.nowIso) });
+        onResult({ id: request.id, ok: true, ...calibrationAnswer(request) });
       } catch (error) {
         onResult({ id: request.id, ok: false, message: error instanceof Error ? error.message : String(error) });
       }

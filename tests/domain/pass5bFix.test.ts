@@ -4,7 +4,7 @@
  * short messages, personal target, small points of report 45, schema 9.
  */
 import { describe, expect, it } from 'vitest';
-import { addWeight, applyRecalibration, buildPlanFromStore, guardrailWeightKg, completeOnboarding, computeCalibrationState, ensureDailyLogs, markRecalibrationSeen, periodicReplan, rebuildContextFromStore, setAdherence } from '@/domain/engine';
+import { addWeight, applyRecalibration, buildPlanFromStore, guardrailWeightKg, completeOnboarding, computeCalibrationState, ensureDailyLogs, periodicReplan, rebuildContextFromStore, setAdherence } from '@/domain/engine';
 import { checkPersonalTarget, choosePersonalTarget, completeOnboardingWithTarget, onboardingPersonalTargetTable, personalTargetAvailable, personalTargetLine, storePersonalTargetTable } from '@/domain/personalTarget';
 import { addFoodEntry } from '@/domain/journal';
 import {
@@ -35,6 +35,7 @@ import { planEventShort, planNotices, runDailyChecks } from '@/domain/planSafety
 import { JOURNAL_MESSAGE, PERSONAL_TARGET_MESSAGE, PLAN_MESSAGE, SHORT_MESSAGE, shortRefusalReason } from '@/domain/planMessages';
 import type { ShortText } from '@/domain/planMessages';
 import type { PlanEvent, PlanSummary } from '@/domain/types';
+import { SCHEMA_VERSION } from '@/domain/types';
 import type { WheightyStore } from '@/domain/types';
 import { migrateToCurrent } from '@/persistence/migrations';
 import { emptyStore, validateStore } from '@/persistence/schema';
@@ -45,7 +46,7 @@ import { bmi } from '@/science/macros';
 import type { PlanContext } from '@/science/goals';
 import type { UserProfile } from '@/science/types';
 import { localIsoDate } from '@/science/dates';
-import { formatKcal, formatRatePercent, THIN_SPACE } from '@/domain/format';
+import { formatKcal, THIN_SPACE } from '@/domain/format';
 import { makeProfile } from '../helpers/profiles';
 import { at as atProfile, buttonProfile, eat } from '../helpers/verificationProfiles';
 
@@ -386,7 +387,8 @@ describe('point 8: versions, schema 9', () => {
     const v = validateStore(migrated.value);
     if ('error' in v) throw new Error(v.error);
     expect(v.dropped).toEqual([]);
-    expect(v.store.schemaVersion).toBe(9);
+    // Report 47: then on to schema 10 (nothing changes without a personal target).
+    expect(v.store.schemaVersion).toBe(SCHEMA_VERSION);
     expect(v.store.dailyLogs).toEqual(current.dailyLogs.map((l) => (l.adherence !== undefined ? { ...l, adherenceSource: 'user' } : l)));
     expect(v.store.dailyLogs.filter((l) => l.adherence !== undefined).every((l) => l.adherenceSource === 'user')).toBe(true);
     for (const key of ['profile', 'plan', 'weights', 'calibrationSnapshots', 'foodJournal', 'preferences', 'meta', 'historicalEvidence'] as const) expect(v.store[key]).toEqual(JSON.parse(JSON.stringify(current[key])));
@@ -399,11 +401,12 @@ describe('point 8: versions, schema 9', () => {
     const v = validateStore(JSON.parse(JSON.stringify(bad)));
     if ('error' in v) throw new Error(v.error);
     expect(v.dropped.map((d) => d.path)).toEqual(['dailyLogs.0', 'dailyLogs.1']);
-    const plan = { ...(s.plan as object), source: 'personal_target', personalTarget: { kcal: 1700, predictedRate: 0.004 } };
+    // Shape of schema 10 (report 47).
+    const plan = { ...(s.plan as object), source: 'personal_target', personalTarget: { kcal: 1700, estimatedRate: -0.004, beyondGrid: false } };
     const w = validateStore(JSON.parse(JSON.stringify({ ...s, plan })));
     if ('error' in w) throw new Error(w.error);
     expect(w.clean).toBe(true);
-    expect(w.store.plan?.personalTarget).toEqual({ kcal: 1700, predictedRate: 0.004 });
+    expect(w.store.plan?.personalTarget).toEqual({ kcal: 1700, estimatedRate: -0.004, beyondGrid: false });
   });
 });
 
@@ -466,119 +469,82 @@ describe('point 4: adherence deduced from the journal', () => {
 });
 
 describe('point 6: personal target', () => {
+  // Report 47 (second fixes, point 1) changed these rules: a target is refused only under the floor (the refusals "trop
+  // rapide" and "contredit l'objectif" are gone), the rates of the profile and of the plan stay inside the limits, no rate cap
+  // (G2) while it is in force, and "Garder ma cible" is gone (the app takes it over at its first recalibration). The new
+  // rules are tested in pass5bFix2.test.ts; what stays of report 46 is tested here.
   const tableOf = (s: WheightyStore) => {
     const t = storePersonalTargetTable(s, D0);
     if (!t) throw new Error('no table');
     return t;
   };
 
-  it('refused under the floor, with the minimum; refused beyond the speed allowed, with the limit (accepted)', () => {
+  it('refused under the floor, with the minimum; faster than allowed: accepted since report 47', () => {
     const s = onboard();
     const t = tableOf(s);
     expect(t.floorKcal).toBe(1200);
     expect(checkPersonalTarget(t, 1150)).toMatchObject({ ok: false, reason: 'below_floor', text: `Ton minimum est de 1${THIN_SPACE}200 kcal par jour.` });
-    // At 75 kg the floor itself is faster than 1 % a week: refused as too fast, the proposed limit is above the floor.
-    expect(checkPersonalTarget(t, 1200)).toMatchObject({ ok: false, reason: 'too_fast' });
-    // 75 kg, 165 cm (BMI 27.5): loss allowed up to 1 % a week. A target lower than the one of 1 % is too fast.
     const fastest = calorieTargetForRate(rebuildContextFromStore(s, D0) as PlanContext, 'loss', 0.01, 7000) as number;
     expect(fastest).toBeGreaterThan(1200);
-    const r = checkPersonalTarget(t, fastest - 30);
-    expect(r).toMatchObject({ ok: false, reason: 'too_fast' });
-    if (r.ok) throw new Error('accepted');
-    expect(r.text).toBe(`Trop rapide pour ton IMC : au moins ${formatKcal(r.limitKcal as number)} kcal par jour.`);
-    expect(checkPersonalTarget(t, r.limitKcal as number).ok).toBe(true);
-    // Under BMI 25 the cap is 0.5 % a week: the limit follows the BMI.
-    const lighter = onboard(makeProfile({ sexForEquation: 'female', ageYears: 35, heightCm: 165, currentWeightKg: 66, goal: 'loss', targetWeightKg: 60, weeklyRateTarget: 0.004 }));
-    const lt = tableOf(lighter);
-    const at05 = calorieTargetForRate(rebuildContextFromStore(lighter, D0) as PlanContext, 'loss', 0.005, 7000) as number;
-    expect(checkPersonalTarget(lt, at05 - 20)).toMatchObject({ ok: false, reason: 'too_fast' });
+    expect(checkPersonalTarget(t, fastest - 30)).toMatchObject({ ok: true, case: 'too_fast', goalRate: 0.01 });
   });
 
-  it('a target against the goal: said, with the way out', () => {
+  it('a target against the goal: accepted since report 47, with its line', () => {
     const t = tableOf(onboard());
-    expect(checkPersonalTarget(t, 3200)).toEqual({ ok: false, reason: 'contradicts', text: 'Avec cette cible, tu prendrais du poids : change ta cible ou ton objectif.' });
-    const gain = tableOf(onboard(makeProfile({ sexForEquation: 'male', heightCm: 180, currentWeightKg: 70, goal: 'gain', targetWeightKg: 76, weeklyRateTarget: 0.0025 })));
-    expect(checkPersonalTarget(gain, 1900)).toEqual({ ok: false, reason: 'contradicts', text: 'Avec cette cible, tu perdrais du poids : change ta cible ou ton objectif.' });
+    expect(checkPersonalTarget(t, 3200)).toMatchObject({ ok: true, case: 'opposite', text: 'Au départ, l’app estime que tu prendrais du poids avec cette cible. Tes pesées diront la vraie.' });
     const maint = tableOf(onboard(makeProfile({ goal: 'maintenance' })));
     expect(maint.sides).toHaveLength(2);
-    expect(checkPersonalTarget(maint, 1300)).toMatchObject({ ok: false, reason: 'contradicts' });
-    expect(checkPersonalTarget(maint, 3500)).toMatchObject({ ok: false, reason: 'contradicts' });
     const zero = maint.sides[0]?.notches[0]?.kcal as number;
-    expect(checkPersonalTarget(maint, zero)).toMatchObject({ ok: true, predictedRate: 0 });
+    expect(checkPersonalTarget(maint, zero)).toMatchObject({ ok: true, goalRate: 0, target: { estimatedRate: 0 } });
   });
 
-  it('predicted speed: the correspondence of the speed slider read the other way, interpolated between two notches', () => {
+  it('estimated speed: the correspondence of the speed slider read the other way, interpolated between two notches', () => {
     const s = onboard();
     const t = tableOf(s);
     const notches = t.sides[0]?.notches as Array<{ rate: number; kcal: number }>;
-    // On a notch: its rate; the slider's own target for a rate gives that rate back.
-    for (const n of notches.slice(1, 6)) expect((checkPersonalTarget(t, n.kcal) as { predictedRate: number }).predictedRate).toBeCloseTo(n.rate, 12);
+    const rateOf = (kcal: number) => {
+      const r = checkPersonalTarget(t, kcal);
+      if (!r.ok) throw new Error(r.reason);
+      return -r.target.estimatedRate;
+    };
+    for (const n of notches.slice(1, 6)) expect(rateOf(n.kcal)).toBeCloseTo(n.rate, 12);
     const built = buildPlanFromStore({ ...s, profile: { ...(s.profile as UserProfile), weeklyRateTarget: 0.0065 } }, D0, { source: 'initial' });
     if (!built.ok) throw new Error(built.reason);
-    expect((checkPersonalTarget(t, built.plan.calorieTarget) as { predictedRate: number }).predictedRate).toBeCloseTo(0.0065, 6);
-    // Between two notches: linear.
+    expect(rateOf(built.plan.calorieTarget)).toBeCloseTo(0.0065, 6);
     const a = notches[4] as { rate: number; kcal: number };
     const b = notches[5] as { rate: number; kcal: number };
-    const mid = checkPersonalTarget(t, (a.kcal + b.kcal) / 2);
-    expect(mid).toMatchObject({ ok: true });
-    expect((mid as { predictedRate: number }).predictedRate).toBeCloseTo((a.rate + b.rate) / 2, 9);
-    expect((mid as { text: string }).text).toMatch(/^Avec .* kcal, vitesse prévue : .* par semaine\.$/);
+    expect(rateOf((a.kcal + b.kcal) / 2)).toBeCloseTo((a.rate + b.rate) / 2, 9);
+    expect((checkPersonalTarget(t, (a.kcal + b.kcal) / 2) as { text: string }).text).toMatch(/^Vitesse estimée au départ : .* par semaine\. Tes pesées diront la vraie\.$/);
   });
 
-  it('the plan in force is the chosen target, own source, the predicted speed requested; method unchanged; no periodic replan; no slider', () => {
+  it('the plan in force is the chosen target, own source, a rate inside the limits requested; method unchanged; no periodic replan; no slider', () => {
     const s = live(onboard(), 0, 10, (i) => ({ kg: 75 - 0.05 * i, adherence: 'on_plan' }));
     const r = choosePersonalTarget(s, day(10), 1650);
     if (!r.ok) throw new Error(r.reason);
     const plan = r.store.plan as NonNullable<WheightyStore['plan']>;
-    const check = checkPersonalTarget(storePersonalTargetTable(s, day(10)) as never, 1650) as { predictedRate: number };
-    expect(plan).toMatchObject({ source: 'personal_target', calorieTarget: 1650, weeklyRateTarget: check.predictedRate, requestedWeeklyRate: check.predictedRate, personalTarget: { kcal: 1650, predictedRate: check.predictedRate } });
-    expect(r.store.profile?.weeklyRateTarget).toBe(check.predictedRate);
+    const check = checkPersonalTarget(storePersonalTargetTable(s, day(10)) as never, 1650);
+    if (!check.ok) throw new Error(check.reason);
+    expect(plan).toMatchObject({ source: 'personal_target', calorieTarget: 1650, weeklyRateTarget: check.goalRate, requestedWeeklyRate: check.goalRate, personalTarget: check.target });
+    expect(r.store.profile?.weeklyRateTarget).toBe(check.goalRate);
     expect(r.store.meta.journalPath.method).toBe('assumed');
     expect(r.store.dailyLogs.find((l) => l.date === day(10))?.calorieTargetForDay).toBe(1650);
-    expect(personalTargetLine(r.store)).toBe(`Ta cible personnelle : 1${THIN_SPACE}650 kcal par jour. Vitesse prévue : ${formatRatePercent(check.predictedRate)} par semaine.`);
+    expect(personalTargetLine(r.store)).toBe(`Ta cible personnelle : 1${THIN_SPACE}650 kcal par jour. L’app l’ajustera à ta première recalibration.`);
     expect(periodicReplan(r.store, day(60), { nowIso: at(day(60)) }).status).toBe('not_due');
     expect(runDailyChecks(r.store, day(60), at(day(60))).plan?.calorieTarget).toBe(1650);
     expect(balanceSliderAvailable(r.store)).toBe(false);
     expect(applyPathSliderSteps(r.store, day(10), 9000)).toEqual({ ok: false, reason: 'personal_target' });
-    // Only on the target assumed to be followed.
     expect(personalTargetAvailable(aligned(16))).toBe(false);
     expect(choosePersonalTarget(aligned(16), day(16), 1650)).toMatchObject({ ok: false, reason: 'journal_path' });
   });
 
-  it('the guardrails apply as for everyone (rate cap of the BMI, BMI 20)', () => {
-    const s = onboard();
-    const r = choosePersonalTarget(s, D0, 1450);
+  it('BMI 20 applies as for everyone (the rate cap no longer does, report 47)', () => {
+    const r = choosePersonalTarget(onboard(), D0, 1450);
     if (!r.ok) throw new Error(r.reason);
-    expect(r.store.plan?.weeklyRateTarget).toBeGreaterThan(0.005);
-    // Under BMI 25 the cap becomes 0.5 % a week: G2 rebuilds the plan, the personal target ends.
-    // (The guardrails read the trend weight, which follows the weigh-ins with a lag.)
-    const lighter = live(r.store, 1, 25, () => ({ kg: 63 }));
-    expect(bmi(guardrailWeightKg(lighter) as number, 165)).toBeLessThan(25);
-    const g2 = runDailyChecks(lighter, day(25), at(day(25)));
-    expect(g2.plan?.source).toBe('guardrail');
-    expect(g2.meta.planEvents.some((e) => e.rule === 'G2' && e.status === 'applied')).toBe(true);
-    // Under BMI 20: maintenance.
     const thin = live(r.store, 1, 25, () => ({ kg: 50 }));
     expect(bmi(guardrailWeightKg(thin) as number, 165)).toBeLessThan(20);
     const g1 = runDailyChecks(thin, day(25), at(day(25)));
     expect(g1.plan?.goal).toBe('maintenance');
     expect(g1.meta.planEvents.some((e) => e.rule === 'G1' && e.status === 'applied')).toBe(true);
-  });
-
-  it('a recalibration is offered as usual; "Garder ma cible" changes nothing', () => {
-    const s = onboard();
-    const r = choosePersonalTarget(s, D0, 1700);
-    if (!r.ok) throw new Error(r.reason);
-    // Weighs in every day, losing faster than predicted.
-    const later = live(r.store, 1, 21, (i) => ({ kg: 75 - 0.12 * i, adherence: 'on_plan' }));
-    const state = computeCalibrationState(later, day(21), at(day(21)));
-    expect(state?.surfaced).toBe(true);
-    // Seen (the screen marks it), then kept: the plan stays the chosen target.
-    const kept = markRecalibrationSeen(later, state as NonNullable<typeof state>, day(21));
-    expect(kept.plan).toBe(later.plan);
-    expect(kept.plan?.source).toBe('personal_target');
-    expect(computeCalibrationState(kept, day(21), at(day(21)))?.surfaced).toBe(false);
-    expect(PERSONAL_TARGET_MESSAGE.keep).toBe('Garder ma cible');
   });
 
   it('at the onboarding: "J’ai déjà ma cible", checked on the first plan, applied with the onboarding', () => {
@@ -587,9 +553,10 @@ describe('point 6: personal target', () => {
     expect(checkPersonalTarget(t, 1100)).toMatchObject({ ok: false, reason: 'below_floor' });
     const r = completeOnboardingWithTarget(emptyStore(), LOSS, D0, at(D0), null, 1700);
     if (!r.ok) throw new Error(r.reason);
-    const check = checkPersonalTarget(t, 1700) as { predictedRate: number };
-    expect(r.store.plan).toMatchObject({ source: 'personal_target', calorieTarget: 1700, requestedWeeklyRate: check.predictedRate });
-    expect(r.store.profile?.weeklyRateTarget).toBe(check.predictedRate);
+    const check = checkPersonalTarget(t, 1700);
+    if (!check.ok) throw new Error(check.reason);
+    expect(r.store.plan).toMatchObject({ source: 'personal_target', calorieTarget: 1700, requestedWeeklyRate: check.goalRate });
+    expect(r.store.profile?.weeklyRateTarget).toBe(check.goalRate);
     expect(r.store.dailyLogs.find((l) => l.date === D0)?.calorieTargetForDay).toBe(1700);
     expect(r.store.meta.onboardingDate).toBe(D0);
     expect(completeOnboardingWithTarget(emptyStore(), LOSS, D0, at(D0), null, 1100)).toMatchObject({ ok: false, reason: 'below_floor', text: `Ton minimum est de 1${THIN_SPACE}200 kcal par jour.` });

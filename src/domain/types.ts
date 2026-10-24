@@ -229,12 +229,27 @@ export type CurrentPlan = {
     lowCarbForResistance: boolean;
   };
   proteinRule?: string;
-  /**
-   * The target chosen by the user (schema 9, source 'personal_target'): kcal/day, and the weekly rate the model predicts with
-   * it (fraction of body weight per week; signed for a maintenance goal: negative, a loss).
-   */
-  personalTarget?: { kcal: number; predictedRate: number };
+  /** The target chosen by the user (schema 9, source 'personal_target'; shape of schema 10). */
+  personalTarget?: PersonalTarget;
 };
+
+/**
+ * The target chosen by the user (schema 10, second fixes of pass 5b, point 1): kcal/day, and the weekly rate the model
+ * estimates with it at the start, for display only (fraction of body weight per week, signed: negative, a loss; positive, a
+ * gain). `beyondGrid`: the target lies beyond the last notch of the slider grid ("plus de {max} %"), the rate is that notch's.
+ * The rates requested and applied of the profile and of the plan stay inside the limits of the goal and of the BMI.
+ */
+export type PersonalTarget = { kcal: number; estimatedRate: number; beyondGrid: boolean };
+
+/**
+ * How the app takes a personal target over at its first recalibration (second fixes of pass 5b, point 1c), from the rate the
+ * personal target gives on the new estimate: 'within' the limits of the goal and of the BMI (that rate, on the slider grid);
+ * 'too_fast' (the allowed rate); 'too_slow' (slower than the minimum of the goal: the minimum); 'opposite' (the wrong
+ * direction: the minimum); 'maintenance' (a maintenance goal: the maintenance plan). The same rule gives the rate of the
+ * profile when the personal target is set.
+ */
+export type PersonalTargetCase = 'within' | 'too_fast' | 'too_slow' | 'opposite' | 'maintenance';
+export const PERSONAL_TARGET_CASES: readonly PersonalTargetCase[] = ['within', 'too_fast', 'too_slow', 'opposite', 'maintenance'];
 
 /** What the trace keeps of a plan (pass 5a): enough to say what changed, without the projection. */
 export type PlanSummary = {
@@ -254,7 +269,10 @@ export type PlanSummary = {
  * - 'G1': a loss plan under BMI 20 switched to maintenance; 'G2': a loss rate above the cap of the current BMI brought to it;
  * - 'periodic_replan': the plan rebuilt 28 days after the last solve;
  * - 'target_bmi_20': a stored loss target under the BMI-20 weight raised to it (migration to schema 7);
- * - 'underweight_bmi': trend under BMI 18.5; 'underweight_decline': trend down 4 weeks running in a maintenance imposed by G1.
+ * - 'underweight_bmi': trend under BMI 18.5; 'underweight_decline': trend down 4 weeks running in a maintenance imposed by G1;
+ * - 'personal_target_set': the user set their own target (no message; schema 10);
+ * - 'personal_target_takeover': the app took the personal target over at its first recalibration, with its message (schema
+ *   10; failed: the build failed, the personal target stays, no message).
  */
 export type PlanEventRule =
   | 'G1'
@@ -263,6 +281,8 @@ export type PlanEventRule =
   | 'target_bmi_20'
   | 'underweight_bmi'
   | 'underweight_decline'
+  | 'personal_target_set'
+  | 'personal_target_takeover'
   | JournalEventRule;
 
 /**
@@ -294,6 +314,8 @@ export const PLAN_EVENT_RULES: readonly PlanEventRule[] = [
   'target_bmi_20',
   'underweight_bmi',
   'underweight_decline',
+  'personal_target_set',
+  'personal_target_takeover',
   'journal_switch',
   'journal_proposal_declined',
   'journal_log_more',
@@ -319,6 +341,11 @@ export type PlanEvent = {
   message: string | null;
   /** The user closed the message (always true when there is none). */
   seen: boolean;
+  /**
+   * Rules 'personal_target_set' and 'personal_target_takeover' (schema 10): the personal target and the rate it gives
+   * (estimated at the start; read on the new estimate at the takeover), and the case the takeover retained.
+   */
+  personalTarget?: PersonalTarget & { case?: PersonalTargetCase };
 };
 
 // ---------------------------------------------------------------------------

@@ -336,7 +336,8 @@ export function analysisView(store: WheightyStore, state: CalibrationState | nul
     interval80: state?.currentInterval80 ?? plan.maintenanceInterval80,
     interval95: state?.currentInterval95 ?? plan.maintenanceInterval95,
     confidence: state?.confidence ?? latestAppliedSnapshot(store)?.confidence ?? 'low',
-    surfaced: state?.surfaced ?? false,
+    // A personal target is taken over by the app at its first recalibration, without a screen (report 47, point 1d).
+    surfaced: (state?.surfaced ?? false) && plan.source !== 'personal_target',
     weighInCount: state?.gate.weighInCount ?? store.weights.length,
     appliedCalibrations: appliedWeightCalibrations(store),
     posteriorSdKcal: state?.fit?.posterior.sdKcal ?? null,

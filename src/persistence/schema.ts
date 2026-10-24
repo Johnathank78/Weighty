@@ -6,7 +6,7 @@ import { isIsoDate } from '@/science/dates';
 import { SCIENTIFIC_MODEL_VERSION } from '@/science/constants';
 import type { CalibrationSnapshot, HistoricalIntakeEvidence, StructuredActivity, UserProfile } from '@/science/types';
 import type { AppMeta, CurrentPlan, FoodEntry, FoodJournal, FoodNutrients, JournalPathState, LibraryFood, PersonalPortion, PlanEvent, PlanSummary, Preferences, StoredDailyLog, StoredWeight, WheightyStore } from '@/domain/types';
-import { ADHERENCE_SOURCES, DEFAULT_META, DEFAULT_PREFERENCES, defaultJournalPath, emptyFoodJournal, JOURNAL_METHODS, PLAN_EVENT_RULES, PLAN_SOURCES, SCHEMA_VERSION } from '@/domain/types';
+import { ADHERENCE_SOURCES, DEFAULT_META, DEFAULT_PREFERENCES, defaultJournalPath, emptyFoodJournal, JOURNAL_METHODS, PERSONAL_TARGET_CASES, PLAN_EVENT_RULES, PLAN_SOURCES, SCHEMA_VERSION } from '@/domain/types';
 
 type Obj = Record<string, unknown>;
 
@@ -139,7 +139,7 @@ export function isCurrentPlan(v: unknown): v is CurrentPlan {
     isStr(v.scientificModelVersion) &&
     (v.macrosDisplay === undefined || isMacroGrams(v.macrosDisplay)) &&
     (v.requestedWeeklyRate === undefined || isNum(v.requestedWeeklyRate)) &&
-    (v.personalTarget === undefined || (isObject(v.personalTarget) && isNum(v.personalTarget.kcal) && isNum(v.personalTarget.predictedRate)))
+    (v.personalTarget === undefined || isPersonalTarget(v.personalTarget))
   );
 }
 
@@ -239,6 +239,11 @@ export function isPlanSummary(v: unknown): v is PlanSummary {
   );
 }
 
+/** The personal target of a plan (schema 10): kcal/day, signed rate estimated at the start, beyond the slider grid or not. */
+function isPersonalTarget(v: unknown): boolean {
+  return isObject(v) && isNum(v.kcal) && isNum(v.estimatedRate) && isBool(v.beyondGrid);
+}
+
 /** One entry of the persistent trace of pass 5a (`AppMeta.planEvents`). */
 export function isPlanEvent(v: unknown): v is PlanEvent {
   return (
@@ -252,7 +257,8 @@ export function isPlanEvent(v: unknown): v is PlanEvent {
     (v.before === null || isPlanSummary(v.before)) &&
     (v.after === null || isPlanSummary(v.after)) &&
     (v.message === null || isStr(v.message)) &&
-    isBool(v.seen)
+    isBool(v.seen) &&
+    (v.personalTarget === undefined || (isPersonalTarget(v.personalTarget) && isObject(v.personalTarget) && (v.personalTarget.case === undefined || oneOf(v.personalTarget.case, PERSONAL_TARGET_CASES))))
   );
 }
 

@@ -80,6 +80,7 @@ import { intakeObservationsFrom } from './intakeObservations';
 import type { UsabilityRule } from './intakeObservations';
 import { evaluateJournalGate, journalCalibrationInputFromStore } from './journalCalibration';
 import type { JournalCalibrationInput, JournalRegimeOptions } from './journalCalibration';
+import { updateProfileKeepingPersonalTarget } from './personalTarget';
 import { JOURNAL_MESSAGE, PLAN_MESSAGE, SHORT_MESSAGE } from './planMessages';
 import type { ShortText } from './planMessages';
 import type { AlignedTarget, CurrentPlan, HabitSummary, JournalEstimate, JournalGateSummary, JournalPathState, MeasuredOffer, WheightyStore } from './types';
@@ -885,8 +886,13 @@ export function changeGoalOnPath(store: WheightyStore, today: string, input: { g
   return r.ok ? { ok: true, store: { ...r.store, meta: { ...r.store.meta, guardrailMaintenanceSince: null } } } : r;
 }
 
-/** Profile change on the journal path (same rules as `changeGoalOnPath`, the aligned target lock included). */
+/**
+ * Profile change on the journal path (same rules as `changeGoalOnPath`, the aligned target lock included). A personal target
+ * in force is kept when neither the goal nor the rate changes (report 47, point 1e).
+ */
 export function updateProfileOnPath(store: WheightyStore, today: string, profile: UserProfile): ChangeResult {
+  const kept = updateProfileKeepingPersonalTarget(store, today, profile);
+  if (kept) return kept;
   if (alignedTargetLocked(store) && store.profile && store.plan && profile.goal === store.plan.goal) {
     const r = updateProfile(store, today, { ...profile, weeklyRateTarget: store.profile.weeklyRateTarget });
     return r.ok ? { ok: true, store: keepAlignedTarget(store, r.store, today) } : r;

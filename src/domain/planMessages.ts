@@ -89,6 +89,17 @@ export const SHORT_MESSAGE = {
   updatePlan: (beforeKcal: number, afterKcal: number): ShortText => ({ title: 'Plan à ajuster', line: `${formatKcal(beforeKcal)} → ${formatKcal(afterKcal)} kcal par jour.` }),
   exitWeighIns: { title: 'Retour à ta cible alignée', line: 'Trop de pesées manquées ces dernières semaines.' } as ShortText,
   exitLogging: { title: 'Retour à ta cible alignée', line: 'Trop de journées non saisies ces dernières semaines.' } as ShortText,
+  /** Second fixes of pass 5b, point 1c (annex): the takeover of the personal target, by case; `rate`: the rate applied. */
+  takeoverWithin: (kcal: number, goal: Goal, rate: number): ShortText => ({
+    title: 'Ta cible, recalibrée',
+    line: `À ${formatKcal(kcal)} kcal, tu ${goal === 'gain' ? 'prends' : 'perds'} ${perWeek(rate)}. On garde ce rythme.`,
+  }),
+  takeoverTooFast: (before: number, after: number, rate: number): ShortText => ({ title: 'Vitesse ajustée', line: `${formatKcal(before)} → ${formatKcal(after)} kcal : ${perWeek(rate)}, le maximum pour toi.` }),
+  takeoverTooSlow: (before: number, after: number, goal: Goal, rate: number): ShortText => ({
+    title: 'Cible ajustée',
+    line: `${formatKcal(before)} → ${formatKcal(after)} kcal, pour ${goal === 'gain' ? 'prendre' : 'perdre'} ${perWeek(rate)}.`,
+  }),
+  takeoverMaintenance: (before: number, after: number): ShortText => ({ title: 'Cible ajustée', line: `${formatKcal(before)} → ${formatKcal(after)} kcal par jour, pour garder ton poids stable.` }),
 } as const;
 
 /** Relative gap of the habit h to the target, rounded percent, and its direction. */
@@ -161,20 +172,25 @@ export const JOURNAL_MESSAGE = {
       : 'Ta cible suit ce que tu manges. Vitesse modifiable après la première recalibration.',
 } as const;
 
-/** Personal target (fixes of pass 5b, point 6, annex). Never use the em dash character in this file. */
+/**
+ * Personal target (fixes of pass 5b, point 6; second fixes, point 1: a starting point, refused only under the floor, taken
+ * over by the app at its first recalibration). Annex texts. Never use the em dash character in this file.
+ */
 export const PERSONAL_TARGET_MESSAGE = {
   action: 'J’ai déjà ma cible',
   planAction: 'Choisir ma cible',
   field: 'Ma cible, en kcal par jour',
-  /** The rate is shown without sign (a maintenance target between the first notches of loss and gain). */
-  predicted: (kcal: number, rate: number) => `Avec ${formatKcal(kcal)} kcal, vitesse prévue : ${formatRatePercent(Math.abs(rate))} par semaine.`,
+  /** Rate estimated at the start, in the direction of the goal (shown without sign). */
+  estimated: (rate: number) => `Vitesse estimée au départ : ${formatRatePercent(Math.abs(rate))} par semaine. Tes pesées diront la vraie.`,
+  /** Beyond the last notch of the slider grid. */
+  beyondGrid: (maxRate: number) => `Vitesse estimée au départ : plus de ${formatRatePercent(maxRate)} par semaine. Tes pesées diront la vraie.`,
+  /** The target goes the other way than the goal (or away from a stable weight). */
+  opposite: (direction: 'gain' | 'loss') => `Au départ, l’app estime que tu ${direction === 'gain' ? 'prendrais' : 'perdrais'} du poids avec cette cible. Tes pesées diront la vraie.`,
   belowFloor: (floorKcal: number) => `Ton minimum est de ${formatKcal(floorKcal)} kcal par jour.`,
-  tooFastLoss: (minKcal: number) => `Trop rapide pour ton IMC : au moins ${formatKcal(minKcal)} kcal par jour.`,
-  /** No annex text for a gain: its cap is the product maximum, not the BMI. */
-  tooFastGain: (maxKcal: number) => `Trop rapide : au plus ${formatKcal(maxKcal)} kcal par jour.`,
-  contradicts: (direction: 'gain' | 'loss') => `Avec cette cible, tu ${direction === 'gain' ? 'prendrais' : 'perdrais'} du poids : change ta cible ou ton objectif.`,
-  inPlan: (kcal: number, rate: number) => `Ta cible personnelle : ${formatKcal(kcal)} kcal par jour. Vitesse prévue : ${formatRatePercent(Math.abs(rate))} par semaine.`,
-  keep: 'Garder ma cible',
+  inPlan: (kcal: number) => `Ta cible personnelle : ${formatKcal(kcal)} kcal par jour. L’app l’ajustera à ta première recalibration.`,
+  /** Long text of the takeover, behind "Détails": the new maintenance and the one of the start. */
+  takeoverDetails: (maintenanceKcal: number, startKcal: number) =>
+    `Tes pesées montrent un maintien d’environ ${formatKcal(maintenanceKcal)} kcal par jour (estimation de départ : ${formatKcal(startKcal)}). À partir de maintenant, l’app ajuste ta cible pour tenir ce rythme.`,
   apply: 'Appliquer ma cible',
   applied: 'Ta cible est appliquée.',
   /** Onboarding: back to the target computed by the app. */

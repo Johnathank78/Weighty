@@ -6,6 +6,7 @@ import { ensureDailyLogs } from '@/domain/engine';
 import { runDailyChecks } from '@/domain/planSafety';
 import type { CalibrationState } from '@/domain/engine';
 import { calibrationFingerprint, createCalibrationRunner } from './calibrationClient';
+import { applyPersonalTakeover } from '@/domain/personalTarget';
 import { applyJournalWeek, journalWeekDue } from '@/domain/journalPath';
 import { createJournalWeekRunner } from './journalClient';
 import type { JournalWeekRunner } from './journalClient';
@@ -109,11 +110,19 @@ export function StoreProvider({ children, storage: injected }: { children: React
     const timer = window.setTimeout(() => {
       // The food journal never reaches the engine (J-01): it is removed before the store is sent.
       const engineStore = { ...latestStore.current, foodJournal: emptyFoodJournal() };
-      runner.current?.run({ id, store: engineStore, today, nowIso: new Date().toISOString() }, (response) => {
+      const nowIso = new Date().toISOString();
+      runner.current?.run({ id, store: engineStore, today, nowIso }, (response) => {
         // Answers to an older store are ignored: only the latest request may update the state.
         if (response.id !== requestId.current) return;
-        if (response.ok) setCalibration({ key: calibrationKey, state: response.state });
-        else console.error('Calibration failed:', response.message);
+        if (!response.ok) {
+          console.error('Calibration failed:', response.message);
+          return;
+        }
+        setCalibration({ key: calibrationKey, state: response.state });
+        // Report 47, point 1c: the first recalibration of a personal target is applied without any action of the user, on the
+        // store it was computed for (any change since then computes it again).
+        const takeover = response.takeover;
+        if (takeover) setStore((s) => (calibrationFingerprint(s, today) === calibrationKey ? applyPersonalTakeover(s, takeover, today, nowIso) : s));
       });
     }, CALIBRATION_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);

@@ -16,11 +16,12 @@ function kcalOf(text: string): number | null {
 /**
  * The user's own target (fixes of pass 5b, point 6). On the first plan of the onboarding ("J'ai déjà ma cible"), checked on
  * the context of that plan and kept in the draft until "C'est parti"; in the Plan tab ("Choisir ma cible"), checked on the
- * context of the store and applied at once. As the user types: the predicted speed, or why the target is refused.
+ * context of the store and applied at once. As the user types: the speed estimated at the start, or the minimum (report 47,
+ * point 1a: refused only under the floor).
  */
 export function PersonalTargetSheet() {
   const { sheet, closeSheet, showToast, draft, setDraft } = useNav();
-  const { store, commit, today } = useWheighty();
+  const { store, commit, today, nowIso } = useWheighty();
   const open = sheet === 'personalTarget';
   const onboarding = store.plan === null;
   const units = store.preferences.units;
@@ -53,7 +54,7 @@ export function PersonalTargetSheet() {
       closeSheet();
       return;
     }
-    const r = choosePersonalTarget(store, today, check.kcal);
+    const r = choosePersonalTarget(store, today, check.kcal, nowIso());
     if (!r.ok) {
       showToast(r.text ?? 'Cible impossible.');
       return;

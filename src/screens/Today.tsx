@@ -29,8 +29,9 @@ export function TodayScreen() {
   const journal = journalDay(store, today);
   // Same neutral gauge as the journal: logged kcal against today's target, never read by the engine.
   const kcalGauge = intakeGauge(journal.intakeLoggedKcal, log?.calorieTargetForDay ?? plan.calorieTarget);
-  // A result computed for an older store never announces a recalibration.
-  const recalibrationReady = calibration?.surfaced === true && !calibrationPending;
+  // A result computed for an older store never announces a recalibration; nor a personal target, which the app takes over
+  // by itself at its first recalibration (report 47, point 1d).
+  const recalibrationReady = calibration?.surfaced === true && !calibrationPending && plan.source !== 'personal_target';
 
   const alignedLine = alignedStatusLine(store, today);
   const deduced = log?.adherence ? null : suggestedAdherence(store, today);

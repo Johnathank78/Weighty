@@ -357,8 +357,8 @@ describe('G. messages of pass 5a', () => {
     expect(notices.map((n) => n.kind)).toEqual(['underweight', 'guardrail', 'guardrail', 'bmi20_warning', 'target_migration', 'periodic_replan']);
     // Within a kind, the trace order.
     expect(notices.map((n) => n.eventId)).toEqual(['u', 'g2', 'g1', null, 't', 'p']);
-    // Pass 5b adds the messages of the journal path, before the periodic replan.
-    expect(PLAN_NOTICE_ORDER).toEqual(['underweight', 'guardrail', 'bmi20_warning', 'target_migration', 'journal', 'periodic_replan']);
+    // Pass 5b adds the messages of the journal path, then report 47 the takeover of a personal target, before the periodic replan.
+    expect(PLAN_NOTICE_ORDER).toEqual(['underweight', 'guardrail', 'bmi20_warning', 'target_migration', 'journal', 'personal_target', 'periodic_replan']);
     expect(PLAN_NOTICES_VISIBLE).toBe(2);
     expect(PLAN_NOTICE_TEXT.more(notices.length - PLAN_NOTICES_VISIBLE)).toBe('Voir les autres messages (4)');
     // Same tones as pass 5a: the underweight alert and G1 stand out.

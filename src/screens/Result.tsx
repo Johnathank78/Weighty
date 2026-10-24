@@ -83,7 +83,7 @@ export function ResultScreen() {
   const { goalPlan } = preview;
   const onPath = pathPreview?.ok ? pathPreview.store : null;
   // The personal target shown with its own macros, as it will be applied (fixes of pass 5b, point 6).
-  const plan = onPath?.plan ?? (personal?.ok && preview.context ? withPersonalTarget(preview.plan, preview.context, profile.goal, profile.targetWeightKg, personal.kcal, personal.predictedRate) : preview.plan);
+  const plan = onPath?.plan ?? (personal?.ok && preview.context ? withPersonalTarget(preview.plan, preview.context, profile.goal, profile.targetWeightKg, personal.target, personal.goalRate) : preview.plan);
   const macros = displayMacros(plan);
   const warm = warmStartView(preview.warmStart);
 

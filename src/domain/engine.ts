@@ -1070,6 +1070,8 @@ export function switchToMaintenance(
  * - G2: otherwise, a loss plan whose `weeklyRateTarget` exceeds `guardrailMaxWeeklyRate('loss', BMI)` is rebuilt with the
  *   rules of a recalculation (`buildPlanFromStore`: requested rate of the profile capped, floors, macro feasibility), with
  *   the step target of the plan in force.
+ * G2 does not apply while the plan in force is a target chosen by the user: the aligned target itself (report 40 s3.10) or a
+ * personal target (report 47, point 1b), whose rate is an estimate, not a request.
  * Both use the production solver from the latest applied calibration snapshot (the population estimate before any), are
  * applied without confirmation (source 'guardrail'), and leave a trace entry with the message shown. A maintenance or gain
  * plan, or a loss plan within both rules, comes back unchanged (same object).
@@ -1096,8 +1098,9 @@ export function enforcePlanGuardrails(store: WheightyStore, today: string, optio
     const next = recordPlanEvent(r.store, { date: today, rule: 'G1', status: 'applied', before: planSummary(plan), after: planSummary(after), message: PLAN_MESSAGE.guardrailBmi20 }, nowIso);
     return { status: 'applied', rule: 'G1', bmi: currentBmi, store: next };
   }
-  // Journal path (report 40 s3.10): on the aligned target itself (chosen by the user, not prescribed), G1 only.
-  if (store.meta.journalPath.chosenTargetActive) return { status: 'none', bmi: currentBmi, store };
+  // Journal path (report 40 s3.10): on the aligned target itself (chosen by the user, not prescribed), G1 only; the same on a
+  // personal target (report 47, point 1b).
+  if (store.meta.journalPath.chosenTargetActive || plan.source === 'personal_target') return { status: 'none', bmi: currentBmi, store };
   const cap = guardrailMaxWeeklyRate('loss', currentBmi);
   if (cap === null || !(plan.weeklyRateTarget > cap + 1e-9)) return { status: 'none', bmi: currentBmi, store };
   const withLogs = ensureDailyLogs(store, today);

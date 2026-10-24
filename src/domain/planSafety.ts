@@ -194,10 +194,13 @@ export function floorAdviceOf(result: PlanBuildResult | { ok: false; reason: str
 // Message zone of Aujourd'hui and Suivi (UX pass 1, G1)
 // ---------------------------------------------------------------------------
 
-export type PlanNoticeKind = 'underweight' | 'guardrail' | 'bmi20_warning' | 'target_migration' | 'journal' | 'periodic_replan';
+export type PlanNoticeKind = 'underweight' | 'guardrail' | 'bmi20_warning' | 'target_migration' | 'journal' | 'personal_target' | 'periodic_replan';
 
-/** Priority of the message zone, first shown first. Journal path messages (pass 5b) come before the periodic replan. */
-export const PLAN_NOTICE_ORDER: readonly PlanNoticeKind[] = ['underweight', 'guardrail', 'bmi20_warning', 'target_migration', 'journal', 'periodic_replan'];
+/**
+ * Priority of the message zone, first shown first. Journal path messages (pass 5b), then the takeover of a personal target
+ * (report 47), come before the periodic replan.
+ */
+export const PLAN_NOTICE_ORDER: readonly PlanNoticeKind[] = ['underweight', 'guardrail', 'bmi20_warning', 'target_migration', 'journal', 'personal_target', 'periodic_replan'];
 
 /** Messages visible at once; the others wait behind "Voir les autres messages". */
 export const PLAN_NOTICES_VISIBLE = 2;
@@ -222,6 +225,8 @@ const KIND_OF_RULE: Record<PlanEventRule, PlanNoticeKind> = {
   G2: 'guardrail',
   target_bmi_20: 'target_migration',
   periodic_replan: 'periodic_replan',
+  personal_target_set: 'personal_target',
+  personal_target_takeover: 'personal_target',
   journal_switch: 'journal',
   journal_proposal_declined: 'journal',
   journal_log_more: 'journal',
@@ -271,6 +276,23 @@ export function planEventShort(e: PlanEvent): ShortText | null {
       return SHORT_MESSAGE.weighDaily;
     case 'journal_measured_exit':
       return e.reason === 'logging' ? SHORT_MESSAGE.exitLogging : SHORT_MESSAGE.exitWeighIns;
+    case 'personal_target_takeover': {
+      if (!e.before || !e.after) return null;
+      const [before, after, goal, rate] = [e.before.calorieTarget, e.after.calorieTarget, e.after.goal, e.after.weeklyRateTarget];
+      switch (e.personalTarget?.case) {
+        case 'within':
+          return SHORT_MESSAGE.takeoverWithin(after, goal, rate);
+        case 'too_fast':
+          return SHORT_MESSAGE.takeoverTooFast(before, after, rate);
+        case 'too_slow':
+        case 'opposite':
+          return SHORT_MESSAGE.takeoverTooSlow(before, after, goal, rate);
+        case 'maintenance':
+          return SHORT_MESSAGE.takeoverMaintenance(before, after);
+        default:
+          return null;
+      }
+    }
     default:
       return null;
   }
