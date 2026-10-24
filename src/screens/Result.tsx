@@ -25,10 +25,9 @@ export function ResultScreen() {
   const advice = useMemo(() => (preview && profile ? floorAdviceOf(preview, profile.averageSteps7d) : null), [preview, profile]);
   // Pass 5b fixes, point 1: editing the profile on the journal path, the preview is the plan that will be applied (the
   // measured habit rebuilds with its own method, the aligned target itself stays in force), not the population estimate.
-  const pathPreview = useMemo(
-    () => (draft.mode === 'edit' && profile && store.plan && store.meta.journalPath.method !== 'assumed' ? updateProfileOnPath(store, today, profile) : null),
-    [draft.mode, profile, store, today],
-  );
+  // Report 47, point 2: on the target assumed to be followed too (from the applied calibration; a personal target in force
+  // kept or replaced as `updateProfileOnPath` does).
+  const pathPreview = useMemo(() => (draft.mode === 'edit' && profile && store.plan ? updateProfileOnPath(store, today, profile) : null), [draft.mode, profile, store, today]);
   // Fixes of pass 5b, point 6: "J'ai déjà ma cible" on the first plan; the target kept in the draft, checked again here.
   const personal = useMemo(() => {
     if (draft.mode === 'edit' || draft.personalTargetKcal === null || !profile) return null;
@@ -196,6 +195,10 @@ export function ResultScreen() {
           <ResultNote warn>
             Vitesse ajustée à {formatRatePercent(goalPlan.weeklyRateTarget)} par semaine pour respecter les limites de sécurité.{advice ? ` ${advice.lines.join(' ')}` : ''}
           </ResultNote>
+        ) : null}
+        {/* Report 47, point 2: the same note from the plan that will be applied, on the target assumed to be followed. */}
+        {onPath && store.meta.journalPath.method === 'assumed' && plan.source !== 'personal_target' && plan.requestedWeeklyRate !== undefined && plan.weeklyRateTarget < plan.requestedWeeklyRate - 1e-9 ? (
+          <ResultNote warn>Vitesse ajustée à {formatRatePercent(plan.weeklyRateTarget)} par semaine pour respecter les limites de sécurité.</ResultNote>
         ) : null}
         {(onPath ? plan.warnings?.belowRee : goalPlan.warnings.belowRee) ? <ResultNote>Cet apport est inférieur à ton métabolisme au repos estimé. Ce n’est pas dangereux en soi, mais c’est un rythme exigeant.</ResultNote> : null}
         {(onPath ? plan.warnings?.lowEnergyAvailability : goalPlan.warnings.lowEnergyAvailability) ? <ResultNote warn>Avec ton volume d’entraînement, l’énergie disponible serait basse. Préfère une vitesse plus douce et surveille ta fatigue.</ResultNote> : null}

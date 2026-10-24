@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addWeight,
+  applyRecalibration,
   changeGoal,
   completeOnboarding,
   computeCalibrationState,
@@ -379,5 +380,20 @@ describe('1e. changes while it is in force', () => {
     expect(newFloor).toBeGreaterThan(floor);
     const raised = ok(updateProfileOnPath(m, D0, taller)).store;
     expect(planOf(raised)).toMatchObject({ source: 'personal_target', calorieTarget: Math.ceil(newFloor / 10) * 10 });
+  });
+});
+
+describe('2. preview of a profile edit on the target assumed to be followed', () => {
+  it('with a calibration applied, the preview is the plan that will be applied (before: the population estimate)', () => {
+    let s = onboard();
+    for (let i = 1; i <= 21; i++) s = setAdherence(addWeight(s, { date: day(i), weightKg: 75 - 0.03 * i }, at(day(i))), day(i), 'on_plan');
+    s = ok(applyRecalibration(s, stateOn(s, 21), day(21), at(day(21)))).store;
+    const edited = { ...(s.profile as UserProfile), ageYears: 36 };
+    // The Result screen of "Modifier mes informations" shows `updateProfileOnPath`, the function its button applies.
+    const preview = ok(updateProfileOnPath(s, day(21), edited)).store.plan as CurrentPlan;
+    const population = previewInitialPlan(edited, day(21));
+    if (!population.ok) throw new Error(population.reason);
+    expect(preview.personalOffsetKcal).toBe(latestAppliedSnapshot(s)?.posteriorMedianOffsetKcal);
+    expect(Math.abs(preview.maintenanceKcal - population.plan.maintenanceKcal)).toBeGreaterThan(100);
   });
 });
