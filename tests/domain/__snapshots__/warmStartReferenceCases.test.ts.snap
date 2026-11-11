@@ -73,6 +73,7 @@ exports[`warm start reference cases (model 1.2.0) > case R (real profile) 1`] = 
     "metCount": 0,
     "remainingDays": 14,
     "remainingWeighIns": 5,
+    "resumedOn": null,
   },
   "goal": {
     "appliedKgPerWeek": 0.612,
@@ -372,6 +373,7 @@ exports[`warm start reference cases (model 1.2.0) > case S (synthetic 5-session 
     "metCount": 0,
     "remainingDays": 14,
     "remainingWeighIns": 5,
+    "resumedOn": null,
   },
   "goal": {
     "appliedKgPerWeek": 0.68,

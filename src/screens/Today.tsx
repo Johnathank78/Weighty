@@ -1,11 +1,11 @@
 import { useNav } from '@/app/navigation';
 import { useWheighty } from '@/store/StoreProvider';
-import { ADHERENCE_LABEL, CONFIDENCE_LABEL, JOURNAL_GAUGE_TEXT, JOURNAL_TEXT } from '@/app/copy';
+import { ADHERENCE_LABEL, ADHERENCE_NOTED_TEXT, CONFIDENCE_LABEL, JOURNAL_GAUGE_TEXT, JOURNAL_TEXT } from '@/app/copy';
 import { intakeGauge, journalDay } from '@/domain/journal';
 import { Mascot } from '@/components/Mascot';
 import { PlanNotices } from '@/components/PlanNotices';
 import { formatDayMonth, formatGrams, formatInteger, formatKcal, formatLongDate, formatSignedWeight, formatSteps, formatWeight, weightUnitLabel } from '@/domain/format';
-import { displayMacros, goalStatus, nextWeighInDate, reminderDue, todayLog, todayStatusTitle } from '@/domain/views';
+import { displayMacros, gateProgress, goalStatus, nextWeighInDate, reminderDue, todayLog, todayStatusTitle } from '@/domain/views';
 import { trendOf } from '@/domain/engine';
 import { profileInitials } from '@/domain/onboarding';
 import { adherenceAsked, suggestedAdherence } from '@/domain/journalPath';
@@ -34,6 +34,8 @@ export function TodayScreen() {
 
   const deduced = log?.adherence ? null : suggestedAdherence(store, today);
   const statusTitle = todayStatusTitle(store, today, calibration, recalibrationReady);
+  // Report 49, point 6 (D4): the gate counts since the return after a pause (not in the measured habit, which has its own).
+  const resumedOn = adherenceAsked(store) ? gateProgress(calibration, store).resumedOn : null;
 
   return (
     <main className="screen">
@@ -188,6 +190,7 @@ export function TodayScreen() {
         <span style={{ flex: 1 }}>
           <span style={{ display: 'block', font: '500 13.5px/1.4 var(--font)' }}>{statusTitle}</span>
           <span style={{ display: 'block', font: '400 12.5px var(--font)', color: 'var(--ink2)', marginTop: 3 }}>Confiance : {CONFIDENCE_LABEL[calibration?.confidence ?? 'low']}</span>
+          {resumedOn ? <span style={{ display: 'block', font: '400 12.5px var(--font)', color: 'var(--ink2)', marginTop: 3 }}>{ADHERENCE_NOTED_TEXT.resumedSince(formatDayMonth(resumedOn))}</span> : null}
         </span>
         <span className="chevron" aria-hidden="true">
           ›

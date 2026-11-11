@@ -48,7 +48,7 @@ import type {
   WalkingPace,
 } from '@/science/types';
 import type { ExactRoot, HistoricalHallDomain, WarmStartResult, WarmStartStatus } from '@/science/warmStart';
-import { buildPlan, latestAppliedSnapshot, planSolverOptions, previewInitialPlan, storedWarmStart } from './engine';
+import { buildPlan, gateOf, latestAppliedSnapshot, planSolverOptions, previewInitialPlan, storedWarmStart } from './engine';
 import type { PlanBuildResult } from './engine';
 import type { CurrentPlan, WheightyStore } from './types';
 import { gateProgressFromGate } from './views';
@@ -522,7 +522,7 @@ export function explainCurrentPlan(store: WheightyStore, today: string): ResultE
   if (!result.ok) return null;
   const warm = storedWarmStart(store);
   const source: ResultExplanation['maintenance']['source'] = snapshot === null ? 'population' : snapshot.source === 'warm_start' ? 'warm_start' : 'calibrated';
-  return build(result, profile, { warmStart: warm, evidence: store.historicalEvidence, source, confidence: snapshot?.confidence ?? 'low', stored: plan, snapshot, gate: evaluateGate(store.weights, store.dailyLogs) });
+  return build(result, profile, { warmStart: warm, evidence: store.historicalEvidence, source, confidence: snapshot?.confidence ?? 'low', stored: plan, snapshot, gate: gateOf(store) });
 }
 
 

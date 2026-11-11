@@ -48,6 +48,7 @@ import {
   RECAL_SURFACE_MIN_INTERVAL_DAYS,
   RECAL_SURFACE_MIN_WIDTH_SHRINK,
   SCIENTIFIC_MODEL_VERSION,
+  TRACKING_PAUSE_MIN_GAP_DAYS,
   WEIGHT_MAX_KG,
   WEIGHT_MIN_KG,
 } from './constants';
@@ -293,6 +294,28 @@ function intakeTraceOf(days: readonly ReconstructedDay[]): IntakeTrace {
 // Gate (05 s8)
 // ---------------------------------------------------------------------------
 
+/** A pause (report 49, point 6, D4): the last weigh-in before it and the first one after it. */
+export type TrackingPause = { from: string; to: string };
+
+/**
+ * Pauses of a list of valid weigh-ins (dated, one a day, sorted): two consecutive weigh-ins TRACKING_PAUSE_MIN_GAP_DAYS (15)
+ * days apart or more. An absence still running (no weigh-in back yet) is not a pause. The current tracking period starts at
+ * the first weigh-in after the last pause (`periodStartIndex`), 0 without a pause.
+ */
+export function trackingPauses(valid: readonly WeightEntry[]): { pauses: TrackingPause[]; periodStartIndex: number } {
+  const pauses: TrackingPause[] = [];
+  let periodStartIndex = 0;
+  for (let i = 1; i < valid.length; i++) {
+    const prev = valid[i - 1] as WeightEntry;
+    const w = valid[i] as WeightEntry;
+    if (daysBetween(prev.date, w.date) >= TRACKING_PAUSE_MIN_GAP_DAYS) {
+      pauses.push({ from: prev.date, to: w.date });
+      periodStartIndex = i;
+    }
+  }
+  return { pauses, periodStartIndex };
+}
+
 export type GateStatus = {
   met: boolean;
   weighInCount: number;
@@ -307,10 +330,21 @@ export type GateStatus = {
     enoughCleanWeighIns: boolean;
     enoughAdherenceInfo: boolean;
   };
+  /** First weigh-in counted (report 49, point 6): the first one after the last pause; null without a weigh-in. */
+  periodStart: string | null;
+  /** Every pause detected (D4), oldest first; empty without a pause. */
+  pauses: TrackingPause[];
 };
 
-export function evaluateGate(weights: readonly WeightEntry[], dailyLogs: readonly DailyLog[]): GateStatus {
-  const valid = validWeights(weights);
+/**
+ * Recalibration gate (05 s8, D-11). Report 49, point 6 (D4): only the weigh-ins and the days of the current tracking period
+ * count, from the first weigh-in after the last pause (`trackingPauses`); same criteria and constants. Without a pause the
+ * result is the same, bit for bit. `perPeriod` false (tests only): the whole history, as before.
+ */
+export function evaluateGate(weights: readonly WeightEntry[], dailyLogs: readonly DailyLog[], options: { perPeriod?: boolean } = {}): GateStatus {
+  const all = validWeights(weights);
+  const { pauses, periodStartIndex } = trackingPauses(all);
+  const valid = options.perPeriod === false ? all : all.slice(periodStartIndex);
   const first = valid[0];
   const last = valid[valid.length - 1];
   const spanDays = first && last ? daysBetween(first.date, last.date) : 0;
@@ -362,6 +396,8 @@ export function evaluateGate(weights: readonly WeightEntry[], dailyLogs: readonl
     majorDeviationFraction: adherenceDays > 0 ? majorDays / adherenceDays : 0,
     trackedDays: adherenceDays,
     criteria,
+    periodStart: first ? first.date : null,
+    pauses,
   };
 }
 

@@ -224,7 +224,7 @@ export function AnalyseScreen() {
             {gate.metCount} / {gate.criteria.length}
           </span>
         </div>
-        <div className="rows" style={{ marginBottom: 30 }}>
+        <div className="rows" style={{ marginBottom: gate.resumedOn ? 8 : 30 }}>
           {gate.criteria.map((c) => (
             <div key={c.key} className="gate-row" data-met={c.met}>
               <div className="gate-row__head">
@@ -238,6 +238,12 @@ export function AnalyseScreen() {
           ))}
         </div>
 
+        {gate.resumedOn ? (
+          // Report 49, point 6 (D4): the gate counts the current tracking period.
+          <p className="small" style={{ margin: '0 0 30px' }}>
+            {ADHERENCE_NOTED_TEXT.resumedSince(formatDayMonth(gate.resumedOn))}
+          </p>
+        ) : null}
         <div className="rows" style={{ marginBottom: 26 }}>
           <div className="row">
             <span className="row__label">Maintien estimé</span>
@@ -302,7 +308,7 @@ export function AnalyseScreen() {
               {view.nextUpdate.metCount} / {view.nextUpdate.criteria.length}
             </span>
           </div>
-          <div className="rows" style={{ marginBottom: 30 }}>
+          <div className="rows" style={{ marginBottom: view.nextUpdate.resumedOn ? 8 : 30 }}>
             {view.nextUpdate.criteria.map((c) => (
               <div key={c.key} className="gate-row" data-met={c.met}>
                 <div className="gate-row__head">
@@ -315,6 +321,11 @@ export function AnalyseScreen() {
               </div>
             ))}
           </div>
+          {view.nextUpdate.resumedOn ? (
+            <p className="small" style={{ margin: '0 0 30px' }}>
+              {ADHERENCE_NOTED_TEXT.resumedSince(formatDayMonth(view.nextUpdate.resumedOn))}
+            </p>
+          ) : null}
         </>
       ) : null}
 

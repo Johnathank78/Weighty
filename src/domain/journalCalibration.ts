@@ -159,6 +159,10 @@ export function evaluateJournalGate(weights: readonly WeightEntry[], observation
     majorDeviationFraction: totalDays > 0 ? (totalDays - usableDays) / totalDays : 0,
     trackedDays: usableDays,
     criteria,
+    // The journal gate keeps its window (from the first day of continuous logging): no pause is counted here (report 49,
+    // point 6 concerns the gate of the current method).
+    periodStart: first ? first.date : null,
+    pauses: [],
   };
 }
 

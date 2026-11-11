@@ -130,6 +130,8 @@ export function calibrationSummary(state: CalibrationState | null): Record<strin
       spanDays: g.spanDays,
       cleanWeighInCount: g.cleanWeighInCount,
       adherenceCoverage: round(g.adherenceCoverage, 4),
+      periodStart: g.periodStart,
+      pauses: g.pauses,
     },
     surfaced: state.surfaced,
     blockedByStaleWeighIn: state.blockedByStaleWeighIn,

@@ -303,6 +303,8 @@ export const ADHERENCE_NOTED_TEXT = {
     `Les jours en écart important ne servent pas de preuve, les écarts légers comptent moins. Il faut au moins 5 pesées sur 14 jours et ton adhérence notée au moins ${percent} % des jours pour que la prochaine mise à jour soit fiable.`,
   /** Analyse after a recalibration, gate closed (report 49, point 2). */
   nextUpdateTitle: 'Vers la prochaine mise à jour',
+  /** Report 49, point 6 (D4), text of the prompt: under the progress block when a pause exists. `date`: formatted day. */
+  resumedSince: (date: string) => `Comptées depuis ta reprise du ${date}.`,
   count: 'adhérences notées',
 } as const;
 

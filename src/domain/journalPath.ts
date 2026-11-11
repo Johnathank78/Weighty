@@ -18,7 +18,7 @@
  * The journal reaches this module through `intakeObservationsFrom` only (D8), directly or through `journalCalibration`.
  */
 import { assessBaseline, planContextFrom } from '@/science/assessment';
-import { buildSnapshot, evaluateGate, fitCalibration, reconstructDays, shouldSurfaceRecalibration, validWeights } from '@/science/calibration';
+import { buildSnapshot, fitCalibration, reconstructDays, shouldSurfaceRecalibration, validWeights } from '@/science/calibration';
 import type { CalibrationInput, GateStatus, IntakeObservation, SurfacingReference } from '@/science/calibration';
 import {
   GATE_MIN_CLEAN_WEIGHINS,
@@ -63,6 +63,7 @@ import {
   createSliderSession,
   currentWeightKg,
   ensureDailyLogs,
+  gateOf,
   planDateOf,
   planSummary,
   PRODUCTION_SOLVER,
@@ -222,7 +223,7 @@ export function declineAlignProposal(store: WheightyStore, today: string, nowIso
 export function checkAlignProposal(store: WheightyStore, today: string, nowIso: string): WheightyStore {
   const path = pathOf(store);
   if (path.method !== 'assumed' || !store.plan || path.proposalOpenedOn !== null) return store;
-  if (!revisionProposalTriggered(evaluateGate(store.weights, store.dailyLogs))) return store;
+  if (!revisionProposalTriggered(gateOf(store))) return store;
   const preview = alignedTargetPreview(store, today);
   if (preview.ok) {
     if (withinDays(path.proposalDeclinedOn, today, JOURNAL_MESSAGE_MIN_INTERVAL_DAYS)) return store;
@@ -835,7 +836,7 @@ export function alignedTargetLocked(store: WheightyStore): boolean {
 export function alignedRecalibrationDays(store: WheightyStore, today: string): number {
   const path = pathOf(store);
   const first = path.switchedOn === null ? 0 : JOURNAL_ALIGNED_FIRST_RECAL_DAYS - daysBetween(path.switchedOn, today);
-  const gate = evaluateGate(store.weights, store.dailyLogs);
+  const gate = gateOf(store);
   const missing = gate.met ? 0 : Math.max(GATE_MIN_SPAN_DAYS - gate.spanDays, GATE_MIN_WEIGHINS - gate.weighInCount, GATE_MIN_CLEAN_WEIGHINS - gate.cleanWeighInCount);
   return Math.max(0, first, missing);
 }

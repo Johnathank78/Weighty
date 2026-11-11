@@ -14,6 +14,7 @@ import {
   completeOnboarding,
   computeCalibrationState,
   deleteWeight,
+  gateOf,
   hasAppliedRecalibration,
   latestAppliedSnapshot,
   markPlanEventSeen,
@@ -25,19 +26,21 @@ import {
   weighInStale,
 } from '@/domain/engine';
 import type { CalibrationState } from '@/domain/engine';
+import { formatDayMonth } from '@/domain/format';
 import { addFoodEntry } from '@/domain/journal';
-import { adherenceFromJournal, applyPathSliderSteps, changeGoalOnPath, suggestedAdherence, updateProfileOnPath } from '@/domain/journalPath';
+import { adherenceFromJournal, applyPathSliderSteps, changeGoalOnPath, revisionProposalTriggered, suggestedAdherence, updateProfileOnPath } from '@/domain/journalPath';
 import { choosePersonalTarget, computePersonalTakeover, takeOverPersonalTarget } from '@/domain/personalTarget';
 import { closeStaleWeighInNotice, periodicReplanUnderRules, planNotices, runDailyChecks, runWeighInChecks, staleWeighInNotice } from '@/domain/planSafety';
 import { CHART_WEIGH_IN_NOTE } from '@/screens/Tracking';
 import { RULES_6A } from '@/domain/ruleSwitches';
-import { analysisView, todayStatusTitle, trackingChart } from '@/domain/views';
+import { analysisView, gateProgressFromGate, todayStatusTitle, trackingChart } from '@/domain/views';
+import { confidenceLevel, evaluateGate, trackingPauses } from '@/science/calibration';
 import type { PlanEvent, WheightyStore } from '@/domain/types';
 import { emptyActivityLog, PLAN_CHANGE_RULES, SCHEMA_VERSION } from '@/domain/types';
 import { EXPORT_FORMAT_VERSION, exportFileName, exportStore, parseImport } from '@/persistence/exportImport';
 import { backfillRecalibrations, migrateToCurrent } from '@/persistence/migrations';
 import { emptyStore, validateStore } from '@/persistence/schema';
-import { AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS, CONSTANT_METADATA, SCIENTIFIC_MODEL_VERSION } from '@/science/constants';
+import { AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS, CONSTANT_METADATA, SCIENTIFIC_MODEL_VERSION, TRACKING_PAUSE_MIN_GAP_DAYS } from '@/science/constants';
 import { addDays } from '@/science/dates';
 import type { UserProfile } from '@/science/types';
 import { makeProfile } from '../helpers/profiles';
@@ -584,5 +587,72 @@ describe('5. one plan change at a time (D5)', () => {
     } finally {
       RULES_6A.d5 = true;
     }
+  });
+});
+
+describe('6. the gate counts the current tracking period (D4)', () => {
+  const w = (date: string, kg: number, i: number) => ({ id: `w${i}`, date, weightKg: kg, createdAt: `${date}T07:00:00.000Z` });
+  /** Weigh-ins of the real case's shape: 5 from 15/09 to 02/10, then a return on 25/10 (23 days later). */
+  const CASE = [w('2026-09-15', 68, 0), w('2026-09-23', 67.4, 1), w('2026-09-26', 67.8, 2), w('2026-09-27', 67.5, 3), w('2026-10-02', 67.5, 4)];
+
+  it('a pause: two consecutive valid weigh-ins 15 days apart or more; an absence still running is not one', () => {
+    expect(TRACKING_PAUSE_MIN_GAP_DAYS).toBe(15);
+    expect(CONSTANT_METADATA.TRACKING_PAUSE_MIN_GAP_DAYS?.category).toBe('engineering_prior');
+    expect(trackingPauses([w('2026-09-01', 70, 0), w('2026-09-15', 70, 1)])).toEqual({ pauses: [], periodStartIndex: 0 });
+    expect(trackingPauses([w('2026-09-01', 70, 0), w('2026-09-16', 70, 1), w('2026-09-17', 70, 2)])).toEqual({ pauses: [{ from: '2026-09-01', to: '2026-09-16' }], periodStartIndex: 1 });
+    expect(trackingPauses(CASE).pauses).toEqual([]);
+  });
+
+  it('the real case after the weigh-in of return: 1 weigh-in counted, from the return', () => {
+    const logs = Array.from({ length: 41 }, (_, i) => ({ date: addDays('2026-09-15', i), calorieTargetForDay: 1560, stepTargetForDay: 10000, ...(i % 2 === 0 ? { adherence: 'on_plan' as const } : {}) }));
+    const back = [...CASE, w('2026-10-25', 67.6, 5)];
+    const g = evaluateGate(back, logs);
+    expect(g).toMatchObject({ weighInCount: 1, spanDays: 0, met: false, periodStart: '2026-10-25', pauses: [{ from: '2026-10-02', to: '2026-10-25' }] });
+    const progress = gateProgressFromGate(g);
+    expect(progress.resumedOn).toBe('2026-10-25');
+    expect(ADHERENCE_NOTED_TEXT.resumedSince(formatDayMonth('2026-10-25'))).toBe('Comptées depuis ta reprise du 25 octobre.');
+    // Before the return, no pause: the whole history, as before.
+    expect(evaluateGate(CASE, logs)).toMatchObject({ weighInCount: 5, periodStart: '2026-09-15', pauses: [] });
+    expect(gateProgressFromGate(evaluateGate(CASE, logs)).resumedOn).toBeNull();
+  });
+
+  it('without a pause: the same gate bit for bit, on random histories', () => {
+    for (let seed = 0; seed < 200; seed++) {
+      const rnd = (k: number) => ((Math.sin(seed * 97 + k * 13) + 1) / 2) % 1;
+      const weights = [] as ReturnType<typeof w>[];
+      let day = 0;
+      for (let k = 0; k < 4 + Math.floor(rnd(1) * 30); k++) {
+        weights.push(w(addDays('2026-01-01', day), 80 - k * 0.1, k));
+        day += 1 + Math.floor(rnd(k + 2) * 14);
+      }
+      const logs = Array.from({ length: day + 1 }, (_, i) => ({ date: addDays('2026-01-01', i), calorieTargetForDay: 2000, stepTargetForDay: 7000, ...(rnd(i + 100) < 0.6 ? { adherence: (rnd(i + 200) < 0.2 ? 'major_deviation' : 'on_plan') as 'major_deviation' | 'on_plan' } : {}) }));
+      const a = evaluateGate(weights, logs);
+      const b = evaluateGate(weights, logs, { perPeriod: false });
+      expect(a).toEqual(b);
+      for (const k of Object.keys(b) as Array<keyof typeof b>) expect(Object.is(a[k], b[k]) || JSON.stringify(a[k]) === JSON.stringify(b[k])).toBe(true);
+    }
+  });
+
+  it('the calibration state, the confidence and the revision proposal read the gate of the period', () => {
+    const { store, day } = recalibrated();
+    let s = store;
+    const back = addDays(day, 20);
+    for (let i = 0; i < 6; i++) s = addWeight(setAdherence(s, addDays(back, i), 'on_plan'), { date: addDays(back, i), weightKg: 90.5 }, at(addDays(back, i)));
+    const today = addDays(back, 5);
+    const state = stateOn(s, today);
+    expect(state.gate).toMatchObject({ weighInCount: 6, spanDays: 5, met: false, periodStart: back, pauses: [{ from: day, to: back }] });
+    expect(state.surfaced).toBe(false);
+    RULES_6A.d4 = false;
+    let before: CalibrationState;
+    try {
+      before = stateOn(s, today);
+    } finally {
+      RULES_6A.d4 = true;
+    }
+    expect(before.gate.met).toBe(true);
+    expect(gateOf(s).weighInCount).toBe(6);
+    // The candidate's confidence: low while the gate of the period is closed.
+    expect(confidenceLevel(state.gate, 100)).toBe('low');
+    expect(revisionProposalTriggered(state.gate)).toBe(false);
   });
 });

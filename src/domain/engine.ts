@@ -205,6 +205,14 @@ export function hasAppliedRecalibration(store: WheightyStore): boolean {
   return store.calibrationSnapshots.some((s) => s.appliedAt !== undefined && s.source !== 'warm_start');
 }
 
+/**
+ * The recalibration gate of the store (05 s8), on the current tracking period (report 49, point 6, D4; the switch reserved to
+ * the tests gives back the whole history).
+ */
+export function gateOf(store: Pick<WheightyStore, 'weights' | 'dailyLogs'>): GateStatus {
+  return evaluateGate(store.weights, store.dailyLogs, { perPeriod: RULES_6A.d4 });
+}
+
 export function latestAppliedSnapshot(store: WheightyStore): CalibrationSnapshot | null {
   const applied = store.calibrationSnapshots.filter((s) => s.appliedAt !== undefined);
   return applied[applied.length - 1] ?? null;
@@ -888,7 +896,7 @@ export function computeCalibrationState(store: WheightyStore, today: string, now
   const plan = store.plan;
   const profile = store.profile;
   if (!plan || !profile) return null;
-  const gate = evaluateGate(store.weights, store.dailyLogs);
+  const gate = gateOf(store);
   const input = calibrationInputFromStore(store, today);
   const fit = input && gate.weighInCount >= 2 ? fitCalibration(input) : null;
   const candidate = fit && input ? buildSnapshot(fit, gate, input.populationTdeeAtStartKcal, nowIso) : null;

@@ -9,12 +9,11 @@ import type { Projection, ProjectionWindow } from '@/science/goals';
 import { bmi, minimumTargetWeightKg } from '@/science/macros';
 import type { DailyLog, Goal, MacroGrams, SpeedZone } from '@/science/types';
 import { assessBaseline, planContextFrom } from '@/science/assessment';
-import { evaluateGate } from '@/science/calibration';
 import type { GateStatus } from '@/science/calibration';
 import { formatInteger } from './format';
 import { snapWeeklyRate, speedZoneFor } from '@/science/goals';
 import type { CalibrationState } from './engine';
-import { contextForCurrentPlan, goalStatus, hasAppliedRecalibration, latestAppliedSnapshot, weighInStale, latestRawWeight, MAINTENANCE_PROJECTION_DAYS, solverOptionsFor, trendOf, weighInDue } from './engine';
+import { contextForCurrentPlan, gateOf, goalStatus, hasAppliedRecalibration, latestAppliedSnapshot, weighInStale, latestRawWeight, MAINTENANCE_PROJECTION_DAYS, solverOptionsFor, trendOf, weighInDue } from './engine';
 import { alignedStatusLine, journalRead, measuredProjectionContext } from './journalPath';
 import { JOURNAL_MESSAGE } from './planMessages';
 import { localTimeOf } from './journal';
@@ -53,11 +52,13 @@ export type GateProgress = {
   remainingDays: number;
   /** True only when every criterion is met, as in evaluateGate. */
   met: boolean;
+  /** Report 49, point 6 (D4): first weigh-in counted after a pause ("Comptées depuis ta reprise du {date}."), null without. */
+  resumedOn: string | null;
 };
 
 /** First-recalibration progress, one entry per real gate criterion (weigh-ins, span, clean weigh-ins, adherence information). */
 export function gateProgress(state: CalibrationState | null, store: WheightyStore): GateProgress {
-  return gateProgressFromGate(state?.gate ?? evaluateGate(store.weights, store.dailyLogs));
+  return gateProgressFromGate(state?.gate ?? gateOf(store));
 }
 
 /** Same progress from an evaluated gate (also used by the explanation view model). */
@@ -75,6 +76,7 @@ export function gateProgressFromGate(gate: GateStatus): GateProgress {
     remainingWeighIns: Math.max(0, GATE_MIN_WEIGHINS - gate.weighInCount),
     remainingDays: Math.max(0, GATE_MIN_SPAN_DAYS - gate.spanDays),
     met: gate.met,
+    resumedOn: gate.pauses.length > 0 ? gate.periodStart : null,
   };
 }
 
