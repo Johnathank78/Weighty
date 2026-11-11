@@ -8,6 +8,7 @@ import type { BaselineAssessment } from '@/science/assessment';
 import { buildSnapshot, evaluateGate, fitCalibration, shouldSurfaceRecalibration, validWeights } from '@/science/calibration';
 import type { CalibrationFit, CalibrationInput, GateStatus } from '@/science/calibration';
 import {
+  REANCHOR_AFTER_PAUSE,
   AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS,
   GOAL_SOLVER_HORIZON_DAYS,
   HALL_BODY_FAT_MIN_QUALITY,
@@ -877,6 +878,13 @@ export function calibrationInputFromStore(store: WheightyStore, today: string): 
     dailyLogs: store.dailyLogs,
     // Warm start evidence (history before onboarding) keeps informing the posterior (D-23).
     ...(history?.likelihood.logLikelihood ? { historicalLogLikelihood: history.likelihood.logLikelihood } : {}),
+    // Report 49, point 7 (D7): the reanchoring after a pause in service ('off' until the verdict of amendment 8), and the
+    // population maintenance at a weight that its variant B restarts from (same PAL category as the window start).
+    reanchorAfterPause: RULES_6A.reanchor ?? REANCHOR_AFTER_PAUSE,
+    populationAt: (weightKg: number) => {
+      const a = assessBaseline(profile, today, { weightKg, ...(palCategory ? { palCategory } : {}) });
+      return { tdeeKcal: a.populationTdeeKcal, reeKcal: a.ree.reeKcalDay };
+    },
   };
 }
 

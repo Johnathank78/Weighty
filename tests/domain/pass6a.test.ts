@@ -11,6 +11,7 @@ import {
   addWeight,
   applyRecalibration,
   applyRecalibrationAsMaintenance,
+  calibrationInputFromStore,
   completeOnboarding,
   computeCalibrationState,
   deleteWeight,
@@ -34,13 +35,14 @@ import { closeStaleWeighInNotice, periodicReplanUnderRules, planNotices, runDail
 import { CHART_WEIGH_IN_NOTE } from '@/screens/Tracking';
 import { RULES_6A } from '@/domain/ruleSwitches';
 import { analysisView, gateProgressFromGate, todayStatusTitle, trackingChart } from '@/domain/views';
-import { confidenceLevel, evaluateGate, trackingPauses } from '@/science/calibration';
+import { confidenceLevel, evaluateGate, fitCalibration, trackingPauses } from '@/science/calibration';
+import { modeledBodyAt } from '@/science/modeledBody';
 import type { PlanEvent, WheightyStore } from '@/domain/types';
 import { emptyActivityLog, PLAN_CHANGE_RULES, SCHEMA_VERSION } from '@/domain/types';
 import { EXPORT_FORMAT_VERSION, exportFileName, exportStore, parseImport } from '@/persistence/exportImport';
 import { backfillRecalibrations, migrateToCurrent } from '@/persistence/migrations';
 import { emptyStore, validateStore } from '@/persistence/schema';
-import { AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS, CONSTANT_METADATA, SCIENTIFIC_MODEL_VERSION, TRACKING_PAUSE_MIN_GAP_DAYS } from '@/science/constants';
+import { AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS, CONSTANT_METADATA, REANCHOR_AFTER_PAUSE, SCIENTIFIC_MODEL_VERSION, TRACKING_PAUSE_MIN_GAP_DAYS } from '@/science/constants';
 import { addDays } from '@/science/dates';
 import type { UserProfile } from '@/science/types';
 import { makeProfile } from '../helpers/profiles';
@@ -654,5 +656,61 @@ describe('6. the gate counts the current tracking period (D4)', () => {
     // The candidate's confidence: low while the gate of the period is closed.
     expect(confidenceLevel(state.gate, 100)).toBe('low');
     expect(revisionProposalTriggered(state.gate)).toBe(false);
+  });
+});
+
+describe('7. reanchoring after a pause (D7), behind the option', () => {
+  /** The real case's shape on profile R: tracking 18 days, a pause of 23 days on the target, a weigh-in back. */
+  function paused(): { store: WheightyStore; back: string } {
+    const r = makeProfile({ sexForEquation: 'female', ageYears: 24, heightCm: 155, currentWeightKg: 68, averageSteps7d: 9400, activities: [{ type: 'strength', sessionsPerWeek: 4, durationMin: 55, intensity: 'moderate' }], goal: 'loss', targetWeightKg: 60, weeklyRateTarget: 0.005 });
+    let s = onboard(r);
+    for (const [d, kg] of [[8, 67.4], [11, 67.8], [12, 67.5], [17, 67.5]] as const) s = addWeight(setAdherence(s, addDays(D0, d - 1), 'on_plan'), { date: addDays(D0, d), weightKg: kg }, at(addDays(D0, d)));
+    const back = addDays(D0, 40);
+    s = addWeight(s, { date: back, weightKg: 67.6 }, at(back));
+    return { store: s, back };
+  }
+  const withMode = <T>(mode: 'off' | 'A' | 'B' | null, fn: () => T): T => {
+    RULES_6A.reanchor = mode;
+    try {
+      return fn();
+    } finally {
+      RULES_6A.reanchor = null;
+    }
+  };
+
+  it('off in production; the option reaches the calibration input', () => {
+    expect(REANCHOR_AFTER_PAUSE).toBe('off');
+    const { store, back } = paused();
+    expect(calibrationInputFromStore(store, back)?.reanchorAfterPause).toBe('off');
+    expect(withMode('B', () => calibrationInputFromStore(store, back)?.reanchorAfterPause)).toBe('B');
+  });
+
+  it('without a pause: A and B give the fit and the modeled body of today, bit for bit', () => {
+    const { store, day } = recalibrated();
+    const input = calibrationInputFromStore(store, day);
+    if (!input) throw new Error('input');
+    const off = fitCalibration({ ...input, reanchorAfterPause: 'off' });
+    for (const mode of ['A', 'B'] as const) {
+      expect(fitCalibration({ ...input, reanchorAfterPause: mode })).toEqual(off);
+      expect(modeledBodyAt({ ...input, reanchorAfterPause: mode }, -100, addDays(day, 3))).toEqual(modeledBodyAt({ ...input, reanchorAfterPause: 'off' }, -100, addDays(day, 3)));
+    }
+  });
+
+  it('with a pause: one level per period; the weigh-in back weighs 1; the modeled weight of the return day follows it', () => {
+    const { store, back } = paused();
+    const input = calibrationInputFromStore(store, back);
+    if (!input) throw new Error('input');
+    const fits = Object.fromEntries((['off', 'A', 'B'] as const).map((m) => [m, fitCalibration({ ...input, reanchorAfterPause: m })]));
+    expect(fits.off?.reanchor).toBeUndefined();
+    expect(fits.A?.reanchor).toEqual({ mode: 'A', periodStarts: [D0, back] });
+    expect(fits.A?.observationWeights.at(-1)).toBe(1);
+    expect(fits.off?.observationWeights.at(-1)).toBeLessThan(1);
+    const modeled = (m: 'off' | 'A' | 'B') => modeledBodyAt({ ...input, reanchorAfterPause: m }, (fits[m] as NonNullable<typeof fits.off>).posterior.medianKcal, back) as NonNullable<ReturnType<typeof modeledBodyAt>>;
+    expect(Math.abs(modeled('off').modeledWeightKg - 67.6)).toBeGreaterThan(0.5);
+    expect(Math.abs(modeled('A').modeledWeightKg - 67.6)).toBeLessThan(0.3);
+    expect(Math.abs(modeled('B').modeledWeightKg - 67.6)).toBeLessThan(0.3);
+    expect(modeled('B').reanchor).toEqual({ mode: 'B', periodStart: back });
+    // The journal regime is outside the scope: the option is ignored there.
+    expect(fitCalibration({ ...input, reanchorAfterPause: 'A', intakeObservations: { days: [], nonUsableDayWeight: 0.5 } })?.reanchor).toBeUndefined();
   });
 });

@@ -115,6 +115,8 @@ export function buildDiagnostics(store: WheightyStore, today: string, nowIso: st
             windowStartDate: body.windowStartDate,
             windowEndDate: body.windowEndDate,
             simulatedDays: body.simulatedDays,
+            reanchor: input.reanchorAfterPause ?? 'off',
+            reanchorApplied: body.reanchor ?? null,
           }
         : null;
     }),
