@@ -100,3 +100,40 @@ Face à la méthode actuelle (ingénierie) :
 ## Note du 28/09/2026
 
 Décision produit : journal lu, habitude mesurée, retenu malgré le NO-GO de V3 (semaine réelle sous le plancher en sous-déclaration légère), critère que la cible alignée échoue de la même façon (2,30 % contre 2,00 % sur la même période). Nouveau niveau d'exigence : app grand public.
+
+## Amendement 8 du 2026-11-11 : réancrage après une pause (itération 6a)
+
+Validé par le product owner le 2026-11-11, avant toute mesure. Les règles communes s'appliquent : IC 95 % par bootstrap à 2 000 tirages, unité = utilisateur simulé ; INCONCLUSIF n'est jamais GO (on double n une fois, puis on rapporte) ; sélection sur graines d'entraînement, verdict sur graines de validation distinctes.
+
+Définitions
+- Pause : deux pesées valides consécutives séparées de 15 jours ou plus. Période de suivi : les pesées entre deux pauses.
+- Variantes : « sans » (code de 71bc77e) ; « A » : un niveau propre à chaque période, l'état du modèle de Hall continue à travers la pause ; « B » : comme A, et l'état de Hall repart de l'équilibre à la première pesée de chaque période après la première.
+- Poids modélisé : poids de l'état modélisé du jour, à l'offset retenu par l'ajustement de ce jour.
+
+Monde simulé (même modèle de Hall que l'estimateur : ce test valide le réancrage, pas la physiologie)
+- Profil R (femme, 24 ans, 155 cm, 68 kg, musculation 4 séances par semaine), perte à 0,5 %/semaine, cible fixe du premier plan de production.
+- Offset vrai tiré uniformément dans [−300 ; +300] kcal/j, une fois par répétition.
+- Avant la pause : 21 jours, pesée quotidienne (bruit de Student à 4 degrés de liberté, échelle 0,5 kg), « plan respecté » déclaré chaque jour, apport vrai = cible, pas = cible.
+- Pause : G ∈ {15 ; 22 ; 35} jours entre la dernière pesée et la pesée de retour ; ni pesée, ni adhérence, ni journal ; journaux quotidiens présents avec la cible, comme les crée l'app. Apport vrai pendant la pause : T ∈ {cible ; maintien vrai ; cible − 300 kcal}. Neuf cellules.
+- Retour, au jour R : 14 jours, même suivi qu'avant la pause.
+- Référence : même graine, sans pause (rapportée, non jugée).
+- Graines : entraînement 6 100 000 000 + 10 000 × cellule + répétition ; validation 6 200 000 000 + 10 000 × cellule + répétition ; bootstrap 6 300 000 001. Disjointes de toute graine du dépôt, vérifié avant la mesure.
+
+Mesures, aux jours R, R + 7 et R + 14
+- m0, au jour R : |poids modélisé − pesée du jour R|.
+- m1, aux jours R + 7 et R + 14 : |poids modélisé − poids vrai|.
+- Rapportés : offset retenu ; cible que construirait le recalcul périodique aux jours R et R + 7 ; tous les plans construits.
+
+Sélection (graines d'entraînement, 50 répétitions par cellule)
+- Retenir la variante, A ou B, dont le maximum sur les neuf cellules de la médiane de m1 au jour R + 7 est le plus bas. Écart de moins de 0,05 kg : A.
+
+Verdict (graines de validation, 100 répétitions par cellule, variante retenue seule ; « sans » et la référence rapportés)
+- V1 : médiane de m0 ≤ 0,3 kg, borne haute de l'IC, dans chaque cellule.
+- V2 : médiane de m1 ≤ 0,5 kg, borne haute de l'IC, aux jours R + 7 et R + 14, dans chaque cellule.
+- V3 [S] : aucune cible sous le plancher et aucune vitesse interdite dans les plans construits.
+- V4 : sans pause, 0 différence au bit près contre « sans » (captures T-03, T-04, golden, R et S, convergenceJourney ; équivalence de la 5b pour les utilisateurs sans pause).
+- V5 : cas réel du 24/10, avec une pesée de 67,6 kg datée du 25/10 : |poids modélisé du 25/10 − 67,6| ≤ 0,3 kg.
+- GO si V1 à V5 passent : la variante retenue est activée en production. Sinon, l'option reste sur « sans ».
+
+Coût
+- Pilote sur une cellule, 10 répétitions. Si la mesure complète est projetée au-delà de 2 h de calcul, l'entraînement passe à 25 répétitions par cellule et la validation garde 100. Au-delà encore : arrêt et rapport.
