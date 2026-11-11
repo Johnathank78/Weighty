@@ -1,0 +1,753 @@
+/**
+ * Prompt 6a (report 49): the tracking pauses and the life cycle of the recalibration. One block per point.
+ * Point 1: complete export (format 2, diagnostics), activity log and full trace of the plan changes (schema 11).
+ */
+import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+import { ADHERENCE_NOTED_TEXT } from '@/app/copy';
+import { activityDiff, activityEntry, ACTIVITY_LOG_MAX_ENTRIES, appendActivity, calibrationSummary, lastActivity, sameData } from '@/domain/activityLog';
+import { buildDiagnostics, constantsDump } from '@/domain/diagnostics';
+import {
+  addWeight,
+  applyRecalibration,
+  applyRecalibrationAsMaintenance,
+  calibrationInputFromStore,
+  completeOnboarding,
+  computeCalibrationState,
+  deleteWeight,
+  gateOf,
+  hasAppliedRecalibration,
+  latestAppliedSnapshot,
+  markPlanEventSeen,
+  markRecalibrationSeen,
+  periodicReplan,
+  periodicReplanDue,
+  setActualSteps,
+  setAdherence,
+  unseenPlanMessages,
+  weighInStale,
+} from '@/domain/engine';
+import type { CalibrationState } from '@/domain/engine';
+import { formatDayMonth } from '@/domain/format';
+import { addFoodEntry } from '@/domain/journal';
+import { adherenceFromJournal, applyPathSliderSteps, changeGoalOnPath, revisionProposalTriggered, suggestedAdherence, updateProfileOnPath } from '@/domain/journalPath';
+import { choosePersonalTarget, computePersonalTakeover, takeOverPersonalTarget } from '@/domain/personalTarget';
+import { closeStaleWeighInNotice, periodicReplanUnderRules, planNotices, runDailyChecks, runWeighInChecks, staleWeighInNotice } from '@/domain/planSafety';
+import { CHART_WEIGH_IN_NOTE } from '@/screens/Tracking';
+import { RULES_6A } from '@/domain/ruleSwitches';
+import { analysisView, gateProgressFromGate, todayStatusTitle, trackingChart } from '@/domain/views';
+import { confidenceLevel, evaluateGate, fitCalibration, trackingPauses } from '@/science/calibration';
+import { modeledBodyAt } from '@/science/modeledBody';
+import type { PlanEvent, WheightyStore } from '@/domain/types';
+import { emptyActivityLog, PLAN_CHANGE_RULES, SCHEMA_VERSION } from '@/domain/types';
+import { EXPORT_FORMAT_VERSION, exportFileName, exportStore, parseImport } from '@/persistence/exportImport';
+import { backfillRecalibrations, migrateToCurrent } from '@/persistence/migrations';
+import { emptyStore, validateStore } from '@/persistence/schema';
+import { AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS, CONSTANT_METADATA, REANCHOR_AFTER_PAUSE, SCIENTIFIC_MODEL_VERSION, TRACKING_PAUSE_MIN_GAP_DAYS } from '@/science/constants';
+import { addDays } from '@/science/dates';
+import type { UserProfile } from '@/science/types';
+import { makeProfile } from '../helpers/profiles';
+import { backAfterPauseProfile, pauseWithoutWeighInProfile, personalTargetProfile, recalibratedGateClosedProfile, replanAndRecalibrationProfile, takeoverProfile } from '../helpers/verificationProfiles';
+
+const D0 = '2026-06-01';
+const at = (date: string) => `${date}T08:00:00.000Z`;
+const PROFILE: UserProfile = makeProfile({ sexForEquation: 'male', ageYears: 40, heightCm: 180, currentWeightKg: 92, goal: 'loss', targetWeightKg: 82, weeklyRateTarget: 0.005 });
+
+function onboard(profile: UserProfile = PROFILE, date = D0): WheightyStore {
+  const r = completeOnboarding(emptyStore(), profile, date, at(date));
+  if (!r.ok) throw new Error(r.reason);
+  return r.store;
+}
+
+/** Daily weigh-ins from D0 + 1 for `days` days, every day noted "plan respecté". */
+function tracked(days: number, store = onboard()): WheightyStore {
+  let s = store;
+  for (let i = 1; i <= days; i++) s = addWeight(s, { date: addDays(D0, i), weightKg: 92 - 0.06 * i }, at(addDays(D0, i)));
+  for (let d = 0; d <= days; d++) s = setAdherence(s, addDays(D0, d), 'on_plan');
+  return s;
+}
+
+function stateOn(store: WheightyStore, day: string): CalibrationState {
+  const state = computeCalibrationState(store, day, at(day));
+  if (!state) throw new Error('no state');
+  return state;
+}
+
+function recalibrated(days = 21): { store: WheightyStore; day: string } {
+  const s = tracked(days);
+  const day = addDays(D0, days);
+  const r = applyRecalibration(s, stateOn(s, day), day, at(day));
+  if (!r.ok) throw new Error(r.reason);
+  return { store: r.store, day };
+}
+
+describe('1a. export, format 2', () => {
+  it('envelope: app, device, the whole store, diagnostics; the file name carries the local time', () => {
+    const { store, day } = recalibrated();
+    const text = exportStore(store, at(day), {
+      app: { build: { commit: 'abc1234', date: '2026-11-11T10:00:00.000Z' }, scientificModelVersion: SCIENTIFIC_MODEL_VERSION, schemaVersion: SCHEMA_VERSION },
+      device: { timeZone: 'Europe/Paris', utcOffsetMinutes: 60, language: 'fr-FR', userAgent: 'test', displayMode: 'standalone' },
+      diagnostics: { x: Number.NaN, y: Number.POSITIVE_INFINITY },
+    });
+    const json = JSON.parse(text) as Record<string, unknown>;
+    expect(Object.keys(json)).toEqual(['format', 'formatVersion', 'exportedAt', 'app', 'device', 'store', 'diagnostics']);
+    expect(json.formatVersion).toBe(2);
+    expect(EXPORT_FORMAT_VERSION).toBe(2);
+    // Non-finite numbers of the diagnostics are kept apart, as in the captures R and S.
+    expect(json.diagnostics).toEqual({ x: 'NaN', y: '+Infinity' });
+    expect(exportFileName('2026-10-24', '23:44')).toBe('wheighty-2026-10-24-2344.json');
+    expect(exportFileName('2026-10-24', '2344')).toBe('wheighty-2026-10-24-2344.json');
+  });
+
+  it('import reads formats 1 and 2, ignores the diagnostics; export, import, export again: the same store', () => {
+    const { store, day } = recalibrated();
+    const v2 = exportStore(store, at(day), { diagnostics: { broken: true } });
+    const a = parseImport(v2);
+    if (!a.ok) throw new Error(a.error);
+    expect(a.store).toEqual({ ...store, preferences: { ...store.preferences, productSearchEnabled: false } });
+    const b = parseImport(exportStore(a.store, at(day)));
+    if (!b.ok) throw new Error(b.error);
+    expect(b.store).toEqual(a.store);
+    const v1 = JSON.stringify({ format: 'wheighty-export', formatVersion: 1, exportedAt: at(day), store: { ...store, schemaVersion: 10 } });
+    const c = parseImport(v1);
+    expect(c.ok).toBe(true);
+  });
+});
+
+describe('1b. diagnostics', () => {
+  it('every block is there, with the code in service; the constants with their label', () => {
+    const { store, day } = recalibrated();
+    const d = buildDiagnostics(store, day, at(day));
+    for (const key of ['today', 'at', 'gate', 'calibration', 'modeledBody', 'fitDays', 'journal', 'trend', 'periodic', 'guardrails', 'journalPath', 'chart', 'screens', 'constants']) expect(d).toHaveProperty(key);
+    const json = JSON.stringify(d);
+    expect(json).not.toMatch(/"error":/);
+    const constants = constantsDump();
+    for (const name of Object.keys(CONSTANT_METADATA)) expect(constants[name]?.category).toBe(CONSTANT_METADATA[name]?.category);
+    expect(constants.SCIENTIFIC_MODEL_VERSION?.value).toBe(SCIENTIFIC_MODEL_VERSION);
+    const screens = d.screens as Record<string, unknown>;
+    expect(Object.keys(screens)).toEqual(['today', 'plan', 'suivi', 'analyse', 'profil']);
+    expect((d.modeledBody as { modeledWeightKg: number }).modeledWeightKg).toBeGreaterThan(80);
+  });
+
+  it('a block that fails writes its message; the others are still computed', () => {
+    const { store, day } = recalibrated();
+    const throwing = new Proxy({} as CalibrationState, {
+      get: () => {
+        throw new Error('boom');
+      },
+      has: () => true,
+    });
+    const d = buildDiagnostics(store, day, at(day), throwing);
+    expect(JSON.stringify(d.calibration)).toMatch(/boom/);
+    expect(Array.isArray(d.fitDays)).toBe(true);
+    expect((d.trend as { points: number }).points).toBe(store.weights.length);
+  });
+});
+
+describe('1c. activity log', () => {
+  it('capped: the oldest leave first, and are counted', () => {
+    const s = onboard();
+    const now = new Date('2026-06-02T08:00:00.000Z');
+    const many = Array.from({ length: 7 }, (_, i) => activityEntry('screen', { i }, now));
+    const a = appendActivity(s, many, 5);
+    expect(a.activityLog.entries.map((e) => e.data.i)).toEqual([2, 3, 4, 5, 6]);
+    expect(a.activityLog.droppedCount).toBe(2);
+    const b = appendActivity(a, [activityEntry('screen', { i: 7 }, now)], 5);
+    expect(b.activityLog.entries.map((e) => e.data.i)).toEqual([3, 4, 5, 6, 7]);
+    expect(b.activityLog.droppedCount).toBe(3);
+    expect(appendActivity(b, [])).toBe(b);
+    expect(ACTIVITY_LOG_MAX_ENTRIES).toBe(5000);
+  });
+
+  it('what the user changed: weigh-ins (before and after), adherence with its source and previous value, steps, food by id and kcal, closed messages, settings', () => {
+    const now = new Date('2026-06-03T08:00:00.000Z');
+    const s0 = tracked(2);
+    const s1 = addWeight(s0, { date: addDays(D0, 3), weightKg: 91.5 }, at(addDays(D0, 3)));
+    const added = activityDiff(s0, s1, 'user', now);
+    expect(added.map((e) => [e.type, e.data.action, e.data.by])).toEqual([['weight', 'add', 'user']]);
+    expect(added[0]?.data.after).toEqual({ date: addDays(D0, 3), weightKg: 91.5 });
+    const id = s1.weights.at(-1)?.id as string;
+    const s2 = { ...s1, weights: s1.weights.map((w) => (w.id === id ? { ...w, weightKg: 91.7 } : w)) };
+    expect(activityDiff(s1, s2, 'user', now).map((e) => [e.type, e.data.action, (e.data.before as { weightKg: number }).weightKg, (e.data.after as { weightKg: number }).weightKg])).toEqual([['weight', 'edit', 91.5, 91.7]]);
+    expect(activityDiff(s2, deleteWeight(s2, id), 'user', now).map((e) => [e.type, e.data.action])).toEqual([['weight', 'delete']]);
+    const s3 = setAdherence(s2, addDays(D0, 1), 'minor_deviation');
+    expect(activityDiff(s2, s3, 'user', now).map((e) => e.data)).toEqual([{ date: addDays(D0, 1), value: 'minor_deviation', source: 'user', previous: { value: 'on_plan', source: 'user' }, by: 'user' }]);
+    const s4 = setActualSteps(s3, addDays(D0, 1), 8000);
+    expect(activityDiff(s3, s4, 'user', now).map((e) => [e.type, e.data.value, e.data.previous])).toEqual([['steps', 8000, null]]);
+    const r = addFoodEntry(s4, { kind: 'manual', date: addDays(D0, 2), localTime: '12:31', consumedTime: '12:30', food: { name: 'Plat secret', grams: null, intake: { energyKcal: 640, proteinG: null, carbsG: null, fatG: null } } }, at(addDays(D0, 2)));
+    if (!r.ok) throw new Error(r.reason);
+    const food = activityDiff(s4, r.store, 'user', now);
+    expect(food.map((e) => [e.type, e.data.action, e.data.kcal, e.data.date])).toEqual([['food', 'add', 640, addDays(D0, 2)]]);
+    expect(JSON.stringify(food)).not.toMatch(/secret/);
+    const s5 = { ...s4, preferences: { ...s4.preferences, units: 'imperial' as const } };
+    expect(activityDiff(s4, s5, 'user', now).map((e) => e.data)).toEqual([{ key: 'units', before: 'metric', after: 'imperial', by: 'user' }]);
+  });
+
+  it('a message closed, and the trace entries written; the daily checks as one summary entry', () => {
+    const now = new Date('2026-06-03T08:00:00.000Z');
+    const s = onboard();
+    const withEvent: WheightyStore = { ...s, meta: { ...s.meta, planEvents: [...s.meta.planEvents, { id: 'e-1-a', date: D0, rule: 'underweight_bmi', status: 'applied', before: null, after: null, message: 'x', seen: false }] } };
+    expect(activityDiff(s, withEvent, 'user', now).map((e) => [e.type, e.data.rule])).toEqual([['plan_event', 'underweight_bmi']]);
+    expect(activityDiff(withEvent, markPlanEventSeen(withEvent, 'e-1-a'), 'user', now).map((e) => [e.type, e.data.action, e.data.rule])).toEqual([['message', 'closed', 'underweight_bmi']]);
+    const deduced = setAdherence(withEvent, D0, 'on_plan', 'journal');
+    const daily = activityDiff(withEvent, deduced, 'daily_checks', now);
+    expect(daily.map((e) => e.type)).toEqual(['daily_checks']);
+    expect(daily[0]?.data.deducedAdherence).toEqual([{ date: D0, value: 'on_plan', source: 'journal' }]);
+    expect(activityDiff(s, s, 'user', now)).toEqual([]);
+  });
+
+  it('a calibration result is one entry per summary: the same result twice is one entry', () => {
+    const { store, day } = recalibrated();
+    const state = stateOn(store, day);
+    const summary = calibrationSummary(state);
+    expect(summary).toMatchObject({ gate: { met: true }, surfaced: false });
+    expect(sameData(summary, calibrationSummary(stateOn(store, day)))).toBe(true);
+    const logged = appendActivity(store, [activityEntry('calibration', summary, new Date())]);
+    expect(lastActivity(logged, 'calibration')?.data).toEqual(summary);
+    expect(lastActivity(logged, 'export')).toBeNull();
+  });
+
+  it('the store carries its log: saved, validated and exported with it; the engine never reads it', () => {
+    const s = appendActivity(onboard(), [activityEntry('app_open', { reason: 'start', build: 'dev' }, new Date('2026-06-01T08:00:00.000Z'))]);
+    const v = validateStore(JSON.parse(JSON.stringify(s)));
+    if ('error' in v) throw new Error(v.error);
+    expect(v.clean).toBe(true);
+    expect(v.store.activityLog).toEqual(s.activityLog);
+    const bad = validateStore(JSON.parse(JSON.stringify({ ...s, activityLog: { entries: [{ at: 'x', date: 'nope', type: 'app_open', data: {} }], droppedCount: 0 } })));
+    if ('error' in bad) throw new Error(bad.error);
+    expect(bad.dropped.map((d) => d.path)).toEqual(['activityLog.entries.0']);
+    // Same calibration with and without a log.
+    const day = addDays(D0, 21);
+    const t = tracked(21);
+    const withLog = appendActivity(t, Array.from({ length: 50 }, (_, i) => activityEntry('screen', { i }, new Date())));
+    expect(computeCalibrationState(withLog, day, at(day))?.candidate).toEqual(computeCalibrationState(t, day, at(day))?.candidate);
+  });
+});
+
+describe('1d. full trace of the plan changes, without a message', () => {
+  const noMessage = (e: PlanEvent | undefined) => expect(e).toMatchObject({ message: null, seen: true, status: 'applied' });
+
+  it('the first plan, a recalibration (plans, maintenances and intervals before and after, the calibration applied)', () => {
+    const s = tracked(21);
+    expect(s.meta.planEvents.map((e) => e.rule)).toEqual(['onboarding']);
+    noMessage(s.meta.planEvents[0]);
+    expect(s.meta.planEvents[0]?.before).toBeNull();
+    expect(s.meta.planEvents[0]?.after?.calorieTarget).toBe(onboard().plan?.calorieTarget);
+    const day = addDays(D0, 21);
+    const state = stateOn(s, day);
+    const r = applyRecalibration(s, state, day, at(day));
+    if (!r.ok) throw new Error(r.reason);
+    const e = r.store.meta.planEvents.at(-1);
+    noMessage(e);
+    expect(e?.rule).toBe('recalibration');
+    expect(e?.before?.calorieTarget).toBe(s.plan?.calorieTarget);
+    expect(e?.after?.calorieTarget).toBe(r.store.plan?.calorieTarget);
+    expect(e?.maintenance).toEqual({ before: s.plan?.maintenanceKcal, after: r.store.plan?.maintenanceKcal, interval80Before: s.plan?.maintenanceInterval80, interval80After: r.store.plan?.maintenanceInterval80 });
+    expect(e?.calibration).toMatchObject({ offsetKcal: state.candidate?.posteriorMedianOffsetKcal, interval80: state.candidate?.interval80, appliedAt: at(day) });
+    const m = applyRecalibrationAsMaintenance(s, state, day, at(day));
+    if (!m.ok) throw new Error(m.reason);
+    expect(m.store.meta.planEvents.map((x) => x.rule)).toEqual(['onboarding', 'recalibration_maintenance']);
+    expect(m.store.meta.planEvents.at(-1)?.after?.goal).toBe('maintenance');
+  });
+
+  it('goal, rate, slider and profile changed by the user; a failed change leaves nothing; nothing new is shown', () => {
+    const s = onboard();
+    const goal = changeGoalOnPath(s, D0, { goal: 'loss', targetWeightKg: 82, weeklyRate: 0.004 });
+    if (!goal.ok) throw new Error(goal.reason);
+    expect(goal.store.meta.planEvents.map((e) => e.rule)).toEqual(['onboarding', 'user_goal']);
+    expect(goal.store.meta.planEvents.at(-1)?.after?.weeklyRateTarget).toBe(goal.store.plan?.weeklyRateTarget);
+    const slider = applyPathSliderSteps(goal.store, D0, 9000);
+    if (!slider.ok) throw new Error(slider.reason);
+    expect(slider.store.meta.planEvents.at(-1)).toMatchObject({ rule: 'user_slider', after: { stepTarget: 9000 } });
+    const profile = updateProfileOnPath(slider.store, D0, { ...PROFILE, ageYears: 41 });
+    if (!profile.ok) throw new Error(profile.reason);
+    expect(profile.store.meta.planEvents.at(-1)?.rule).toBe('user_profile');
+    for (const e of profile.store.meta.planEvents) noMessage(e);
+    expect(unseenPlanMessages(profile.store)).toEqual([]);
+    expect(planNotices(profile.store.meta.planEvents, null)).toEqual([]);
+    const failed = updateProfileOnPath(slider.store, D0, { ...PROFILE, ageYears: 5 });
+    expect(failed.ok).toBe(false);
+  });
+});
+
+describe('1e. migration 10 -> 11, without loss', () => {
+  it('empty log; one backfilled entry per applied snapshot from the weigh-ins, after the entries of its day; unknown fields at null', () => {
+    const { store } = recalibrated();
+    const events10 = store.meta.planEvents.filter((e) => !(PLAN_CHANGE_RULES as readonly string[]).includes(e.rule));
+    const later: PlanEvent = { id: 'e-9-late', date: addDays(D0, 40), rule: 'underweight_bmi', status: 'applied', before: null, after: null, message: 'x', seen: true };
+    const sameDay: PlanEvent = { id: 'e-9-same', date: addDays(D0, 21), rule: 'periodic_replan', status: 'applied', before: null, after: null, message: null, seen: true };
+    const { activityLog: _log, ...rest } = store;
+    const raw = JSON.parse(JSON.stringify({ ...rest, schemaVersion: 10, meta: { ...store.meta, planEvents: [...events10, sameDay, later] } })) as Record<string, unknown>;
+    const m = migrateToCurrent(raw, undefined, undefined, { nowIso: at(addDays(D0, 41)) });
+    if (!m.ok) throw new Error(m.error);
+    const v = validateStore(m.value);
+    if ('error' in v) throw new Error(v.error);
+    expect(v.clean).toBe(true);
+    expect(v.store.activityLog).toEqual(emptyActivityLog());
+    expect(v.store.meta.planEvents.map((e) => e.id)).toEqual(['e-9-same', expect.stringMatching(/backfill$/), 'e-9-late']);
+    const b = v.store.meta.planEvents[1];
+    const snapshot = store.calibrationSnapshots.find((x) => x.appliedAt && x.source !== 'warm_start');
+    expect(b).toMatchObject({ rule: 'recalibration', backfilled: true, before: null, after: null, message: null, seen: true, maintenance: { before: null, after: null, interval80Before: null, interval80After: null } });
+    expect(b?.calibration).toEqual({ offsetKcal: snapshot?.posteriorMedianOffsetKcal, interval80: snapshot?.interval80, interval95: snapshot?.interval95, confidence: snapshot?.confidence, createdAt: snapshot?.createdAt, appliedAt: snapshot?.appliedAt });
+    // Nothing else changes.
+    for (const k of ['profile', 'plan', 'weights', 'dailyLogs', 'calibrationSnapshots', 'historicalEvidence', 'foodJournal', 'preferences'] as const) expect(v.store[k]).toEqual(JSON.parse(JSON.stringify(store[k])));
+    expect({ ...v.store.meta, planEvents: null }).toEqual({ ...JSON.parse(JSON.stringify(store.meta)), planEvents: null });
+  });
+
+  it('no entry for the warm start, for a snapshot not applied, nor for a takeover of a personal target already traced', () => {
+    const snaps = [
+      { source: 'warm_start', appliedAt: '2026-06-01T08:00:00.000Z', posteriorMedianOffsetKcal: 1, interval80: [0, 1], interval95: [0, 1], createdAt: 'x', confidence: 'low' },
+      { appliedAt: undefined, posteriorMedianOffsetKcal: 1, interval80: [0, 1], interval95: [0, 1], createdAt: 'x', confidence: 'low' },
+      { appliedAt: '2026-06-22T08:00:00.000Z', posteriorMedianOffsetKcal: 1, interval80: [0, 1], interval95: [0, 1], createdAt: 'x', confidence: 'low' },
+    ];
+    const takeover = { id: 'e-t', date: '2026-06-22', rule: 'personal_target_takeover', status: 'applied' };
+    expect(backfillRecalibrations([takeover], snaps)).toEqual([takeover]);
+    expect(backfillRecalibrations([], snaps)).toHaveLength(1);
+  });
+
+  it('a schema-7 store (pass 5a, as in report 47) loads without loss up to schema 11', () => {
+    const { store } = recalibrated();
+    const { journalPath: _p, ...meta7 } = store.meta;
+    const { activityLog: _l, ...rest } = store;
+    const logs7 = store.dailyLogs.map(({ adherenceSource: _s, ...l }) => l);
+    const events7 = store.meta.planEvents.filter((e) => !(PLAN_CHANGE_RULES as readonly string[]).includes(e.rule));
+    const raw7 = JSON.parse(JSON.stringify({ ...rest, schemaVersion: 7, dailyLogs: logs7, meta: { ...meta7, planEvents: events7 } })) as Record<string, unknown>;
+    const m = migrateToCurrent(raw7, undefined, undefined, { nowIso: at(addDays(D0, 30)) });
+    if (!m.ok) throw new Error(m.error);
+    const v = validateStore(m.value);
+    if ('error' in v) throw new Error(v.error);
+    expect(v.clean).toBe(true);
+    expect(v.store.schemaVersion).toBe(11);
+    for (const k of ['profile', 'plan', 'weights', 'calibrationSnapshots', 'historicalEvidence', 'foodJournal', 'preferences'] as const) expect(v.store[k]).toEqual(JSON.parse(JSON.stringify(store[k])));
+    expect(v.store.dailyLogs).toEqual(JSON.parse(JSON.stringify(store.dailyLogs)));
+    expect(v.store.meta.planEvents.map((e) => e.rule)).toEqual(['recalibration']);
+  });
+});
+
+describe('2. the recalibrated state no longer depends on the gate of the day (D2)', () => {
+  /** Recalibrated on day 21, then 30 days of weigh-ins without any adherence noted: the gate of the day closes (coverage). */
+  function closedAfterRecalibration(): { store: WheightyStore; day: string; state: CalibrationState } {
+    let { store } = recalibrated();
+    for (let i = 22; i <= 52; i++) store = addWeight(store, { date: addDays(D0, i), weightKg: 92 - 0.06 * i }, at(addDays(D0, i)));
+    const day = addDays(D0, 52);
+    return { store, day, state: stateOn(store, day) };
+  }
+  const withoutApplied = (s: WheightyStore): WheightyStore => ({ ...s, calibrationSnapshots: s.calibrationSnapshots.filter((x) => !x.appliedAt || x.source === 'warm_start') });
+
+  it('hasAppliedRecalibration: an applied snapshot from the weigh-ins; not the warm start, not a candidate', () => {
+    expect(hasAppliedRecalibration(tracked(21))).toBe(false);
+    expect(hasAppliedRecalibration(recalibrated().store)).toBe(true);
+    const warm = onboard(PROFILE);
+    const withWarm: WheightyStore = { ...warm, calibrationSnapshots: [{ ...(recalibrated().store.calibrationSnapshots.at(-1) as NonNullable<WheightyStore['calibrationSnapshots'][number]>), source: 'warm_start' }] };
+    expect(hasAppliedRecalibration(withWarm)).toBe(false);
+  });
+
+  it('Analyse: the calibrated layout with the gate closed, the estimate applied and its confidence, and the block towards the next update', () => {
+    const { store, state } = closedAfterRecalibration();
+    expect(state.gate.met).toBe(false);
+    const v = analysisView(store, state);
+    expect(v?.calibrated).toBe(true);
+    expect(v?.maintenanceKcal).toBe(store.plan?.maintenanceKcal);
+    expect(v?.confidence).toBe(latestAppliedSnapshot(store)?.confidence);
+    expect(v?.nextUpdate?.criteria.find((c) => c.key === 'adherence')?.met).toBe(false);
+    // Without the applied recalibration, the same store is back to "J'observe encore".
+    const before = analysisView(withoutApplied(store), stateOn(withoutApplied(store), addDays(D0, 52)));
+    expect(before?.calibrated).toBe(false);
+    expect(before?.nextUpdate).toBeNull();
+    // Gate open: the calibrated layout as before, without the block.
+    const open = recalibrated();
+    expect(analysisView(open.store, stateOn(open.store, open.day))?.nextUpdate).toBeNull();
+  });
+
+  it('Suivi keeps drawing the projection; Aujourd\'hui and the sheet speak of the next update', () => {
+    const { store, day, state } = closedAfterRecalibration();
+    const chart = trackingChart(store, day, null, state);
+    expect(chart?.projectionPending).toBe(false);
+    expect(chart?.projection.length).toBeGreaterThan(0);
+    const bare = withoutApplied(store);
+    const chartBefore = trackingChart(bare, day, null, stateOn(bare, day));
+    expect(chartBefore?.projectionPending).toBe(true);
+    expect(chartBefore?.projection).toEqual([]);
+    expect(todayStatusTitle(store, day, state, false)).toBe('Note tes journées pour débloquer la prochaine mise à jour.');
+    expect(todayStatusTitle(bare, day, stateOn(bare, day), false)).toBe('Note tes journées pour débloquer la première mise à jour.');
+    expect(ADHERENCE_NOTED_TEXT.nextAdjustment(50)).toMatch(/prochaine mise à jour/);
+    expect(readFileSync('src/screens/WhySheet.tsx', 'utf8')).toMatch(/hasAppliedRecalibration\(store\) \? ADHERENCE_NOTED_TEXT\.nextAdjustment/);
+  });
+
+  it('before any recalibration, with or without a warm start: nothing changes', () => {
+    const s = tracked(10);
+    const day = addDays(D0, 10);
+    const state = stateOn(s, day);
+    expect(analysisView(s, state)).toMatchObject({ calibrated: false, nextUpdate: null });
+    expect(trackingChart(s, day, null, state)?.projectionPending).toBe(true);
+    expect(todayStatusTitle(s, day, state, false)).toMatch(/première mise à jour/);
+  });
+});
+
+describe('3. no major deviation deduced under the target (D6), model 1.9.0', () => {
+  /** Maintenance at 2 000 kcal a day; day i logged with `kcal(i)` in one entry (null: not logged). */
+  const logged = (kcal: (i: number) => number | null, to: number): WheightyStore => {
+    const s0 = onboard(makeProfile({ goal: 'maintenance' }));
+    let s: WheightyStore = { ...s0, dailyLogs: s0.dailyLogs.map((l) => ({ ...l, calorieTargetForDay: 2000 })) };
+    for (let i = 0; i <= to; i++) {
+      s = { ...s, dailyLogs: [...s.dailyLogs.filter((l) => l.date !== addDays(D0, i)), { date: addDays(D0, i), calorieTargetForDay: 2000, stepTargetForDay: 7000 }].sort((a, b) => (a.date < b.date ? -1 : 1)) };
+      const k = kcal(i);
+      if (k === null) continue;
+      const r = addFoodEntry(s, { kind: 'manual', date: addDays(D0, i), localTime: '12:00', consumedTime: '12:00', food: { name: 'x', grams: null, intake: { energyKcal: k, proteinG: null, carbsG: null, fatG: null } } }, at(addDays(D0, i)));
+      if (!r.ok) throw new Error(r.reason);
+      s = r.store;
+    }
+    return s;
+  };
+
+  it('the category: under 10 %, 10 to 25 %, beyond 25 % above (major); beyond 25 % under: nothing', () => {
+    expect([1810, 2190, 1800, 2200, 1500, 2500, 2510].map((k) => adherenceFromJournal(k, 2000))).toEqual(['on_plan', 'on_plan', 'minor_deviation', 'minor_deviation', 'minor_deviation', 'minor_deviation', 'major_deviation']);
+    expect([1490, 800, 0].map((k) => adherenceFromJournal(k, 2000))).toEqual([null, null, null]);
+    expect(SCIENTIFIC_MODEL_VERSION).toBe('1.9.0');
+  });
+
+  it('nothing written at the day change, nothing suggested on the tile; the user can still note the day; a stored one is never rewritten', () => {
+    const totals = [1490, 2510, 1800, 600];
+    const s = logged((i) => totals[i] ?? null, totals.length - 1);
+    const day = addDays(D0, totals.length);
+    const after = runDailyChecks(s, day, at(day));
+    const of = (st: WheightyStore, i: number) => st.dailyLogs.find((l) => l.date === addDays(D0, i));
+    expect(totals.map((_, i) => of(after, i)?.adherence)).toEqual([undefined, 'major_deviation', 'minor_deviation', undefined]);
+    expect(suggestedAdherence(s, D0)).toBeNull();
+    expect(suggestedAdherence(s, addDays(D0, 1))?.value).toBe('major_deviation');
+    const noted = setAdherence(after, D0, 'major_deviation');
+    expect(of(noted, 0)).toMatchObject({ adherence: 'major_deviation', adherenceSource: 'user' });
+    // An adherence already deduced (before 1.9.0) stays as it is.
+    const old = setAdherence(s, addDays(D0, 3), 'major_deviation', 'journal');
+    expect(of(runDailyChecks(old, day, at(day)), 3)).toMatchObject({ adherence: 'major_deviation', adherenceSource: 'journal' });
+  });
+
+  it('the switch reserved to the tests gives back the rule of 03/10', () => {
+    RULES_6A.d6 = false;
+    try {
+      expect(adherenceFromJournal(1490, 2000)).toBe('major_deviation');
+    } finally {
+      RULES_6A.d6 = true;
+    }
+    expect(adherenceFromJournal(1490, 2000)).toBeNull();
+  });
+});
+
+describe('4. no automatic update without a recent weigh-in (D3)', () => {
+  it('stale: the last valid weigh-in more than 7 days old', () => {
+    const { store, day } = recalibrated();
+    expect(AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS).toBe(7);
+    expect(CONSTANT_METADATA.AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS?.category).toBe('engineering_prior');
+    expect(weighInStale(store, addDays(day, 7))).toBe(false);
+    expect(weighInStale(store, addDays(day, 8))).toBe(true);
+  });
+
+  it('periodic replan: held back, still due (the check date does not move); after the next weigh-in it runs the same day', () => {
+    const { store, day } = recalibrated();
+    const due = addDays(day, 30);
+    const r = periodicReplan(store, due, { nowIso: at(due) });
+    expect(r).toEqual({ status: 'blocked', ageDays: 30, reason: 'stale_weighin' });
+    const checked = runDailyChecks(store, due, at(due));
+    expect(checked.plan).toEqual(store.plan);
+    expect(checked.meta.periodicReplanCheckedOn).toBe(store.meta.periodicReplanCheckedOn);
+    const weighed = runWeighInChecks(addWeight(checked, { date: due, weightKg: 90 }, at(due)), due, at(due));
+    expect(weighed.plan?.source).toBe('periodic_replan');
+    expect(weighed.plan?.createdAt).toBe(`${due}T00:00:00.000Z`);
+  });
+
+  it('recalibration: not shown (held back), the takeover of a personal target waits; the projection is not drawn', () => {
+    // Gate met on day 21 (never surfaced yet), then 8 days without a weigh-in.
+    const s = tracked(21);
+    const day = addDays(D0, 29);
+    const fresh = stateOn(s, addDays(D0, 21));
+    expect(fresh.surfaced).toBe(true);
+    const state = stateOn(s, day);
+    expect(state).toMatchObject({ surfaced: false, blockedByStaleWeighIn: true });
+    expect(calibrationSummary(state)).toMatchObject({ surfaced: false, blockedByStaleWeighIn: true });
+    const chart = trackingChart(s, day, null, state);
+    expect(chart).toMatchObject({ weighInNeeded: true, projectionPending: false, projection: [], band: [] });
+    const personal = choosePersonalTarget(s, addDays(D0, 21), 2100, at(addDays(D0, 21)));
+    if (!personal.ok) throw new Error(personal.reason);
+    expect(computePersonalTakeover(personal.store, stateOn(personal.store, day), day, at(day))).toBeNull();
+    const weighed = addWeight(personal.store, { date: day, weightKg: 90.5 }, at(day));
+    expect(computePersonalTakeover(weighed, stateOn(weighed, day), day, at(day))?.status).toBe('applied');
+  });
+
+  it('the short message: once a day at most, gone after the weigh-in; not in the measured habit', () => {
+    const { store, day } = recalibrated();
+    const late = addDays(day, 10);
+    expect(staleWeighInNotice(store, addDays(day, 7))).toBeNull();
+    expect(staleWeighInNotice(store, late)).toEqual({ title: 'Ton plan attend une pesée', line: 'Pèse-toi : je mettrai ton plan à jour avec ton poids du jour.' });
+    const closed = closeStaleWeighInNotice(store, late);
+    expect(staleWeighInNotice(closed, late)).toBeNull();
+    expect(staleWeighInNotice(closed, addDays(late, 1))).not.toBeNull();
+    expect(staleWeighInNotice(addWeight(closed, { date: addDays(late, 1), weightKg: 90 }, at(addDays(late, 1))), addDays(late, 1))).toBeNull();
+    const measured: WheightyStore = { ...store, meta: { ...store.meta, journalPath: { ...store.meta.journalPath, method: 'measured' } } };
+    expect(staleWeighInNotice(measured, late)).toBeNull();
+    const n = planNotices([], null, staleWeighInNotice(store, late));
+    expect(n).toEqual([{ kind: 'weigh_in', eventId: null, title: 'Ton plan attend une pesée', line: 'Pèse-toi : je mettrai ton plan à jour avec ton poids du jour.', text: '', tone: 'calm' }]);
+    expect(activityDiff(store, closed, 'user', new Date()).map((e) => e.data)).toEqual([{ action: 'closed', kind: 'weigh_in', date: late, by: 'user' }]);
+    expect(CHART_WEIGH_IN_NOTE).toBe('Pèse-toi pour voir où mène ton plan.');
+  });
+
+  it('not concerned: safety (G1, underweight alert) and the changes made by the user', () => {
+    // 165 cm, BMI 20 at 54.45 kg: a loss plan whose last weigh-in (53.5 kg) is 10 days old.
+    const thin = makeProfile({ heightCm: 165, currentWeightKg: 55, goal: 'loss', targetWeightKg: 54.5, weeklyRateTarget: 0.0025 });
+    let s = onboard(thin);
+    for (let i = 1; i <= 5; i++) s = addWeight(s, { date: addDays(D0, i), weightKg: 53.5 }, at(addDays(D0, i)));
+    const late = addDays(D0, 15);
+    expect(weighInStale(s, late)).toBe(true);
+    const after = runDailyChecks(s, late, at(late));
+    expect(after.plan).toMatchObject({ goal: 'maintenance', source: 'guardrail' });
+    const { store, day } = recalibrated();
+    const goal = changeGoalOnPath(store, addDays(day, 20), { goal: 'loss', targetWeightKg: 82, weeklyRate: 0.004 });
+    expect(goal.ok).toBe(true);
+  });
+
+  it('the switch reserved to the tests gives back the replan without a recent weigh-in', () => {
+    const { store, day } = recalibrated();
+    RULES_6A.d3 = false;
+    try {
+      expect(periodicReplan(store, addDays(day, 30), { nowIso: at(addDays(day, 30)) }).status).toBe('replanned');
+    } finally {
+      RULES_6A.d3 = true;
+    }
+  });
+});
+
+describe('5. one plan change at a time (D5)', () => {
+  /** Recalibrated on day 21, then daily weigh-ins, flat, up to `to`: the estimate moves, a new recalibration gets ready. */
+  function flatAfterRecalibration(to: number): WheightyStore {
+    let { store } = recalibrated();
+    for (let i = 22; i <= to; i++) store = addWeight(setAdherence(store, addDays(D0, i - 1), 'on_plan'), { date: addDays(D0, i), weightKg: 90.7 }, at(addDays(D0, i)));
+    return store;
+  }
+
+  it('app closed for days: the replan due waits the day a recalibration is ready; the screen shows the only change; it runs the next day if the recalibration is not applied', () => {
+    const day = addDays(D0, 61);
+    const s = flatAfterRecalibration(61);
+    const state = stateOn(s, day);
+    expect(state.surfaced).toBe(true);
+    expect(periodicReplanDue(s, day)).toBe(true);
+    const checked = runDailyChecks(s, day, at(day));
+    expect(checked.plan).toEqual(s.plan);
+    expect(checked.meta.planEvents.filter((e) => e.rule === 'periodic_replan')).toEqual([]);
+    expect(checked.meta.periodicReplanDeferredOn).toBe(day);
+    expect(periodicReplanUnderRules(checked, day, at(day), state)).toMatchObject({ status: 'deferred', reason: 'recalibration_ready' });
+    // Seen (the screen opened) but not applied: it still waits that day (found in the browser, profile 11).
+    const seen = markRecalibrationSeen(checked, state, day);
+    expect(stateOn(seen, day).surfaced).toBe(false);
+    expect(periodicReplanUnderRules(seen, day, at(day), stateOn(seen, day))).toMatchObject({ status: 'deferred', store: seen });
+    expect(runDailyChecks(seen, day, at(day)).plan).toEqual(s.plan);
+    // Applied: one change, the recalibration; the replan is no longer due.
+    const applied = applyRecalibration(checked, stateOn(checked, day), day, at(day));
+    if (!applied.ok) throw new Error(applied.reason);
+    expect(applied.store.meta.planEvents.filter((e) => e.date === day).map((e) => e.rule)).toEqual(['recalibration']);
+    expect(periodicReplanDue(applied.store, addDays(day, 1))).toBe(false);
+    // Not applied: the replan runs at the check of the next day.
+    const next = runDailyChecks(checked, addDays(day, 1), at(addDays(day, 1)));
+    expect(next.plan?.source).toBe('periodic_replan');
+    expect(next.plan?.createdAt).toBe(`${addDays(day, 1)}T00:00:00.000Z`);
+  });
+
+  it('a weigh-in that makes a recalibration ready: the replan held back by D3 waits again (D5), the recalibration alone', () => {
+    const s = flatAfterRecalibration(50);
+    const day = addDays(D0, 61);
+    expect(periodicReplanUnderRules(s, day, at(day), 'compute')).toMatchObject({ status: 'blocked', reason: 'stale_weighin' });
+    expect(stateOn(s, day)).toMatchObject({ surfaced: false, blockedByStaleWeighIn: true });
+    const weighed = runWeighInChecks(addWeight(s, { date: day, weightKg: 90.7 }, at(day)), day, at(day));
+    expect(stateOn(weighed, day).surfaced).toBe(true);
+    expect(weighed.plan?.createdAt).toBe(s.plan?.createdAt);
+    expect(weighed.meta.periodicReplanDeferredOn).toBe(day);
+    // In the app the weigh-in leaves it to the calibration: the same store, then the same decision.
+    const app = runWeighInChecks(addWeight(s, { date: day, weightKg: 90.7 }, at(day)), day, at(day), { periodic: 'after_calibration' });
+    expect(app.meta.periodicReplanDeferredOn).toBeNull();
+    expect(periodicReplanUnderRules(app, day, at(day), stateOn(app, day)).status).toBe('deferred');
+  });
+
+  it('the takeover of a personal target: one change; no replan on a personal target, nor right after the takeover', () => {
+    const s = tracked(21);
+    const day21 = addDays(D0, 21);
+    const personal = choosePersonalTarget(s, day21, 2100, at(day21));
+    if (!personal.ok) throw new Error(personal.reason);
+    let p = personal.store;
+    for (let i = 22; i <= 52; i++) p = addWeight(setAdherence(p, addDays(D0, i - 1), 'on_plan'), { date: addDays(D0, i), weightKg: 90.7 }, at(addDays(D0, i)));
+    const day = addDays(D0, 52);
+    expect(periodicReplanDue(p, day)).toBe(false);
+    const t = computePersonalTakeover(p, stateOn(p, day), day, at(day));
+    expect(t?.status).toBe('applied');
+    const taken = takeOverPersonalTarget(p, stateOn(p, day), day, at(day));
+    expect(taken.plan?.source).toBe('recalibrated');
+    expect(periodicReplanDue(taken, day)).toBe(false);
+    expect(runDailyChecks(taken, addDays(day, 1), at(addDays(day, 1))).plan?.createdAt).toBe(taken.plan?.createdAt);
+  });
+
+  it('no recalibration ready: the replan runs as before; the switch reserved to the tests gives back two changes in a day', () => {
+    const { store, day } = recalibrated();
+    const due = addDays(day, 28);
+    const weighed = addWeight(store, { date: due, weightKg: 90.6 }, at(due));
+    expect(stateOn(weighed, due).surfaced).toBe(false);
+    expect(periodicReplanUnderRules(weighed, due, at(due), 'compute').status).toBe('replanned');
+    const s = flatAfterRecalibration(61);
+    const d61 = addDays(D0, 61);
+    RULES_6A.d5 = false;
+    try {
+      expect(periodicReplanUnderRules(s, d61, at(d61), 'compute').status).toBe('replanned');
+    } finally {
+      RULES_6A.d5 = true;
+    }
+  });
+});
+
+describe('6. the gate counts the current tracking period (D4)', () => {
+  const w = (date: string, kg: number, i: number) => ({ id: `w${i}`, date, weightKg: kg, createdAt: `${date}T07:00:00.000Z` });
+  /** Weigh-ins of the real case's shape: 5 from 15/09 to 02/10, then a return on 25/10 (23 days later). */
+  const CASE = [w('2026-09-15', 68, 0), w('2026-09-23', 67.4, 1), w('2026-09-26', 67.8, 2), w('2026-09-27', 67.5, 3), w('2026-10-02', 67.5, 4)];
+
+  it('a pause: two consecutive valid weigh-ins 15 days apart or more; an absence still running is not one', () => {
+    expect(TRACKING_PAUSE_MIN_GAP_DAYS).toBe(15);
+    expect(CONSTANT_METADATA.TRACKING_PAUSE_MIN_GAP_DAYS?.category).toBe('engineering_prior');
+    expect(trackingPauses([w('2026-09-01', 70, 0), w('2026-09-15', 70, 1)])).toEqual({ pauses: [], periodStartIndex: 0 });
+    expect(trackingPauses([w('2026-09-01', 70, 0), w('2026-09-16', 70, 1), w('2026-09-17', 70, 2)])).toEqual({ pauses: [{ from: '2026-09-01', to: '2026-09-16' }], periodStartIndex: 1 });
+    expect(trackingPauses(CASE).pauses).toEqual([]);
+  });
+
+  it('the real case after the weigh-in of return: 1 weigh-in counted, from the return', () => {
+    const logs = Array.from({ length: 41 }, (_, i) => ({ date: addDays('2026-09-15', i), calorieTargetForDay: 1560, stepTargetForDay: 10000, ...(i % 2 === 0 ? { adherence: 'on_plan' as const } : {}) }));
+    const back = [...CASE, w('2026-10-25', 67.6, 5)];
+    const g = evaluateGate(back, logs);
+    expect(g).toMatchObject({ weighInCount: 1, spanDays: 0, met: false, periodStart: '2026-10-25', pauses: [{ from: '2026-10-02', to: '2026-10-25' }] });
+    const progress = gateProgressFromGate(g);
+    expect(progress.resumedOn).toBe('2026-10-25');
+    expect(ADHERENCE_NOTED_TEXT.resumedSince(formatDayMonth('2026-10-25'))).toBe('Comptées depuis ta reprise du 25 octobre.');
+    // Before the return, no pause: the whole history, as before.
+    expect(evaluateGate(CASE, logs)).toMatchObject({ weighInCount: 5, periodStart: '2026-09-15', pauses: [] });
+    expect(gateProgressFromGate(evaluateGate(CASE, logs)).resumedOn).toBeNull();
+  });
+
+  it('without a pause: the same gate bit for bit, on random histories', () => {
+    for (let seed = 0; seed < 200; seed++) {
+      const rnd = (k: number) => ((Math.sin(seed * 97 + k * 13) + 1) / 2) % 1;
+      const weights = [] as ReturnType<typeof w>[];
+      let day = 0;
+      for (let k = 0; k < 4 + Math.floor(rnd(1) * 30); k++) {
+        weights.push(w(addDays('2026-01-01', day), 80 - k * 0.1, k));
+        day += 1 + Math.floor(rnd(k + 2) * 14);
+      }
+      const logs = Array.from({ length: day + 1 }, (_, i) => ({ date: addDays('2026-01-01', i), calorieTargetForDay: 2000, stepTargetForDay: 7000, ...(rnd(i + 100) < 0.6 ? { adherence: (rnd(i + 200) < 0.2 ? 'major_deviation' : 'on_plan') as 'major_deviation' | 'on_plan' } : {}) }));
+      const a = evaluateGate(weights, logs);
+      const b = evaluateGate(weights, logs, { perPeriod: false });
+      expect(a).toEqual(b);
+      for (const k of Object.keys(b) as Array<keyof typeof b>) expect(Object.is(a[k], b[k]) || JSON.stringify(a[k]) === JSON.stringify(b[k])).toBe(true);
+    }
+  });
+
+  it('the calibration state, the confidence and the revision proposal read the gate of the period', () => {
+    const { store, day } = recalibrated();
+    let s = store;
+    const back = addDays(day, 20);
+    for (let i = 0; i < 6; i++) s = addWeight(setAdherence(s, addDays(back, i), 'on_plan'), { date: addDays(back, i), weightKg: 90.5 }, at(addDays(back, i)));
+    const today = addDays(back, 5);
+    const state = stateOn(s, today);
+    expect(state.gate).toMatchObject({ weighInCount: 6, spanDays: 5, met: false, periodStart: back, pauses: [{ from: day, to: back }] });
+    expect(state.surfaced).toBe(false);
+    RULES_6A.d4 = false;
+    let before: CalibrationState;
+    try {
+      before = stateOn(s, today);
+    } finally {
+      RULES_6A.d4 = true;
+    }
+    expect(before.gate.met).toBe(true);
+    expect(gateOf(s).weighInCount).toBe(6);
+    // The candidate's confidence: low while the gate of the period is closed.
+    expect(confidenceLevel(state.gate, 100)).toBe('low');
+    expect(revisionProposalTriggered(state.gate)).toBe(false);
+  });
+});
+
+describe('7. reanchoring after a pause (D7), behind the option', () => {
+  /** The real case's shape on profile R: tracking 18 days, a pause of 23 days on the target, a weigh-in back. */
+  function paused(): { store: WheightyStore; back: string } {
+    const r = makeProfile({ sexForEquation: 'female', ageYears: 24, heightCm: 155, currentWeightKg: 68, averageSteps7d: 9400, activities: [{ type: 'strength', sessionsPerWeek: 4, durationMin: 55, intensity: 'moderate' }], goal: 'loss', targetWeightKg: 60, weeklyRateTarget: 0.005 });
+    let s = onboard(r);
+    for (const [d, kg] of [[8, 67.4], [11, 67.8], [12, 67.5], [17, 67.5]] as const) s = addWeight(setAdherence(s, addDays(D0, d - 1), 'on_plan'), { date: addDays(D0, d), weightKg: kg }, at(addDays(D0, d)));
+    const back = addDays(D0, 40);
+    s = addWeight(s, { date: back, weightKg: 67.6 }, at(back));
+    return { store: s, back };
+  }
+  const withMode = <T>(mode: 'off' | 'A' | 'B' | null, fn: () => T): T => {
+    RULES_6A.reanchor = mode;
+    try {
+      return fn();
+    } finally {
+      RULES_6A.reanchor = null;
+    }
+  };
+
+  it('variant A in production (GO on amendment 8); the option reaches the calibration input', () => {
+    expect(REANCHOR_AFTER_PAUSE).toBe('A');
+    const { store, back } = paused();
+    expect(calibrationInputFromStore(store, back)?.reanchorAfterPause).toBe('A');
+    expect(withMode('B', () => calibrationInputFromStore(store, back)?.reanchorAfterPause)).toBe('B');
+  });
+
+  it('without a pause: A and B give the fit and the modeled body of today, bit for bit', () => {
+    const { store, day } = recalibrated();
+    const input = calibrationInputFromStore(store, day);
+    if (!input) throw new Error('input');
+    const off = fitCalibration({ ...input, reanchorAfterPause: 'off' });
+    for (const mode of ['A', 'B'] as const) {
+      expect(fitCalibration({ ...input, reanchorAfterPause: mode })).toEqual(off);
+      expect(modeledBodyAt({ ...input, reanchorAfterPause: mode }, -100, addDays(day, 3))).toEqual(modeledBodyAt({ ...input, reanchorAfterPause: 'off' }, -100, addDays(day, 3)));
+    }
+  });
+
+  it('with a pause: one level per period; the weigh-in back weighs 1; the modeled weight of the return day follows it', () => {
+    const { store, back } = paused();
+    const input = calibrationInputFromStore(store, back);
+    if (!input) throw new Error('input');
+    const fits = Object.fromEntries((['off', 'A', 'B'] as const).map((m) => [m, fitCalibration({ ...input, reanchorAfterPause: m })]));
+    expect(fits.off?.reanchor).toBeUndefined();
+    expect(fits.A?.reanchor).toEqual({ mode: 'A', periodStarts: [D0, back] });
+    expect(fits.A?.observationWeights.at(-1)).toBe(1);
+    expect(fits.off?.observationWeights.at(-1)).toBeLessThan(1);
+    const modeled = (m: 'off' | 'A' | 'B') => modeledBodyAt({ ...input, reanchorAfterPause: m }, (fits[m] as NonNullable<typeof fits.off>).posterior.medianKcal, back) as NonNullable<ReturnType<typeof modeledBodyAt>>;
+    expect(Math.abs(modeled('off').modeledWeightKg - 67.6)).toBeGreaterThan(0.5);
+    expect(Math.abs(modeled('A').modeledWeightKg - 67.6)).toBeLessThan(0.3);
+    expect(Math.abs(modeled('B').modeledWeightKg - 67.6)).toBeLessThan(0.3);
+    expect(modeled('B').reanchor).toEqual({ mode: 'B', periodStart: back });
+    // The journal regime is outside the scope: the option is ignored there.
+    expect(fitCalibration({ ...input, reanchorAfterPause: 'A', intakeObservations: { days: [], nonUsableDayWeight: 0.5 } })?.reanchor).toBeUndefined();
+  });
+});
+
+describe('6.5 and 6.6: verification profiles 8 to 11 (synthetic, no real data), and the export round trip', () => {
+  const TODAY = '2026-11-11';
+  const builders = { pause: pauseWithoutWeighInProfile, back: backAfterPauseProfile, closed: recalibratedGateClosedProfile, both: replanAndRecalibrationProfile, takeover: takeoverProfile, personal: personalTargetProfile } as const;
+
+  it('each profile shows what it is built for', () => {
+    const pause = runDailyChecks(pauseWithoutWeighInProfile(TODAY), TODAY, at(TODAY));
+    expect(stateOn(pause, TODAY)).toMatchObject({ surfaced: false, blockedByStaleWeighIn: true });
+    expect(staleWeighInNotice(pause, TODAY)).not.toBeNull();
+    const back = runDailyChecks(backAfterPauseProfile(TODAY), TODAY, at(TODAY));
+    expect(stateOn(back, TODAY).gate).toMatchObject({ weighInCount: 1, periodStart: TODAY });
+    const closed = runDailyChecks(recalibratedGateClosedProfile(TODAY), TODAY, at(TODAY));
+    expect(analysisView(closed, stateOn(closed, TODAY))).toMatchObject({ calibrated: true });
+    const both = runDailyChecks(replanAndRecalibrationProfile(TODAY), TODAY, at(TODAY));
+    expect(both.meta.periodicReplanDeferredOn).toBe(TODAY);
+    expect(stateOn(both, TODAY).surfaced).toBe(true);
+  });
+
+  it('export, import, export again: the same store (productSearchEnabled set off by the import, as always)', () => {
+    for (const build of Object.values(builders)) {
+      const s = build(TODAY);
+      const a = parseImport(exportStore(s, at(TODAY), { diagnostics: buildDiagnostics(s, TODAY, at(TODAY)) }));
+      if (!a.ok) throw new Error(a.error);
+      expect(a.store).toEqual({ ...s, preferences: { ...s.preferences, productSearchEnabled: false } });
+      const b = parseImport(exportStore(a.store, at(TODAY)));
+      if (!b.ok) throw new Error(b.error);
+      expect(b.store).toEqual(a.store);
+    }
+  });
+});

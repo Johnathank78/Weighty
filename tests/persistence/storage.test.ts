@@ -251,7 +251,8 @@ describe('JSON export / import (07 s14)', () => {
   });
 
   it('rejects exports from a newer format', () => {
-    const text = JSON.stringify({ format: 'wheighty-export', formatVersion: 2, exportedAt: NOW, store: sampleStore() });
+    // Version 2 (report 49, point 1a) is the current format: a version 3 file is from a newer app.
+    const text = JSON.stringify({ format: 'wheighty-export', formatVersion: 3, exportedAt: NOW, store: sampleStore() });
     expect(parseImport(text)).toEqual({ ok: false, error: 'unsupported_version' });
   });
 

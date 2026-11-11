@@ -2,10 +2,10 @@
 
 Journal technique et scientifique de l'implémentation. Toute décision qui n'est pas écrite telle quelle dans `instruct/` est listée ici avec sa justification. Aucune déviation scientifique n'est silencieuse.
 
-- Modèle scientifique : `SCIENTIFIC_MODEL_VERSION = "1.3.0"` (`src/science/constants.ts`) : maintien apparent comme estimande (D-31), plancher calorique sexué (D-32), plancher d'incertitude structurelle de la calibration (D-33), recalibrations espacées d'au moins 7 jours (D-34), calibration hors du fil principal (P-01)
-- Schéma de stockage : `SCHEMA_VERSION = 6` (`src/domain/types.ts`), migrations 1 → 2, 2 → 3 (journal alimentaire, J-01), 3 → 4 (heure de consommation, J-06), 4 → 5 (« Mes aliments », J-09) et 5 → 6 (note de pesée, C-01) dans `src/persistence/migrations.ts`
+- Modèle scientifique : `SCIENTIFIC_MODEL_VERSION = "1.9.0"` (`src/science/constants.ts`). Jusqu'à 1.3.0 : sections 3 et 11 de ces notes. Les modèles 1.4.0 à 1.8.0 (solveur K2, recalcul périodique, garde-fous G1 et G2, parcours journal, cible personnelle) sont décrits dans les rapports 37 à 48 et dans les commentaires du code, pas ici. 1.9.0 : section 12 (rapport 49).
+- Schéma de stockage : `SCHEMA_VERSION = 11` (`src/domain/types.ts`), migrations dans `src/persistence/migrations.ts`. 1 → 6 : voir plus bas (J-01, J-06, J-09, C-01) ; 6 → 10 : passes 5a et 5b (commentaire de `SCHEMA_VERSION`) ; 10 → 11 : D-35.
 
-Depuis la passe « science + onboarding + warm start » (modèle 1.1.0), les fichiers `instruct/` ont été mis à jour pour refléter les décisions finales ; ils ne contredisent plus ces notes (`instruct/05` s17 et `instruct/08` réalignés sur le modèle 1.2.0 en P3, D-30). La section 9 résume ce qui a changé par rapport au modèle 1.0.0, la section 10 par rapport au modèle 1.1.0, la section 11 par rapport au modèle 1.2.0 (passe bêta).
+Depuis la passe « science + onboarding + warm start » (modèle 1.1.0), les fichiers `instruct/` ont été mis à jour pour refléter les décisions finales ; ils ne contredisent plus ces notes (`instruct/05` s17 et `instruct/08` réalignés sur le modèle 1.2.0 en P3, D-30). La section 9 résume ce qui a changé par rapport au modèle 1.0.0, la section 10 par rapport au modèle 1.1.0, la section 11 par rapport au modèle 1.2.0 (passe bêta), la section 12 par rapport au modèle 1.8.0 (rapport 49).
 
 ---
 
@@ -776,6 +776,37 @@ Le réglage passe en fin de liste des préférences : c'est une option d'observa
 - **Jamais de point médian ni de parenthèse d'accord** : un test statique refuse `·e` et `é(e)` dans l'interface, en plus des quatre formes corrigées.
 - Seul ajout au view-model : `Explanation.sex`, pour que l'écran de détails puisse accorder la tuile « Travail ». Aucune valeur scientifique ne change (snapshots de référence : une ligne ajoutée, aucun nombre modifié).
 
+### D-35 Export complet et journal d'activité (rapport 49, point 1, schéma 11, aucune sortie scientifique)
+
+- Export au format 2 : `app` (build injecté par `vite.config.ts` : commit court, « + » si l'arbre est modifié, date), `device` (fuseau IANA, décalage UTC, langue, user agent, app installée ou navigateur), `store` entier, `diagnostics` (`src/domain/diagnostics.ts` : porte, état de calibration avec la loi a posteriori, état modélisé du jour, jours reconstruits de l'ajustement, journal, tendance, recalcul périodique, garde-fous, parcours journal, séries de Suivi, view-models des cinq sections, toutes les constantes avec leur étiquette). Chaque bloc est protégé : une erreur écrit son message. L'import lit les formats 1 et 2 et ignore `diagnostics`. Nom de fichier avec l'heure locale.
+- Journal d'activité dans le store (`activityLog`), plafonné à 5 000 entrées (`ACTIVITY_LOG_MAX_ENTRIES`, `src/domain/activityLog.ts`, hors du registre scientifique), les plus anciennes sortent avec un compteur. Écrit par le seul `StoreProvider`, toujours sur le dernier store. Jamais lu par le moteur ; retiré du store envoyé aux workers. Coût mesuré : 5 ms par écriture avec un journal plein (Node, PC), 0,3 ms sans ; environ 1 Mo après un an.
+- Trace complète des changements de plan, sans message : `recalibration`, `recalibration_maintenance`, `onboarding`, `user_goal`, `user_slider`, `user_profile` ; `PlanEvent.maintenance`, `PlanEvent.calibration`, `PlanEvent.backfilled`.
+- Migration 10 → 11 : journal vide, une entrée `recalibration` (`backfilled`) par snapshot appliqué hors warm start dont la trace ne gardait rien (pas pour une reprise de cible personnelle déjà tracée), champs inconnus à `null` ; `staleWeighInNoticeClosedOn` et `periodicReplanDeferredOn` à `null`.
+
+### D-36 État « recalibré » (rapport 49, point 2, D2, affichage)
+
+`hasAppliedRecalibration` : un snapshot appliqué hors warm start. Ensuite, quelle que soit la porte du jour : Analyse garde la mise en page calibrée (estimation appliquée, sa confiance, bloc « Vers la prochaine mise à jour » quand la porte est fermée), Suivi garde la projection, Aujourd'hui et la feuille « Comment Wheighty apprend » parlent de la « prochaine mise à jour ».
+
+### D-37 Pas d'« écart important » déduit sous la cible (rapport 49, point 3, D6, modèle 1.9.0)
+
+`adherenceFromJournal` : un total saisi sous la cible de plus de 25 % (`SUGGESTED_ADHERENCE_MINOR_UP_TO`) ne donne rien, ni écrit au changement de jour, ni proposé sur la tuile. Au-dessus de la cible : inchangé. Les adhérences enregistrées ne sont jamais réécrites. Remplace, pour les jours sous la cible, la partie « au-delà : écart important » de la décision du 03/10.
+
+### D-38 Pas de mise à jour automatique sans pesée récente (rapport 49, point 4, D3)
+
+`AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS = 7` (`engineering_prior`, décision du 11/11). Dernière pesée valide plus ancienne : recalcul périodique retenu et toujours dû (date de contrôle inchangée), recalibration non proposée (`blockedByStaleWeighIn`), reprise d'une cible personnelle en attente, pas de projection dans Suivi (« Pèse-toi pour voir où mène ton plan. »), message « Ton plan attend une pesée » une fois par jour au plus. Après la pesée suivante, ce qui était dû s'exécute aussitôt (sous D-39). Non concernés : G1, G2, alerte de sous-poids, avertissement IMC 20, changements faits par l'utilisateur, habitude mesurée.
+
+### D-39 Un seul changement de plan à la fois (rapport 49, point 5, D5)
+
+`periodicReplanUnderRules` : un recalcul périodique dû le jour où une recalibration est prête attend toute la journée (`periodicReplanDeferredOn`), même si la recalibration est vue sans être appliquée ; il s'exécute dès le jour suivant de son cycle. Mécanisme : dans l'app, les contrôles du jour et ceux d'une pesée laissent le recalcul de côté (`periodic: 'after_calibration'`) ; `StoreProvider` l'exécute au retour de la calibration du jour (worker), après la reprise éventuelle d'une cible personnelle, sur le store pour lequel elle a été calculée. Tests et simulateurs : en ligne, l'état de calibration calculé quand le recalcul est dû.
+
+### D-40 Porte par période de suivi (rapport 49, point 6, D4)
+
+`TRACKING_PAUSE_MIN_GAP_DAYS = 15` (`engineering_prior`, décision du 11/11). Pause : deux pesées valides consécutives séparées de 15 jours ou plus ; une absence en cours n'en est pas une. `evaluateGate` ne compte que depuis la première pesée après la dernière pause (`periodStart`, `pauses`) ; au bit près le même résultat sans pause. Lue par l'état de calibration, la confiance du candidat, la proposition de révision et l'explication (`gateOf`). La porte de l'habitude mesurée n'est pas concernée. Ligne « Comptées depuis ta reprise du {date}. » dans Analyse et Aujourd'hui.
+
+### D-41 Réancrage après une pause (rapport 49, point 7, D7, amendement 8)
+
+`src/science/reanchor.ts`, option `reanchorAfterPause` de l'entrée de calibration, `REANCHOR_AFTER_PAUSE = 'A'` (`engineering_prior`). Variante A : une ordonnée par période de suivi (grille ±3 kg par 0,05 kg, centrée sur la première pesée de la période), marginalisée séparément à offset donné ; la première pesée de chaque période pèse 1 (les jours de pause n'apportent aucune preuve) ; le modèle de Hall continue à travers la pause ; l'état modélisé du jour prend le niveau de la dernière période. Sans pause : le code de 71bc77e, au bit près. Régime « journal lu » hors périmètre (option ignorée). Amendement 8 : A retenue sur l'entraînement (pire cellule 0,20 kg contre 0,26 pour B), GO en validation (V1 à V5, rapport 49). Limite : avec une seule pesée dans la dernière période, l'état modélisé est exactement cette pesée (V1 et V5 passent par construction).
+
 ---
 
 ## 4. Tensions relevées dans la spec
@@ -868,6 +899,8 @@ Registre complet dans `CONSTANT_METADATA`. Principales :
 - demi-vie de la tendance de 7 jours ; rappel de pesée tous les 3 jours ;
 - part de glucides de base (D-16), plancher de masse grasse initiale de 2 %, bornes IMC 16 à 70, limite de raideur RK4 (N-01), apport de base minimal admissible de Hall 1 kcal/j (B1, D-28).
 
+- rapport 49 : `AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS = 7` (D-38), `TRACKING_PAUSE_MIN_GAP_DAYS = 15` (D-40), `REANCHOR_AFTER_PAUSE = 'A'` (D-41), tous trois `engineering_prior`, décisions du product owner du 11/11/2026.
+
 Tout changement de ces valeurs impose de monter `SCIENTIFIC_MODEL_VERSION`.
 
 Constantes retirées parce qu'aucun code ne les lisait (sorties inchangées, pas de bump) : `SOLVER_ENERGY_RESIDUAL_KCAL` et `SOLVER_TEF_MAX_ITERATIONS` (itération TEF/macros devenue sans objet avec le TEF natif, S-01), `SLIDER_TRAJECTORY_TOLERANCE_KG` (la tolérance de 0,05 kg du slider est vérifiée directement par `goals.test.ts`).
@@ -951,3 +984,20 @@ Profils golden modifiés (tous les 12) : calories de −10,5 à +52,5 kcal/j (01
 | Benchmarks | T-03 à 28 et 42 j, T-04 à 42 j, vérité métabolique | T-03 à 28, 42, 84 et 120 j ; T-04 à 42 et 84 j ; vérité apparente ; parcours de convergence |
 | Constantes | `ABSOLUTE_MIN_CALORIES` | `ABSOLUTE_MIN_CALORIES_FEMALE`, `ABSOLUTE_MIN_CALORIES_MALE`, `CALIBRATION_STRUCTURAL_SD_KCAL`, `RECAL_SURFACE_MIN_INTERVAL_DAYS` |
 | Schéma | 2 | 2 (inchangé) |
+
+---
+
+## 12. Changements du modèle 1.9.0 par rapport à 1.8.0 (rapport 49)
+
+| Domaine | 1.8.0 | 1.9.0 |
+|---|---|---|
+| Adhérence déduite du journal | sous la cible de plus de 25 % : écart important | rien, le jour reste non noté (D-37) |
+| Mises à jour automatiques | quelle que soit la date de la dernière pesée | pas sans pesée de moins de 8 jours (D-38) |
+| Recalcul périodique et recalibration le même jour | deux changements | le recalcul attend le jour (D-39) |
+| Porte de recalibration | depuis la première pesée | depuis la reprise après la dernière pause (D-40) |
+| Calibration après une pause | une ordonnée pour toutes les pesées | une par période de suivi, variante A (D-41) |
+| Affichage après une recalibration | revient à « première recalibration » si la porte se ferme | jamais (D-36) |
+| Schéma | 10 | 11 : journal d'activité, trace complète, deux dates de `meta` (D-35) |
+| Export | format 1 | format 2 avec diagnostics (D-35) |
+| Constantes | | `AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS`, `TRACKING_PAUSE_MIN_GAP_DAYS`, `REANCHOR_AFTER_PAUSE` |
+| Captures T-03, T-04, golden | | identiques au bit près ; R, S et parcours : versions, schéma et nouvelles clés seulement |

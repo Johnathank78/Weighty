@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNav, NavigationProvider } from './navigation';
 import type { ScreenId } from './navigation';
@@ -68,9 +68,15 @@ function renderScreen(screen: ScreenId, hasPlan: boolean): ReactNode {
   }
 }
 
+/** Decision sheets logged when they open (report 49, point 1c); the recalibration screen logs itself. */
+const DECISION_SHEETS: ReadonlySet<string> = new Set(['planChange', 'personalTarget']);
+
 function Screens() {
-  const { screen, tab: activeTab, screenKey, transition, selectTab, toast, dismissToast } = useNav();
-  const { store } = useWheighty();
+  const { screen, tab: activeTab, screenKey, transition, selectTab, toast, dismissToast, sheet } = useNav();
+  const { store, logActivity } = useWheighty();
+  useEffect(() => {
+    if (sheet && DECISION_SHEETS.has(sheet)) logActivity('screen', { name: sheet });
+  }, [sheet, logActivity]);
   const pwa = usePwa();
   // Swiping the update notice away hides it for this session only.
   const [updateDismissed, setUpdateDismissed] = useState(false);

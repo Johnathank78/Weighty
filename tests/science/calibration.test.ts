@@ -75,6 +75,9 @@ describe('confidence levels (05 s11, 06 s14)', () => {
     majorDeviationFraction: 0,
     trackedDays: 30,
     criteria: { enoughWeighIns: true, enoughSpan: true, enoughCleanWeighIns: true, enoughAdherenceInfo: true },
+    // Report 49, point 6: the counted period (no pause here).
+    periodStart: '2026-01-01',
+    pauses: [],
     ...overrides,
   });
 

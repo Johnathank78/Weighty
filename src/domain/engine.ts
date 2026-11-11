@@ -5,9 +5,11 @@
  */
 import { assessBaseline, planContextFrom } from '@/science/assessment';
 import type { BaselineAssessment } from '@/science/assessment';
-import { buildSnapshot, evaluateGate, fitCalibration, shouldSurfaceRecalibration } from '@/science/calibration';
+import { buildSnapshot, evaluateGate, fitCalibration, shouldSurfaceRecalibration, validWeights } from '@/science/calibration';
 import type { CalibrationFit, CalibrationInput, GateStatus } from '@/science/calibration';
 import {
+  REANCHOR_AFTER_PAUSE,
+  AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS,
   GOAL_SOLVER_HORIZON_DAYS,
   HALL_BODY_FAT_MIN_QUALITY,
   JOURNAL_ALIGNED_FIRST_RECAL_DAYS,
@@ -49,6 +51,7 @@ import { intervalWidth } from '@/science/uncertainty';
 import { buildWarmStartSnapshot, validateHistoricalEvidence, warmStartPosterior } from '@/science/warmStart';
 import type { WarmStartResult } from '@/science/warmStart';
 import { PLAN_MESSAGE } from './planMessages';
+import { RULES_6A } from './ruleSwitches';
 import type { AdherenceSource, CurrentPlan, JournalMethod, PlanEvent, PlanSummary, StoredWeight, WheightyStore } from './types';
 
 export const MAINTENANCE_PROJECTION_DAYS = 84;
@@ -195,6 +198,22 @@ export function buildPlan(input: PlanBuildInput): PlanBuildResult {
 // Store-level helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * A recalibration from the weigh-ins was applied at least once (report 49, point 2, D2): an applied snapshot other than the
+ * warm start. From then on the screens never go back to the state "first recalibration", whatever the gate of the day.
+ */
+export function hasAppliedRecalibration(store: WheightyStore): boolean {
+  return store.calibrationSnapshots.some((s) => s.appliedAt !== undefined && s.source !== 'warm_start');
+}
+
+/**
+ * The recalibration gate of the store (05 s8), on the current tracking period (report 49, point 6, D4; the switch reserved to
+ * the tests gives back the whole history).
+ */
+export function gateOf(store: Pick<WheightyStore, 'weights' | 'dailyLogs'>): GateStatus {
+  return evaluateGate(store.weights, store.dailyLogs, { perPeriod: RULES_6A.d4 });
+}
+
 export function latestAppliedSnapshot(store: WheightyStore): CalibrationSnapshot | null {
   const applied = store.calibrationSnapshots.filter((s) => s.appliedAt !== undefined);
   return applied[applied.length - 1] ?? null;
@@ -209,6 +228,23 @@ export function currentWeightKg(store: WheightyStore): number | null {
   const t = trendOf(store).summary.latest;
   if (t) return t.trendKg;
   return store.profile?.currentWeightKg ?? null;
+}
+
+/** Day of the last valid weigh-in (the weigh-ins the calibration reads), null when none. */
+export function lastValidWeighInDate(store: WheightyStore): string | null {
+  const weights = validWeights(store.weights);
+  return weights[weights.length - 1]?.date ?? null;
+}
+
+/**
+ * D3 (report 49, point 4): the last valid weigh-in is more than AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS (7) days old, or there is
+ * none. Then nothing updates the plan by itself (periodic replan, recalibration shown, takeover of a personal target) and
+ * Suivi draws no projection, until the next weigh-in.
+ */
+export function weighInStale(store: WheightyStore, today: string): boolean {
+  if (!RULES_6A.d3) return false;
+  const last = lastValidWeighInDate(store);
+  return last === null || daysBetween(last, today) > AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS;
 }
 
 export function latestRawWeight(store: WheightyStore): StoredWeight | null {
@@ -462,7 +498,7 @@ export function completeOnboarding(
       initialWeightKg: store.meta.initialWeightKg ?? profile.currentWeightKg,
     },
   };
-  return { ok: true, store: ensureDailyLogs(next, today) };
+  return { ok: true, store: recordUserPlanChange(store, ensureDailyLogs(next, today), 'onboarding', today, nowIso) };
 }
 
 // ---------------------------------------------------------------------------
@@ -812,6 +848,8 @@ export type CalibrationState = {
   surfaced: boolean;
   /** Maintenance the new plan would use (NASEM at the current weight plus the posterior offset). */
   proposedMaintenanceKcal: number | null;
+  /** D3 (report 49, point 4): a recalibration would be shown, but the last weigh-in is more than 7 days old. */
+  blockedByStaleWeighIn: boolean;
 };
 
 export function calibrationInputFromStore(store: WheightyStore, today: string): CalibrationInput | null {
@@ -840,6 +878,13 @@ export function calibrationInputFromStore(store: WheightyStore, today: string): 
     dailyLogs: store.dailyLogs,
     // Warm start evidence (history before onboarding) keeps informing the posterior (D-23).
     ...(history?.likelihood.logLikelihood ? { historicalLogLikelihood: history.likelihood.logLikelihood } : {}),
+    // Report 49, point 7 (D7): the reanchoring after a pause in service ('off' until the verdict of amendment 8), and the
+    // population maintenance at a weight that its variant B restarts from (same PAL category as the window start).
+    reanchorAfterPause: RULES_6A.reanchor ?? REANCHOR_AFTER_PAUSE,
+    populationAt: (weightKg: number) => {
+      const a = assessBaseline(profile, today, { weightKg, ...(palCategory ? { palCategory } : {}) });
+      return { tdeeKcal: a.populationTdeeKcal, reeKcal: a.ree.reeKcalDay };
+    },
   };
 }
 
@@ -859,7 +904,7 @@ export function computeCalibrationState(store: WheightyStore, today: string, now
   const plan = store.plan;
   const profile = store.profile;
   if (!plan || !profile) return null;
-  const gate = evaluateGate(store.weights, store.dailyLogs);
+  const gate = gateOf(store);
   const input = calibrationInputFromStore(store, today);
   const fit = input && gate.weighInCount >= 2 ? fitCalibration(input) : null;
   const candidate = fit && input ? buildSnapshot(fit, gate, input.populationTdeeAtStartKcal, nowIso) : null;
@@ -879,12 +924,17 @@ export function computeCalibrationState(store: WheightyStore, today: string, now
       confidence: latestAppliedSnapshot(store)?.confidence ?? 'low',
       surfaced: false,
       proposedMaintenanceKcal: null,
+      blockedByStaleWeighIn: false,
     };
   }
 
   const proposedMaintenanceKcal = populationNow + candidate.posteriorMedianOffsetKcal;
   const reference = store.meta.lastSurfacedCalibration ?? { tdeeKcal: plan.maintenanceKcal, interval80Width: intervalWidth(plan.maintenanceInterval80), surfacedOn: null };
-  const surfaced = currentMethodMaySurface(store, today) && shouldSurfaceRecalibration(gate, { tdeeKcal: proposedMaintenanceKcal, interval80Width: intervalWidth(candidate.interval80) }, reference, today);
+  const wouldSurface = currentMethodMaySurface(store, today) && shouldSurfaceRecalibration(gate, { tdeeKcal: proposedMaintenanceKcal, interval80Width: intervalWidth(candidate.interval80) }, reference, today);
+  // D3 (report 49, point 4): not shown without a recent weigh-in (the takeover of a personal target, which reads `surfaced`,
+  // waits as well).
+  const stale = weighInStale(store, today);
+  const surfaced = wouldSurface && !stale;
   return {
     gate,
     fit,
@@ -895,6 +945,7 @@ export function computeCalibrationState(store: WheightyStore, today: string, now
     confidence: candidate.confidence,
     surfaced,
     proposedMaintenanceKcal,
+    blockedByStaleWeighIn: wouldSurface && stale,
   };
 }
 
@@ -914,7 +965,38 @@ export function applyRecalibration(store: WheightyStore, state: CalibrationState
   const result = buildPlanFromStore(withSnapshot, today, { source: 'recalibrated', snapshot, ...(store.plan ? { stepTarget: store.plan.stepTarget } : {}), solver });
   if (!result.ok) return { ok: false, reason: result.reason };
   const seen = markRecalibrationSeen(withSnapshot, state, today);
-  return { ok: true, store: endChosenTarget(syncTodayLogTargets({ ...seen, plan: result.plan }, today)) };
+  const next = endChosenTarget(syncTodayLogTargets({ ...seen, plan: result.plan }, today));
+  return { ok: true, store: recordRecalibrationEvent(next, 'recalibration', store.plan, result.plan, snapshot, today, nowIso) };
+}
+
+/**
+ * Trace entry of an applied recalibration (schema 11, report 49, point 1d), without a message: the plans before and after,
+ * their maintenances and 80 percent intervals, and the calibration applied.
+ */
+function recordRecalibrationEvent(store: WheightyStore, rule: 'recalibration' | 'recalibration_maintenance', before: CurrentPlan | null, after: CurrentPlan | null, snapshot: CalibrationSnapshot, today: string, nowIso: string): WheightyStore {
+  return recordPlanEvent(
+    store,
+    {
+      date: today,
+      rule,
+      status: 'applied',
+      before: before ? planSummary(before) : null,
+      after: after ? planSummary(after) : null,
+      message: null,
+      maintenance: { before: before?.maintenanceKcal ?? null, after: after?.maintenanceKcal ?? null, interval80Before: before?.maintenanceInterval80 ?? null, interval80After: after?.maintenanceInterval80 ?? null },
+      calibration: { offsetKcal: snapshot.posteriorMedianOffsetKcal, interval80: snapshot.interval80, interval95: snapshot.interval95, confidence: snapshot.confidence, createdAt: snapshot.createdAt, appliedAt: snapshot.appliedAt ?? null },
+    },
+    nowIso,
+  );
+}
+
+/**
+ * Trace entry of a plan change made by the user (schema 11, report 49, point 1d), without a message: the plans before and
+ * after. Nothing when the change failed or left no plan.
+ */
+export function recordUserPlanChange(before: WheightyStore, after: WheightyStore, rule: 'onboarding' | 'user_goal' | 'user_slider' | 'user_profile', today: string, nowIso = `${today}T00:00:00.000Z`): WheightyStore {
+  if (!after.plan) return after;
+  return recordPlanEvent(after, { date: today, rule, status: 'applied', before: before.plan ? planSummary(before.plan) : null, after: planSummary(after.plan), message: null }, nowIso);
 }
 
 /**
@@ -925,7 +1007,8 @@ export function applyRecalibrationAsMaintenance(store: WheightyStore, state: Cal
   if (!state.candidate || !state.gate.met) return { ok: false, reason: 'gate_not_met' };
   const snapshot: CalibrationSnapshot = { ...state.candidate, appliedAt: nowIso };
   const withSnapshot = markRecalibrationSeen({ ...store, calibrationSnapshots: [...store.calibrationSnapshots, snapshot] }, state, today);
-  return switchToMaintenance(withSnapshot, today);
+  const r = switchToMaintenance(withSnapshot, today);
+  return r.ok ? { ok: true, store: recordRecalibrationEvent(r.store, 'recalibration_maintenance', store.plan, r.store.plan, snapshot, today, nowIso) } : r;
 }
 
 // ---------------------------------------------------------------------------
@@ -975,6 +1058,11 @@ export type PeriodicReplanResult =
   | { status: 'not_due'; ageDays: number }
   /** Due, but no applied calibration snapshot: the plan stays; the check date moves. */
   | { status: 'no_snapshot'; ageDays: number; store: WheightyStore }
+  /**
+   * Due, but held back (report 49): 'stale_weighin', the last weigh-in is more than 7 days old (D3). The plan stays and the
+   * check date does not move: it stays due and runs once a weigh-in comes.
+   */
+  | { status: 'blocked'; ageDays: number; reason: 'stale_weighin' }
   /** Due, but the rebuild failed (e.g. no feasible speed): the plan stays; the check date moves, the trace keeps the reason. */
   | { status: 'failed'; ageDays: number; reason: string; store: WheightyStore }
   | { status: 'replanned'; ageDays: number; store: WheightyStore; event: PlanEvent };
@@ -983,10 +1071,27 @@ export type PeriodicReplanResult =
  * Days since the last periodic evaluation: from the plan's solve, or from the last evaluation that left the plan in place
  * (`periodicReplanCheckedOn`), whichever is later.
  */
-function daysSincePeriodicCheck(store: WheightyStore, plan: CurrentPlan, today: string): number {
+export function daysSincePeriodicCheck(store: WheightyStore, plan: CurrentPlan, today: string): number {
   const checked = store.meta.periodicReplanCheckedOn;
   const since = checked !== null && checked > planDateOf(plan) ? checked : planDateOf(plan);
   return daysBetween(since, today);
+}
+
+/**
+ * The periodic replan of the current method is due (prompt 38 s3.1): PERIODIC_REPLAN_EVERY_DAYS since the solve or the last
+ * evaluation; never on the aligned target itself (report 40 s3.10) nor on a personal target (fixes of pass 5b, point 6).
+ */
+export function periodicReplanDue(store: WheightyStore, today: string): boolean {
+  const plan = store.plan;
+  if (!plan || !store.profile) return false;
+  if (store.meta.journalPath.chosenTargetActive || plan.source === 'personal_target') return false;
+  return daysSincePeriodicCheck(store, plan, today) >= PERIODIC_REPLAN_EVERY_DAYS;
+}
+
+/** First day of the current periodic cycle: the plan's solve, or the last evaluation that left it in place. */
+export function periodicCycleStart(store: WheightyStore, plan: CurrentPlan): string {
+  const checked = store.meta.periodicReplanCheckedOn;
+  return checked !== null && checked > planDateOf(plan) ? checked : planDateOf(plan);
 }
 
 /**
@@ -1003,10 +1108,9 @@ export function periodicReplan(store: WheightyStore, today: string, options: { n
   const plan = store.plan;
   if (!plan || !store.profile) return { status: 'not_due', ageDays: 0 };
   const ageDays = planAgeDays(plan, today);
-  // Journal path (report 40 s3.10): no periodic replan while the plan in force is the aligned target itself; nor while it is
-  // the target chosen by the user (fixes of pass 5b, point 6).
-  if (store.meta.journalPath.chosenTargetActive || plan.source === 'personal_target') return { status: 'not_due', ageDays };
-  if (daysSincePeriodicCheck(store, plan, today) < PERIODIC_REPLAN_EVERY_DAYS) return { status: 'not_due', ageDays };
+  if (!periodicReplanDue(store, today)) return { status: 'not_due', ageDays };
+  // D3 (report 49, point 4): not without a recent weigh-in; still due (the check date does not move).
+  if (weighInStale(store, today)) return { status: 'blocked', ageDays, reason: 'stale_weighin' };
   const nowIso = options.nowIso ?? `${today}T00:00:00.000Z`;
   const withLogs = ensureDailyLogs(store, today);
   const checked: WheightyStore = { ...withLogs, meta: { ...withLogs.meta, periodicReplanCheckedOn: today } };

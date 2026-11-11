@@ -8,6 +8,7 @@ import { ADHERENCE_NOTED_TEXT } from '@/app/copy';
 import { gateAdherencePercent } from '@/domain/views';
 import { explainCurrentPlan, explainPreview } from '@/domain/explain';
 import { measuredWhyText } from '@/domain/journalPath';
+import { hasAppliedRecalibration } from '@/domain/engine';
 import { draftToEvidence, draftToProfile } from '@/domain/onboarding';
 
 export function WhySheet() {
@@ -55,7 +56,8 @@ export function WhySheet() {
             Wheighty compare tes pesées réelles à ce qu’un modèle dynamique du poids prédit avec ton plan. Ce modèle tient compte de l’eau, du glycogène et de l’adaptation du corps, pas d’une règle fixe de calories par kilo.
           </p>
           <p className="body" style={{ marginBottom: 16 }}>
-            {ADHERENCE_NOTED_TEXT.firstAdjustment(gateAdherencePercent())}
+            {/* Report 49, point 2 (D2): after a recalibration, the next update. */}
+            {hasAppliedRecalibration(store) ? ADHERENCE_NOTED_TEXT.nextAdjustment(gateAdherencePercent()) : ADHERENCE_NOTED_TEXT.firstAdjustment(gateAdherencePercent())}
           </p>
           <p className="body" style={{ marginBottom: 20 }}>{ADHERENCE_NOTED_TEXT.regular}</p>
         </>

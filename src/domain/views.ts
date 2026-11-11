@@ -9,13 +9,13 @@ import type { Projection, ProjectionWindow } from '@/science/goals';
 import { bmi, minimumTargetWeightKg } from '@/science/macros';
 import type { DailyLog, Goal, MacroGrams, SpeedZone } from '@/science/types';
 import { assessBaseline, planContextFrom } from '@/science/assessment';
-import { evaluateGate } from '@/science/calibration';
 import type { GateStatus } from '@/science/calibration';
 import { formatInteger } from './format';
 import { snapWeeklyRate, speedZoneFor } from '@/science/goals';
 import type { CalibrationState } from './engine';
-import { contextForCurrentPlan, goalStatus, latestAppliedSnapshot, latestRawWeight, MAINTENANCE_PROJECTION_DAYS, solverOptionsFor, trendOf, weighInDue } from './engine';
-import { measuredProjectionContext } from './journalPath';
+import { contextForCurrentPlan, gateOf, goalStatus, hasAppliedRecalibration, latestAppliedSnapshot, weighInStale, latestRawWeight, MAINTENANCE_PROJECTION_DAYS, solverOptionsFor, trendOf, weighInDue } from './engine';
+import { alignedStatusLine, journalRead, measuredProjectionContext } from './journalPath';
+import { JOURNAL_MESSAGE } from './planMessages';
 import { localTimeOf } from './journal';
 import type { CurrentPlan, WheightyStore } from './types';
 
@@ -52,11 +52,13 @@ export type GateProgress = {
   remainingDays: number;
   /** True only when every criterion is met, as in evaluateGate. */
   met: boolean;
+  /** Report 49, point 6 (D4): first weigh-in counted after a pause ("Comptées depuis ta reprise du {date}."), null without. */
+  resumedOn: string | null;
 };
 
 /** First-recalibration progress, one entry per real gate criterion (weigh-ins, span, clean weigh-ins, adherence information). */
 export function gateProgress(state: CalibrationState | null, store: WheightyStore): GateProgress {
-  return gateProgressFromGate(state?.gate ?? evaluateGate(store.weights, store.dailyLogs));
+  return gateProgressFromGate(state?.gate ?? gateOf(store));
 }
 
 /** Same progress from an evaluated gate (also used by the explanation view model). */
@@ -74,6 +76,7 @@ export function gateProgressFromGate(gate: GateStatus): GateProgress {
     remainingWeighIns: Math.max(0, GATE_MIN_WEIGHINS - gate.weighInCount),
     remainingDays: Math.max(0, GATE_MIN_SPAN_DAYS - gate.spanDays),
     met: gate.met,
+    resumedOn: gate.pauses.length > 0 ? gate.periodStart : null,
   };
 }
 
@@ -186,6 +189,8 @@ export type ChartSeries = {
   startDate: string;
   /** Nothing is drawn ahead yet: Wheighty is still learning (A3). */
   projectionPending: boolean;
+  /** D3 (report 49, point 4): nothing is drawn ahead because the last weigh-in is more than 7 days old. */
+  weighInNeeded: boolean;
 };
 
 /**
@@ -247,9 +252,12 @@ export function trackingChart(store: WheightyStore, today: string, rangeDays: nu
   // Based on the span actually shown, not the nominal range: ranges that clip to the same first weigh-in draw the same curve.
   const horizonAhead = Math.max(21, Math.round(Math.max(28, todayDay) / 3));
   // While the first calibration is not reached, the estimate is still the onboarding prior: no curve is
-  // drawn ahead rather than a confident looking one (decision of the product owner).
-  const learning = measuredHabit(store) === null && !(state?.gate.met && state.candidate);
-  const live = learning ? null : projectionFromToday(store, today, state);
+  // drawn ahead rather than a confident looking one (decision of the product owner). Once a recalibration was applied, the
+  // projection stays whatever the gate of the day (report 49, point 2, D2).
+  const learning = measuredHabit(store) === null && !(state?.gate.met && state.candidate) && !hasAppliedRecalibration(store);
+  // D3 (report 49, point 4): no projection without a recent weigh-in (the measured habit has its own weigh-in rules).
+  const weighInNeeded = measuredHabit(store) === null && weighInStale(store, today);
+  const live = learning || weighInNeeded ? null : projectionFromToday(store, today, state);
   let projection: ChartSeries['projection'] = [];
   let band: ChartSeries['band'] = [];
   if (live) {
@@ -265,7 +273,7 @@ export function trackingChart(store: WheightyStore, today: string, rangeDays: nu
       .map((pt, i) => ({ day: anchor + pt.day, lo: (live.lower80[i]?.weightKg ?? pt.weightKg) + shift, hi: (live.upper80[i]?.weightKg ?? pt.weightKg) + shift }))
       .filter((p) => within(p.day));
   }
-  return { raw, trend, projection, band, todayDay, startDate, projectionPending: learning };
+  return { raw, trend, projection, band, todayDay, startDate, projectionPending: learning && !weighInNeeded, weighInNeeded };
 }
 
 export type RecentWeight = {
@@ -308,7 +316,13 @@ export function warmStartView(result: { status: WarmStartView['reason'] & string
 }
 
 export type AnalysisView = {
+  /** The calibrated layout: the gate of the day is met, or a recalibration was applied (report 49, point 2, D2). */
   calibrated: boolean;
+  /**
+   * Report 49, point 2: a recalibration was applied and the gate of the day is closed: the block "Vers la prochaine mise à
+   * jour" with the criteria of the counted period; null otherwise.
+   */
+  nextUpdate: GateProgress | null;
   maintenanceKcal: number;
   initialMaintenanceKcal: number | null;
   changeSinceInitialKcal: number | null;
@@ -329,6 +343,7 @@ export function analysisView(store: WheightyStore, state: CalibrationState | nul
     // Measured habit (pass 5b): the balance of the journal of the plan in force; no recalibration of the current method.
     return {
       calibrated: true,
+      nextUpdate: null,
       maintenanceKcal: plan.maintenanceKcal,
       initialMaintenanceKcal: null,
       changeSinceInitialKcal: null,
@@ -342,11 +357,16 @@ export function analysisView(store: WheightyStore, state: CalibrationState | nul
       observationSpanDays: 0,
     };
   }
-  const calibrated = Boolean(state?.gate.met && state.candidate);
+  const gateMet = Boolean(state?.gate.met && state.candidate);
+  // Report 49, point 2 (D2): after a recalibration, the calibrated layout even with the gate closed (the estimate applied and
+  // its confidence: the state then carries the plan's maintenance and the confidence of the last applied snapshot).
+  const applied = hasAppliedRecalibration(store);
+  const calibrated = gateMet || applied;
   const maintenanceKcal = state?.currentMaintenanceKcal ?? plan.maintenanceKcal;
   const initial = store.meta.initialMaintenanceKcal;
   return {
     calibrated,
+    nextUpdate: applied && !gateMet ? gateProgress(state, store) : null,
     maintenanceKcal,
     initialMaintenanceKcal: initial,
     changeSinceInitialKcal: initial === null ? null : maintenanceKcal - initial,
@@ -377,6 +397,27 @@ export function planEnergyBalanceKcal(store: WheightyStore, today: string): numb
 export function measuredHabit(store: WheightyStore): number | null {
   const path = store.meta.journalPath;
   return path.method === 'measured' ? (path.habit?.h ?? null) : null;
+}
+
+/**
+ * Status line of Aujourd'hui under the tiles (the recalibration line). `recalibrationReady`: a recalibration may be announced
+ * (shown, not pending, not on a personal target).
+ */
+export function todayStatusTitle(store: WheightyStore, today: string, state: CalibrationState | null, recalibrationReady: boolean): string {
+  const gate = gateProgress(state, store);
+  // Report 49, point 2 (D2): after a recalibration, the next update, never the first one again.
+  const update = hasAppliedRecalibration(store) ? 'la prochaine mise à jour' : 'la première mise à jour';
+  // Measured habit (pass 5b): the plan follows the journal; the gate of the current method does not apply.
+  if (journalRead(store)) return JOURNAL_MESSAGE.statusMeasured;
+  if (recalibrationReady) return 'Une recalibration est prête.';
+  // Pass 5b fixes, point 7: on the aligned target, the days before the next recalibration rather than the deviation days.
+  const alignedLine = alignedStatusLine(store, today);
+  if (alignedLine !== null) return alignedLine;
+  if (!gate.met && gate.remainingWeighIns > 0) return `Encore ${gate.remainingWeighIns} pesée${gate.remainingWeighIns > 1 ? 's' : ''} avant ${update}.`;
+  if (!gate.met && gate.remainingDays > 0) return `Encore ${gate.remainingDays} jour${gate.remainingDays > 1 ? 's' : ''} de suivi avant ${update}.`;
+  if (!gate.met && gate.criteria.some((c) => c.key === 'cleanWeighIns' && !c.met)) return 'Encore quelques pesées en dehors des journées d’écart important.';
+  if (!gate.met) return `Note tes journées pour débloquer ${update}.`;
+  return 'Ton estimation suit tes pesées.';
 }
 
 export { goalStatus };

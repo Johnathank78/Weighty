@@ -1,7 +1,23 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { execSync } from 'node:child_process';
 import { fileURLToPath, URL } from 'node:url';
+
+/**
+ * Build of the code in service (report 49, point 1a): short commit (with "+" when the tree has uncommitted changes) and
+ * date, read in the export and in the activity log. 'unknown' outside a git checkout.
+ */
+function buildInfo(): { commit: string; date: string } {
+  const date = new Date().toISOString();
+  try {
+    const commit = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    const dirty = execSync('git status --porcelain --untracked-files=no', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() !== '';
+    return { commit: dirty ? `${commit}+` : commit, date };
+  } catch {
+    return { commit: 'unknown', date };
+  }
+}
 
 /**
  * GitHub Pages serves the app under https://<user>.github.io/<repo>/.
@@ -13,6 +29,9 @@ const base = process.env.WHEIGHTY_BASE ?? './';
 
 export default defineConfig({
   base,
+  define: {
+    __WHEIGHTY_BUILD__: JSON.stringify(buildInfo()),
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

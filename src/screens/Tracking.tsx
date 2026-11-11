@@ -86,7 +86,11 @@ export function SuiviScreen() {
             axis={{ start: formatShortMonth(chart.startDate), today: 'Auj.', ...(hasFuture ? { future: 'Prévu' } : {}) }}
             bandLabel={CHART_BAND_LABEL}
           />
-          {chart.projectionPending ? (
+          {chart.weighInNeeded ? (
+            <p className="small" style={{ margin: '0 0 22px' }}>
+              {CHART_WEIGH_IN_NOTE}
+            </p>
+          ) : chart.projectionPending ? (
             <p className="small" style={{ margin: '0 0 22px' }}>
               {CHART_LEARNING_NOTE}
             </p>
@@ -160,6 +164,9 @@ export function SuiviScreen() {
 /** No curve ahead while the first calibration is not reached (A3). */
 const CHART_LEARNING_NOTE = 'Pas encore de projection : Wheighty apprend encore de tes pesées avant de te dire où mène ton plan.';
 
+/** No curve ahead while the last weigh-in is more than 7 days old (report 49, point 4, D3; text of the prompt). */
+export const CHART_WEIGH_IN_NOTE = 'Pèse-toi pour voir où mène ton plan.';
+
 /** Text alternative to the drawing: what the curve says, for screen readers (A3). */
 export function chartSummary(chart: ChartSeries, units: UnitPreference): string {
   const unit = weightUnitLabel(units);
@@ -171,7 +178,7 @@ export function chartSummary(chart: ChartSeries, units: UnitPreference): string 
   if (lastTrend && lastProjection && lastProjection.day > lastTrend.day) {
     parts.push(`projection du plan à ${formatWeight(lastProjection.kg, units)} ${unit} dans ${lastProjection.day - lastTrend.day} jours`);
   }
-  return `${parts.join(', ')}.${chart.projectionPending ? ` ${CHART_LEARNING_NOTE}` : ''}`;
+  return `${parts.join(', ')}.${chart.weighInNeeded ? ` ${CHART_WEIGH_IN_NOTE}` : chart.projectionPending ? ` ${CHART_LEARNING_NOTE}` : ''}`;
 }
 
 /** Display of one gate criterion (shared with the explanation panel). */
@@ -217,7 +224,7 @@ export function AnalyseScreen() {
             {gate.metCount} / {gate.criteria.length}
           </span>
         </div>
-        <div className="rows" style={{ marginBottom: 30 }}>
+        <div className="rows" style={{ marginBottom: gate.resumedOn ? 8 : 30 }}>
           {gate.criteria.map((c) => (
             <div key={c.key} className="gate-row" data-met={c.met}>
               <div className="gate-row__head">
@@ -231,6 +238,12 @@ export function AnalyseScreen() {
           ))}
         </div>
 
+        {gate.resumedOn ? (
+          // Report 49, point 6 (D4): the gate counts the current tracking period.
+          <p className="small" style={{ margin: '0 0 30px' }}>
+            {ADHERENCE_NOTED_TEXT.resumedSince(formatDayMonth(gate.resumedOn))}
+          </p>
+        ) : null}
         <div className="rows" style={{ marginBottom: 26 }}>
           <div className="row">
             <span className="row__label">Maintien estimé</span>
@@ -285,6 +298,36 @@ export function AnalyseScreen() {
           {formatKcalRange(view.interval80)} kcal
         </span>
       </div>
+
+      {view.nextUpdate ? (
+        // Report 49, point 2 (D2): after a recalibration, the gate of the counted period, towards the next update.
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+            <span className="eyebrow">{ADHERENCE_NOTED_TEXT.nextUpdateTitle}</span>
+            <span className="small">
+              {view.nextUpdate.metCount} / {view.nextUpdate.criteria.length}
+            </span>
+          </div>
+          <div className="rows" style={{ marginBottom: view.nextUpdate.resumedOn ? 8 : 30 }}>
+            {view.nextUpdate.criteria.map((c) => (
+              <div key={c.key} className="gate-row" data-met={c.met}>
+                <div className="gate-row__head">
+                  <span>{GATE_CRITERION_LABEL[c.key]}</span>
+                  <span className="tabular">{gateCriterionValue(c)}</span>
+                </div>
+                <div className="gate-row__bar" aria-hidden="true">
+                  <i style={{ width: `${Math.round(c.fill * 100)}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+          {view.nextUpdate.resumedOn ? (
+            <p className="small" style={{ margin: '0 0 30px' }}>
+              {ADHERENCE_NOTED_TEXT.resumedSince(formatDayMonth(view.nextUpdate.resumedOn))}
+            </p>
+          ) : null}
+        </>
+      ) : null}
 
       <div className="rows" style={{ marginBottom: 26 }}>
         <div className="row">
@@ -348,9 +391,10 @@ export function AnalyseScreen() {
 
 export function RecalibrationScreen() {
   const { go, openSheet, showToast } = useNav();
-  const { store, calibration, calibrationPending, commit, today, nowIso } = useWheighty();
+  const { store, calibration, calibrationPending, commit, today, nowIso, logActivity } = useWheighty();
   const plan = store.plan;
   const state = calibration;
+  const logged = useRef(false);
   const [shown, setShown] = useState(plan?.maintenanceKcal ?? 0);
   const marked = useRef(false);
   // Only the live screen marks the recalibration seen, never a copy drawn during a swipe.
@@ -389,6 +433,13 @@ export function RecalibrationScreen() {
   // Report 47, point 1d: no recalibration screen while a personal target is in force (the app takes it over by itself).
   const personal = plan?.source === 'personal_target';
 
+  // Recalibration screen opened (activity log, report 49, point 1c), once per opening of the live screen.
+  useEffect(() => {
+    if (!live || logged.current || calibrationPending) return;
+    logged.current = true;
+    logActivity('recalibration', { event: 'screen_opened', surfaced: state?.surfaced ?? false, proposedMaintenanceKcal: state?.proposedMaintenanceKcal ?? null, currentMaintenanceKcal: plan?.maintenanceKcal ?? null, previewTargetKcal: preview?.calorieTarget ?? null, currentTargetKcal: plan?.calorieTarget ?? null, buildOk: build?.ok ?? null });
+  }, [live, calibrationPending, state, plan, preview, build, logActivity]);
+
   useEffect(() => {
     if (live && !personal && !marked.current && !calibrationPending && state?.surfaced && state.candidate) {
       marked.current = true;
@@ -424,6 +475,7 @@ export function RecalibrationScreen() {
       return;
     }
     commit(r.store);
+    logActivity('recalibration', { event: 'applied', targetKcal: r.store.plan?.calorieTarget ?? null, maintenanceKcal: r.store.plan?.maintenanceKcal ?? null });
     showToast('Nouveau plan appliqué.');
     go('today', { replace: true });
   };
@@ -436,6 +488,7 @@ export function RecalibrationScreen() {
       return;
     }
     commit(r.store);
+    logActivity('recalibration', { event: 'applied_maintenance', targetKcal: r.store.plan?.calorieTarget ?? null, maintenanceKcal: r.store.plan?.maintenanceKcal ?? null });
     showToast('Ton plan passe en maintien.');
     go('plan', { replace: true });
   };
@@ -492,7 +545,8 @@ export function RecalibrationScreen() {
           {preview ? (
             <>
               {' '}
-              Ton plan quotidien passerait à <strong style={{ color: 'var(--ink)', fontWeight: 600 }}>{formatKcal(preview.calorieTarget)} kcal</strong>.
+              {/* Report 49, point 5 (D5): the only change, before and after (a due periodic replan waits). */}
+              Ton plan quotidien passerait de {formatKcal(plan.calorieTarget)} à <strong style={{ color: 'var(--ink)', fontWeight: 600 }}>{formatKcal(preview.calorieTarget)} kcal</strong>.
             </>
           ) : null}
         </p>
@@ -527,7 +581,15 @@ export function RecalibrationScreen() {
       <button type="button" className="btn btn--ghost" onClick={() => openSheet('why', 'recalibration')}>
         Pourquoi ce changement ?
       </button>
-      <button type="button" className="btn btn--ghost" style={{ paddingTop: 0 }} onClick={() => go('analyse', { replace: true })}>
+      <button
+        type="button"
+        className="btn btn--ghost"
+        style={{ paddingTop: 0 }}
+        onClick={() => {
+          logActivity('recalibration', { event: 'later' });
+          go('analyse', { replace: true });
+        }}
+      >
         Plus tard
       </button>
     </main>

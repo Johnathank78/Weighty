@@ -22,7 +22,11 @@
  * 1.8.0 (UX pass 2, point 2): a personal target holds at the steps of the plan in force, and the steps / calories slider
  * moves it as for every plan. The plans of the users without a personal target are unchanged.
  */
-export const SCIENTIFIC_MODEL_VERSION = '1.8.0';
+/**
+ * 1.9.0 (report 49, point 3, D6): no "écart important" deduced from the journal under the target; such a day stays not
+ * noted. The declarations read by the current method change for those who log days far under their target.
+ */
+export const SCIENTIFIC_MODEL_VERSION = '1.9.0';
 
 export type ConstantCategory =
   | 'published_constant'
@@ -236,6 +240,23 @@ export const GOAL_SOLVER_HORIZON_DAYS = 28; // engineering_prior
 export const LEGACY_SOLVER_HORIZON_DAYS = 42; // engineering_prior
 /** Periodic replan of the plan in force (K2, report 38): every 28 days from the day's state. */
 export const PERIODIC_REPLAN_EVERY_DAYS = 28; // engineering_prior
+/**
+ * D3 (report 49, point 4, decision of the product owner of 2026-11-11): no automatic update of the plan (periodic replan,
+ * recalibration shown, takeover of a personal target) and no projection when the last valid weigh-in is more than this many
+ * days old. Safety (G1, G2, underweight alert, BMI-20 warning) and the changes made by the user are not concerned.
+ */
+export const AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS = 7; // engineering_prior
+/**
+ * D4 (report 49, point 6, decision of the product owner of 2026-11-11): a pause is two consecutive valid weigh-ins this many
+ * days apart or more; a tracking period, the weigh-ins between two pauses. The recalibration gate counts the current period.
+ */
+export const TRACKING_PAUSE_MIN_GAP_DAYS = 15; // engineering_prior
+/**
+ * D7 (report 49, point 7): reanchoring of the calibration after a pause, 'off' (the fit of 71bc77e), 'A' (one level per
+ * tracking period) or 'B' (A, with the Hall state restarted at equilibrium after each pause). 'A': retained on the training
+ * seeds of amendment 8 (tests/experiments-journal/THRESHOLDS.md) and GO on its validation seeds (V1 to V5, report 49).
+ */
+export const REANCHOR_AFTER_PAUSE: 'off' | 'A' | 'B' = 'A'; // engineering_prior
 /** A periodic replan is announced to the user when the calorie target moves by at least this much (pass 5a). */
 export const PERIODIC_REPLAN_NOTICE_MIN_KCAL = 10; // ui_rounding_rule
 /** Warning ahead of the BMI-20 guardrail: horizon of the daily projection (pass 5a, 4 weeks). */
@@ -699,6 +720,9 @@ export const CONSTANT_METADATA: Readonly<Record<string, ConstantMetadata>> = {
   RECAL_SURFACE_MIN_DAYS: m('engineering_prior', '05 s12'),
   RECAL_SURFACE_MIN_CHANGE_AFTER_DAYS_KCAL: m('engineering_prior', '05 s12'),
   RECAL_SURFACE_MIN_INTERVAL_DAYS: m('engineering_prior', '05 s12 minimum spacing of surfaced recalibrations, IMPLEMENTATION_NOTES D-34'),
+  REANCHOR_AFTER_PAUSE: m('engineering_prior', 'reanchoring of the calibration after a pause (D7), variant A, GO on amendment 8 of tests/experiments-journal/THRESHOLDS.md, report 49 point 7'),
+  TRACKING_PAUSE_MIN_GAP_DAYS: m('engineering_prior', 'decision of the product owner of 2026-11-11 (D4): a pause, two valid weigh-ins 15 days apart or more; the gate counts the current tracking period, report 49 point 6'),
+  AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS: m('engineering_prior', 'decision of the product owner of 2026-11-11 (D3): no automatic plan update nor projection without a recent weigh-in, report 49 point 4'),
   WARM_START_MIN_DAYS: m('engineering_prior', '05 s17 warm start, IMPLEMENTATION_NOTES D-23'),
   WARM_START_MAX_DAYS: m('product_safety_rule', '05 s17 warm start input bound'),
   WARM_START_MIN_INTAKE_KCAL: m('product_safety_rule', '05 s17 warm start input bound'),

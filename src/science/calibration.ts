@@ -48,12 +48,15 @@ import {
   RECAL_SURFACE_MIN_INTERVAL_DAYS,
   RECAL_SURFACE_MIN_WIDTH_SHRINK,
   SCIENTIFIC_MODEL_VERSION,
+  TRACKING_PAUSE_MIN_GAP_DAYS,
   WEIGHT_MAX_KG,
   WEIGHT_MIN_KG,
 } from './constants';
 import { addDays, daysBetween } from './dates';
 import { advance, bodyWeightOf, initializeHall, initialState, isAdmissibleBaselineIntake } from './hall/model';
 import type { HallDailyInput } from './hall/model';
+import { hallInputsOf, interceptGrid, reanchoredMarginal, reanchoredObservationWeights, reanchorLayout, runReanchoredHall } from './reanchor';
+import type { PopulationAt, ReanchorMode } from './reanchor';
 import { dedupeWeightsByDate } from './trend';
 import type { Adherence, CalibrationSnapshot, ConfidenceLevel, DailyLog, Interval, SexForEquation, WalkingPace, WeightEntry } from './types';
 
@@ -102,6 +105,14 @@ export type CalibrationInput = {
    * `historicalLogLikelihood` (aligned with offsetGrid()).
    */
   offsetGridHalfRangeKcal?: number | undefined;
+  /**
+   * Reanchoring after a pause (report 49, point 7, src/science/reanchor.ts): 'A' one level per tracking period, 'B' the same
+   * with the Hall state restarted at equilibrium at the first weigh-in of each later period. Absent or 'off': today's fit.
+   * Ignored with `intakeObservations` (the journal regime is outside its scope).
+   */
+  reanchorAfterPause?: ReanchorMode | undefined;
+  /** Variant B only: population maintenance and REE at a body weight (fixed PAL category), built by the domain. */
+  populationAt?: PopulationAt | undefined;
 };
 
 /** One day of the food journal as the calibration sees it (built by the domain, `intakeObservationsFrom`). */
@@ -293,6 +304,28 @@ function intakeTraceOf(days: readonly ReconstructedDay[]): IntakeTrace {
 // Gate (05 s8)
 // ---------------------------------------------------------------------------
 
+/** A pause (report 49, point 6, D4): the last weigh-in before it and the first one after it. */
+export type TrackingPause = { from: string; to: string };
+
+/**
+ * Pauses of a list of valid weigh-ins (dated, one a day, sorted): two consecutive weigh-ins TRACKING_PAUSE_MIN_GAP_DAYS (15)
+ * days apart or more. An absence still running (no weigh-in back yet) is not a pause. The current tracking period starts at
+ * the first weigh-in after the last pause (`periodStartIndex`), 0 without a pause.
+ */
+export function trackingPauses(valid: readonly WeightEntry[]): { pauses: TrackingPause[]; periodStartIndex: number } {
+  const pauses: TrackingPause[] = [];
+  let periodStartIndex = 0;
+  for (let i = 1; i < valid.length; i++) {
+    const prev = valid[i - 1] as WeightEntry;
+    const w = valid[i] as WeightEntry;
+    if (daysBetween(prev.date, w.date) >= TRACKING_PAUSE_MIN_GAP_DAYS) {
+      pauses.push({ from: prev.date, to: w.date });
+      periodStartIndex = i;
+    }
+  }
+  return { pauses, periodStartIndex };
+}
+
 export type GateStatus = {
   met: boolean;
   weighInCount: number;
@@ -307,10 +340,21 @@ export type GateStatus = {
     enoughCleanWeighIns: boolean;
     enoughAdherenceInfo: boolean;
   };
+  /** First weigh-in counted (report 49, point 6): the first one after the last pause; null without a weigh-in. */
+  periodStart: string | null;
+  /** Every pause detected (D4), oldest first; empty without a pause. */
+  pauses: TrackingPause[];
 };
 
-export function evaluateGate(weights: readonly WeightEntry[], dailyLogs: readonly DailyLog[]): GateStatus {
-  const valid = validWeights(weights);
+/**
+ * Recalibration gate (05 s8, D-11). Report 49, point 6 (D4): only the weigh-ins and the days of the current tracking period
+ * count, from the first weigh-in after the last pause (`trackingPauses`); same criteria and constants. Without a pause the
+ * result is the same, bit for bit. `perPeriod` false (tests only): the whole history, as before.
+ */
+export function evaluateGate(weights: readonly WeightEntry[], dailyLogs: readonly DailyLog[], options: { perPeriod?: boolean } = {}): GateStatus {
+  const all = validWeights(weights);
+  const { pauses, periodStartIndex } = trackingPauses(all);
+  const valid = options.perPeriod === false ? all : all.slice(periodStartIndex);
   const first = valid[0];
   const last = valid[valid.length - 1];
   const spanDays = first && last ? daysBetween(first.date, last.date) : 0;
@@ -362,6 +406,8 @@ export function evaluateGate(weights: readonly WeightEntry[], dailyLogs: readonl
     majorDeviationFraction: adherenceDays > 0 ? majorDays / adherenceDays : 0,
     trackedDays: adherenceDays,
     criteria,
+    periodStart: first ? first.date : null,
+    pauses,
   };
 }
 
@@ -432,6 +478,8 @@ export type CalibrationFit = {
   structuralSdKcal: number;
   /** Journal regime prototype only (intake observations given): intake source and weight of each window day. */
   intakeTrace?: IntakeTrace;
+  /** Reanchoring after a pause (report 49, point 7), when it applied: its variant and the first day of each period. */
+  reanchor?: { mode: 'A' | 'B'; periodStarts: string[] };
 };
 
 export function offsetGrid(): number[] {
@@ -464,6 +512,9 @@ export function fitCalibration(input: CalibrationInput): CalibrationFit | null {
 
   const days = reconstructDays(input, startDate, spanDays);
   const obsDays = weights.map((w) => daysBetween(startDate, w.date));
+  // Report 49, point 7: with a pause and the option on, the reanchored fit; otherwise today's, untouched.
+  const re = reanchorLayout(input, weights);
+  if (re) return fitReanchored(input, weights, days, obsDays, re.mode, re.layout, startDate, endDate, spanDays);
   const obsWeights = weights.map((_, i) => {
     if (i === 0) return 1;
     const from = obsDays[i - 1] as number;
@@ -584,6 +635,61 @@ export function fitCalibration(input: CalibrationInput): CalibrationFit | null {
     observationWeights: obsWeights,
     excludedOffsetCount,
     ...(input.intakeObservations ? { intakeTrace: intakeTraceOf(days) } : {}),
+  };
+}
+
+/**
+ * Fit with reanchoring after a pause (report 49, point 7, variants A and B, src/science/reanchor.ts): the same offset grid,
+ * prior, admissible domain, Student-t likelihood and structural floor as `fitCalibration`; the likelihood at each offset is the
+ * sum over the tracking periods of the marginal over each period's own intercept.
+ */
+function fitReanchored(
+  input: CalibrationInput,
+  weights: readonly WeightEntry[],
+  days: readonly ReconstructedDay[],
+  obsDays: readonly number[],
+  mode: 'A' | 'B',
+  layout: NonNullable<ReturnType<typeof reanchorLayout>>['layout'],
+  startDate: string,
+  endDate: string,
+  spanDays: number,
+): CalibrationFit {
+  const obsWeights = reanchoredObservationWeights(days, obsDays, layout);
+  const w0 = (weights[0] as WeightEntry).weightKg;
+  const hallInputs = hallInputsOf(input, days, w0);
+  const intercepts = interceptGrid();
+  if (input.offsetGridHalfRangeKcal !== undefined && input.historicalLogLikelihood !== undefined) throw new Error('offsetGridHalfRangeKcal cannot be combined with historicalLogLikelihood (aligned with offsetGrid())');
+  const offsets = input.offsetGridHalfRangeKcal === undefined ? offsetGrid() : widenedOffsetGrid(input.offsetGridHalfRangeKcal);
+  const history = input.historicalLogLikelihood;
+  if (history !== undefined && history.length !== offsets.length) throw new Error('historicalLogLikelihood must align with offsetGrid()');
+  const logPost: number[] = [];
+  let excludedOffsetCount = 0;
+  for (const [gridIndex, offset] of offsets.entries()) {
+    const run = runReanchoredHall(input, mode, layout, weights, obsDays, hallInputs, offset, spanDays);
+    if (!run) {
+      excludedOffsetCount++;
+      logPost.push(Number.NEGATIVE_INFINITY);
+      continue;
+    }
+    const marginal = reanchoredMarginal(weights, run.hallKg, obsWeights, layout, intercepts);
+    const logPrior = -0.5 * (offset / input.priorSigmaKcal) ** 2 + (history ? (history[gridIndex] as number) : 0);
+    logPost.push(marginal + logPrior);
+  }
+  const informationPosterior = summarizeGridPosterior(offsets, logPost);
+  const structuralSdKcal = input.structuralSdKcal ?? CALIBRATION_STRUCTURAL_SD_KCAL;
+  const admissible = logPost.map((lp) => lp !== Number.NEGATIVE_INFINITY);
+  const posterior = structuralSdKcal > 0 ? summarizeGridProbabilities(offsets, convolveGridProbabilities(offsets, informationPosterior.probabilities, structuralSdKcal, admissible)) : informationPosterior;
+  return {
+    posterior,
+    informationPosterior,
+    structuralSdKcal,
+    startDate,
+    endDate,
+    observationSpanDays: spanDays,
+    validWeightCount: weights.length,
+    observationWeights: obsWeights,
+    excludedOffsetCount,
+    reanchor: { mode, periodStarts: layout.starts.map((i) => (weights[i] as WeightEntry).date) },
   };
 }
 

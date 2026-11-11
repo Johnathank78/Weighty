@@ -16,6 +16,7 @@ import { daysBetween } from './dates';
 import type { ModeledBody } from './goals';
 import { advance, bodyWeightOf, initializeHall, initialState, isAdmissibleBaselineIntake } from './hall/model';
 import type { HallDailyInput } from './hall/model';
+import { hallInputsOf, interceptGrid, lastPeriodShift, reanchoredObservationWeights, reanchorLayout, runReanchoredHall } from './reanchor';
 
 export type ModeledBodyResult = ModeledBody & {
   offsetKcal: number;
@@ -25,6 +26,8 @@ export type ModeledBodyResult = ModeledBody & {
   simulatedDays: number;
   /** Modeled weight today: Hall weight of the state + intercept, kg. */
   modeledWeightKg: number;
+  /** Reanchoring after a pause (report 49, point 7) in service for this body: its variant and the first day of the last period. */
+  reanchor?: { mode: 'A' | 'B'; periodStart: string };
 };
 
 /**
@@ -49,6 +52,26 @@ export function modeledBodyAt(input: CalibrationInput, offsetKcal: number, today
   const windowDays = reconstructDays(input, startDate, spanDays);
   const days = totalDays === spanDays ? windowDays : [...windowDays, ...reconstructDays(input, startDate, totalDays).slice(spanDays)];
   const obsDays = weights.map((w) => daysBetween(startDate, w.date));
+  // Report 49, point 7: with a pause and the option on, the level of the last tracking period (and, in B, its restarted state).
+  const re = reanchorLayout(input, weights);
+  if (re) {
+    const run = runReanchoredHall(input, re.mode, re.layout, weights, obsDays, hallInputsOf(input, days, first.weightKg), offsetKcal, totalDays);
+    if (!run) return null;
+    const obsW = reanchoredObservationWeights(windowDays, obsDays, re.layout);
+    const level = lastPeriodShift(weights, run.hallKg, obsW, re.layout, interceptGrid());
+    return {
+      params: run.params,
+      state: run.state,
+      weightShiftKg: level.shiftKg,
+      steps: { weightKg: first.weightKg, ageYears: input.ageYears, pace: input.walkingPace, maintenanceStepsPerDay: input.maintenanceStepsPerDay },
+      offsetKcal,
+      windowStartDate: startDate,
+      windowEndDate: last.date,
+      simulatedDays: totalDays,
+      modeledWeightKg: bodyWeightOf(run.params, run.state) + level.shiftKg,
+      reanchor: { mode: re.mode, periodStart: level.periodStart },
+    };
+  }
   const obsWeights = weights.map((_, i) => {
     if (i === 0) return 1;
     const from = obsDays[i - 1] as number;

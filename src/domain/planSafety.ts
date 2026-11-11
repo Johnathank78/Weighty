@@ -15,8 +15,9 @@ import { addDays, daysBetween } from '@/science/dates';
 import { fastestRateReachableWithSteps, guardrailMaxWeeklyRate, stepsToHoldRateAtFloor } from '@/science/goals';
 import type { GoalPlan, PlanContext } from '@/science/goals';
 import { bmi, weightAtBmi } from '@/science/macros';
-import type { CalibrationState, PlanBuildResult } from './engine';
-import { enforcePlanGuardrails, ensureDailyLogs, journalMethodOf, periodicReplan, recordPlanEvent, trendOf } from './engine';
+import type { CalibrationState, PeriodicReplanResult, PlanBuildResult } from './engine';
+import { computeCalibrationState, enforcePlanGuardrails, ensureDailyLogs, journalMethodOf, periodicCycleStart, periodicReplan, planAgeDays, periodicReplanDue, recordPlanEvent, trendOf, weighInStale } from './engine';
+import { RULES_6A } from './ruleSwitches';
 import { deduceAdherenceFromJournal, enforceMeasuredGuardrails, measuredPeriodicReplan, runJournalDailyChecks } from './journalPath';
 import { PLAN_MESSAGE, SHORT_MESSAGE } from './planMessages';
 import type { ShortText } from './planMessages';
@@ -90,6 +91,12 @@ export type DailyCheckOptions = {
    * the app runs it in a worker (StoreProvider) and passes false.
    */
   journalWeek?: boolean;
+  /**
+   * Periodic replan of the current method (report 49, point 5, D5). 'inline' (default: tests, simulators): here, the
+   * calibration state of the day computed when the replan is due. 'after_calibration' (the app): left out; the store provider
+   * runs it once the calibration of the day comes back from its worker (`periodicReplanUnderRules`).
+   */
+  periodic?: 'inline' | 'after_calibration';
 };
 
 /**
@@ -110,11 +117,39 @@ export function runDailyChecks(store: WheightyStore, today: string, nowIso: stri
   if (journalMethodOf(s) === 'measured') {
     const periodic = measuredPeriodicReplan(s, today, nowIso);
     if (periodic.status !== 'not_due') s = periodic.store;
-  } else {
-    const periodic = periodicReplan(s, today, { nowIso });
-    if (periodic.status !== 'not_due') s = periodic.store;
+  } else if (options.periodic !== 'after_calibration') {
+    const periodic = periodicReplanUnderRules(s, today, nowIso, 'compute');
+    if ('store' in periodic) s = periodic.store;
   }
   return checkUnderweight(s, today, nowIso);
+}
+
+/** A periodic replan decided under the rules of report 49: D3 (`blocked`) and D5 (`deferred`). */
+export type PeriodicDecision = PeriodicReplanResult | { status: 'deferred'; ageDays: number; reason: 'recalibration_ready'; store: WheightyStore };
+
+/**
+ * Periodic replan of the current method under D5 (report 49, point 5): one plan change at a time. When it is due the day a
+ * recalibration is ready (`state.surfaced`), it waits: the recalibration screen shows the only change, before and after. It
+ * waits that day only (`periodicReplanDeferredOn`): if the recalibration is not applied, the replan runs at the check of a
+ * later day, being still due; an applied recalibration rebuilds the plan, which ends the cycle. D3 comes first (no replan
+ * without a recent weigh-in). `state`: the calibration state of the day for this store, or 'compute' to compute it here
+ * (only when the replan is due and may run).
+ */
+export function periodicReplanUnderRules(store: WheightyStore, today: string, nowIso: string, state: CalibrationState | null | 'compute'): PeriodicDecision {
+  const plan = store.plan;
+  if (!plan || !store.profile || journalMethodOf(store) === 'measured' || !periodicReplanDue(store, today) || weighInStale(store, today)) return periodicReplan(store, today, { nowIso });
+  const ageDays = planAgeDays(plan, today);
+  if (RULES_6A.d5) {
+    const deferredOn = store.meta.periodicReplanDeferredOn;
+    const inCycle = deferredOn !== null && deferredOn >= periodicCycleStart(store, plan);
+    // Waiting today: it waits the whole day, even once the recalibration was seen (no longer shown) without being applied.
+    if (inCycle && deferredOn === today) return { status: 'deferred', ageDays, reason: 'recalibration_ready', store };
+    if (!(inCycle && deferredOn < today)) {
+      const st = state === 'compute' ? computeCalibrationState(store, today, nowIso) : state;
+      if (st?.surfaced === true) return { status: 'deferred', ageDays, reason: 'recalibration_ready', store: { ...store, meta: { ...store.meta, periodicReplanDeferredOn: today } } };
+    }
+  }
+  return periodicReplan(store, today, { nowIso });
 }
 
 /**
@@ -125,10 +160,39 @@ export function guardrailsOnPath(store: WheightyStore, today: string, nowIso: st
   return journalMethodOf(store) === 'measured' ? enforceMeasuredGuardrails(store, today, nowIso) : enforcePlanGuardrails(store, today, { nowIso }).store;
 }
 
-/** What runs after each weigh-in: the guardrails and the underweight alert, on the new trend weight. */
-export function runWeighInChecks(store: WheightyStore, today: string, nowIso: string): WheightyStore {
+/**
+ * What runs after each weigh-in: the guardrails and the underweight alert, on the new trend weight; and the periodic replan
+ * of the current method when it is due (report 49, point 4: held back while the last weigh-in was more than 7 days old, it
+ * runs as soon as one comes, without waiting for the next day).
+ */
+export function runWeighInChecks(store: WheightyStore, today: string, nowIso: string, options: Pick<DailyCheckOptions, 'periodic'> = {}): WheightyStore {
   if (!store.plan || !store.profile) return store;
-  return checkUnderweight(guardrailsOnPath(store, today, nowIso), today, nowIso);
+  let s = guardrailsOnPath(store, today, nowIso);
+  // Under D5 (point 5): in the app, after the calibration of the new weigh-in (`after_calibration`).
+  if (journalMethodOf(s) !== 'measured' && options.periodic !== 'after_calibration') {
+    const periodic = periodicReplanUnderRules(s, today, nowIso, 'compute');
+    if ('store' in periodic) s = periodic.store;
+  }
+  return checkUnderweight(s, today, nowIso);
+}
+
+// ---------------------------------------------------------------------------
+// Message asking for a weigh-in (report 49, point 4, D3)
+// ---------------------------------------------------------------------------
+
+/**
+ * "Ton plan attend une pesée" (D3): while the last weigh-in is more than 7 days old, on the current method (the measured habit
+ * has its own weigh-in rules), at most once a day: closed, it comes back the next day; it leaves with the next weigh-in.
+ */
+export function staleWeighInNotice(store: WheightyStore, today: string): ShortText | null {
+  if (!store.plan || !store.profile || journalMethodOf(store) === 'measured') return null;
+  if (!weighInStale(store, today) || store.meta.staleWeighInNoticeClosedOn === today) return null;
+  return SHORT_MESSAGE.weighInNeeded;
+}
+
+/** The user closed the message asking for a weigh-in: not again today. */
+export function closeStaleWeighInNotice(store: WheightyStore, today: string): WheightyStore {
+  return { ...store, meta: { ...store.meta, staleWeighInNoticeClosedOn: today } };
 }
 
 // ---------------------------------------------------------------------------
@@ -194,13 +258,13 @@ export function floorAdviceOf(result: PlanBuildResult | { ok: false; reason: str
 // Message zone of Aujourd'hui and Suivi (UX pass 1, G1)
 // ---------------------------------------------------------------------------
 
-export type PlanNoticeKind = 'underweight' | 'guardrail' | 'bmi20_warning' | 'target_migration' | 'journal' | 'personal_target' | 'periodic_replan';
+export type PlanNoticeKind = 'underweight' | 'guardrail' | 'bmi20_warning' | 'target_migration' | 'weigh_in' | 'journal' | 'personal_target' | 'periodic_replan';
 
 /**
  * Priority of the message zone, first shown first. Journal path messages (pass 5b), then the takeover of a personal target
  * (report 47), come before the periodic replan.
  */
-export const PLAN_NOTICE_ORDER: readonly PlanNoticeKind[] = ['underweight', 'guardrail', 'bmi20_warning', 'target_migration', 'journal', 'personal_target', 'periodic_replan'];
+export const PLAN_NOTICE_ORDER: readonly PlanNoticeKind[] = ['underweight', 'guardrail', 'bmi20_warning', 'target_migration', 'weigh_in', 'journal', 'personal_target', 'periodic_replan'];
 
 /** Messages visible at once; the others wait behind "Voir les autres messages". */
 export const PLAN_NOTICES_VISIBLE = 2;
@@ -227,6 +291,13 @@ const KIND_OF_RULE: Record<PlanEventRule, PlanNoticeKind> = {
   periodic_replan: 'periodic_replan',
   personal_target_set: 'personal_target',
   personal_target_takeover: 'personal_target',
+  // Plan changes of the history (report 49, point 1d): recorded without a message, never shown in the zone.
+  recalibration: 'periodic_replan',
+  recalibration_maintenance: 'periodic_replan',
+  onboarding: 'periodic_replan',
+  user_goal: 'periodic_replan',
+  user_slider: 'periodic_replan',
+  user_profile: 'periodic_replan',
   journal_switch: 'journal',
   journal_proposal_declined: 'journal',
   journal_log_more: 'journal',
@@ -303,7 +374,7 @@ export function planEventShort(e: PlanEvent): ShortText | null {
  * in the order of the zone: underweight alert, guardrail, BMI-20 warning, target migration, periodic replan; the trace
  * order within a kind. Which messages exist and when is decided by pass 5a; this only orders and words them.
  */
-export function planNotices(unseen: readonly PlanEvent[], warning: { weeks: number; message: string } | null): PlanNotice[] {
+export function planNotices(unseen: readonly PlanEvent[], warning: { weeks: number; message: string } | null, weighIn: ShortText | null = null): PlanNotice[] {
   const out: PlanNotice[] = [];
   for (const e of unseen) {
     const text = planEventText(e);
@@ -317,6 +388,8 @@ export function planNotices(unseen: readonly PlanEvent[], warning: { weeks: numb
     const short = SHORT_MESSAGE.bmi20Warning(warning.weeks);
     out.push({ kind: 'bmi20_warning', eventId: null, title: short.title, line: short.line, text: warning.message, tone: 'warn', weeks: warning.weeks });
   }
+  // Report 49, point 4 (D3): the message asking for a weigh-in, without "Détails".
+  if (weighIn) out.push({ kind: 'weigh_in', eventId: null, title: weighIn.title, line: weighIn.line, text: '', tone: 'calm' });
   const rank = (k: PlanNoticeKind) => PLAN_NOTICE_ORDER.indexOf(k);
   return out.map((n, i) => ({ n, i })).sort((a, b) => rank(a.n.kind) - rank(b.n.kind) || a.i - b.i).map(({ n }) => n);
 }

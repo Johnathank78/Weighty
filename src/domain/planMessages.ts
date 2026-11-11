@@ -64,6 +64,8 @@ export function shortRefusalReason(reason: string, floorKcal: number | null): st
 const capitalize = (text: string) => text.charAt(0).toLocaleUpperCase('fr-FR') + text.slice(1);
 
 export const SHORT_MESSAGE = {
+  /** Report 49, point 4 (D3), texts of the prompt. */
+  weighInNeeded: { title: 'Ton plan attend une pesée', line: 'Pèse-toi : je mettrai ton plan à jour avec ton poids du jour.' } as ShortText,
   guardrailBmi20: { title: 'Passage en maintien', line: 'Ton IMC atteint 20 : on stabilise ton poids.' } as ShortText,
   guardrailRateCap: (rate: number): ShortText => ({ title: 'Vitesse ajustée', line: `Ramenée à ${perWeek(rate)}, le maximum pour ton IMC.` }),
   bmi20Warning: (weeks: number): ShortText => ({ title: `IMC 20 dans ${weeks} sem.`, line: 'Ton plan passera alors en maintien.' }),

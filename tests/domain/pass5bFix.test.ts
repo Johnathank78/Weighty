@@ -427,8 +427,9 @@ describe('point 4: adherence deduced from the journal', () => {
     const totals = [1810, 2190, 1800, 2200, 1500, 2500, 1490, 2510];
     const s = logged((i) => totals[i] ?? null, totals.length - 1);
     const after = runDailyChecks(s, day(totals.length), at(day(totals.length)));
-    expect(totals.map((_, i) => adherenceOf(after, i)?.adherence)).toEqual(['on_plan', 'on_plan', 'minor_deviation', 'minor_deviation', 'minor_deviation', 'minor_deviation', 'major_deviation', 'major_deviation']);
-    expect(totals.every((_, i) => adherenceOf(after, i)?.adherenceSource === 'journal')).toBe(true);
+    // Report 49, point 3 (D6): the day 25 % or more under the target (1 490) is not deduced any more; it stays not noted.
+    expect(totals.map((_, i) => adherenceOf(after, i)?.adherence)).toEqual(['on_plan', 'on_plan', 'minor_deviation', 'minor_deviation', 'minor_deviation', 'minor_deviation', undefined, 'major_deviation']);
+    expect(totals.every((_, i) => i === 6 || adherenceOf(after, i)?.adherenceSource === 'journal')).toBe(true);
     // Nothing else changes, and a second run changes nothing.
     expect(deduceAdherenceFromJournal(after, day(totals.length))).toBe(after);
   });

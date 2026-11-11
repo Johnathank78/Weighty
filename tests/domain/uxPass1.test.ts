@@ -357,8 +357,9 @@ describe('G. messages of pass 5a', () => {
     expect(notices.map((n) => n.kind)).toEqual(['underweight', 'guardrail', 'guardrail', 'bmi20_warning', 'target_migration', 'periodic_replan']);
     // Within a kind, the trace order.
     expect(notices.map((n) => n.eventId)).toEqual(['u', 'g2', 'g1', null, 't', 'p']);
-    // Pass 5b adds the messages of the journal path, then report 47 the takeover of a personal target, before the periodic replan.
-    expect(PLAN_NOTICE_ORDER).toEqual(['underweight', 'guardrail', 'bmi20_warning', 'target_migration', 'journal', 'personal_target', 'periodic_replan']);
+    // Pass 5b adds the messages of the journal path, then report 47 the takeover of a personal target, before the periodic replan;
+    // report 49 (point 4) the message asking for a weigh-in, after the target migration.
+    expect(PLAN_NOTICE_ORDER).toEqual(['underweight', 'guardrail', 'bmi20_warning', 'target_migration', 'weigh_in', 'journal', 'personal_target', 'periodic_replan']);
     expect(PLAN_NOTICES_VISIBLE).toBe(2);
     expect(PLAN_NOTICE_TEXT.more(notices.length - PLAN_NOTICES_VISIBLE)).toBe('Voir les autres messages (4)');
     // Same tones as pass 5a: the underweight alert and G1 stand out.
@@ -369,8 +370,9 @@ describe('G. messages of pass 5a', () => {
     const [warning] = planNotices([], { weeks: 1, message: PLAN_MESSAGE.bmi20Warning(1) });
     // Report 46, point 5: the short format of every message (title and one line) replaces the one-line text of G2.
     expect(warning).toMatchObject({ kind: 'bmi20_warning', eventId: null, weeks: 1, title: 'IMC 20 dans 1 sem.', line: 'Ton plan passera alors en maintien.', text: PLAN_MESSAGE.bmi20Warning(1) });
-    // Pass 5b (schema 8) adds the journal path; still no dismissal date for this warning.
-    expect(Object.keys(DEFAULT_META)).toEqual(['onboardingDate', 'initialMaintenanceKcal', 'initialInterval80', 'initialPalCategory', 'initialProvisionalPal', 'initialWeightKg', 'lastSurfacedCalibration', 'recoveredCorruptData', 'planEvents', 'periodicReplanCheckedOn', 'guardrailMaintenanceSince', 'journalPath']);
+    // Pass 5b (schema 8) adds the journal path; schema 11 (report 49, points 4 and 5) the day the message asking for a weigh-in
+    // was closed and the day a periodic replan waited; still no dismissal date for this warning.
+    expect(Object.keys(DEFAULT_META)).toEqual(['onboardingDate', 'initialMaintenanceKcal', 'initialInterval80', 'initialPalCategory', 'initialProvisionalPal', 'initialWeightKg', 'lastSurfacedCalibration', 'recoveredCorruptData', 'planEvents', 'periodicReplanCheckedOn', 'guardrailMaintenanceSince', 'journalPath', 'staleWeighInNoticeClosedOn', 'periodicReplanDeferredOn']);
   });
 
   it('periodic replan: the new words, also for an entry written before this pass; other entries show their message', () => {

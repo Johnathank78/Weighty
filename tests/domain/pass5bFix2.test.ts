@@ -402,9 +402,9 @@ describe('2. preview of a profile edit on the target assumed to be followed', ()
 });
 
 describe('3. versions, schema 10', () => {
-  it('model 1.7.0 or later (1.8.0, UX pass 2), schema 10', () => {
-    expect(SCIENTIFIC_MODEL_VERSION).toBe('1.8.0');
-    expect(SCHEMA_VERSION).toBe(10);
+  it('model 1.7.0 or later (1.9.0, report 49), schema 10 or later (11, report 49)', () => {
+    expect(SCIENTIFIC_MODEL_VERSION).toBe('1.9.0');
+    expect(SCHEMA_VERSION).toBe(11);
   });
 
   it('a schema-9 store with a personal target loads without loss: the signed estimated rate, the rates inside the range', () => {
@@ -427,7 +427,7 @@ describe('3. versions, schema 10', () => {
     const v = validateStore(migrated.value);
     if ('error' in v) throw new Error(v.error);
     expect(v.dropped).toEqual([]);
-    expect(v.store.schemaVersion).toBe(10);
+    expect(v.store.schemaVersion).toBe(SCHEMA_VERSION);
     expect(v.store.plan?.personalTarget).toEqual({ kcal: 2050, estimatedRate: -0.0015, beyondGrid: false });
     expect([v.store.profile?.weeklyRateTarget, v.store.plan?.weeklyRateTarget, v.store.plan?.requestedWeeklyRate]).toEqual([0.002, 0.002, 0.002]);
     for (const key of ['weights', 'dailyLogs', 'calibrationSnapshots', 'foodJournal', 'preferences', 'historicalEvidence'] as const) expect(v.store[key]).toEqual(JSON.parse(JSON.stringify(current[key])));
@@ -439,7 +439,8 @@ describe('3. versions, schema 10', () => {
     const raw = JSON.parse(JSON.stringify({ ...current, schemaVersion: 9 })) as Record<string, unknown>;
     const migrated = migrateToCurrent(raw);
     if (!migrated.ok) throw new Error(migrated.error);
-    expect(migrated.value).toEqual({ ...raw, schemaVersion: 10 });
+    // Schema 11 (report 49): no applied calibration, so no backfilled entry; the log of the current store is kept.
+    expect(migrated.value).toEqual({ ...raw, schemaVersion: SCHEMA_VERSION });
   });
 
   it('the trace entries of the personal target are read; an unknown case is reported', () => {
@@ -448,10 +449,11 @@ describe('3. versions, schema 10', () => {
     const v = validateStore(JSON.parse(JSON.stringify(t)));
     if ('error' in v) throw new Error(v.error);
     expect(v.clean).toBe(true);
-    expect(v.store.meta.planEvents.map((e) => e.rule)).toEqual(['personal_target_set', 'personal_target_takeover']);
-    const bad = { ...t, meta: { ...t.meta, planEvents: t.meta.planEvents.map((e) => ({ ...e, personalTarget: { ...e.personalTarget, case: 'robot' } })) } };
+    // Report 49, point 1d: the first plan leaves an entry 'onboarding' first.
+    expect(v.store.meta.planEvents.map((e) => e.rule)).toEqual(['onboarding', 'personal_target_set', 'personal_target_takeover']);
+    const bad = { ...t, meta: { ...t.meta, planEvents: t.meta.planEvents.map((e) => (e.personalTarget ? { ...e, personalTarget: { ...e.personalTarget, case: 'robot' } } : e)) } };
     const w = validateStore(JSON.parse(JSON.stringify(bad)));
     if ('error' in w) throw new Error(w.error);
-    expect(w.dropped.map((d) => d.path)).toEqual(['meta.planEvents.0', 'meta.planEvents.1']);
+    expect(w.dropped.map((d) => d.path)).toEqual(['meta.planEvents.1', 'meta.planEvents.2']);
   });
 });

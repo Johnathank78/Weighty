@@ -8,11 +8,20 @@
 import { addWeight, completeOnboarding, computeCalibrationState, setAdherence } from '@/domain/engine';
 import type { CalibrationState } from '@/domain/engine';
 import { checkPersonalTarget, choosePersonalTarget, completeOnboardingWithTarget, computePersonalTakeover, onboardingPersonalTargetTable, storePersonalTargetTable } from '@/domain/personalTarget';
-import type { WheightyStore } from '@/domain/types';
+import type { PlanEvent, WheightyStore } from '@/domain/types';
+import { PLAN_CHANGE_RULES } from '@/domain/types';
 import { emptyStore } from '@/persistence/schema';
 import { addDays } from '@/science/dates';
 import type { UserProfile } from '@/science/types';
 import { makeProfile } from './profiles';
+
+/**
+ * The trace as the base 1209d49 wrote it: the plan changes recorded since schema 11 (report 49, point 1d: 'onboarding',
+ * 'user_slider', ...) are left out, so the fixture keeps comparing everything else bit for bit.
+ */
+function baseEvents(events: readonly PlanEvent[]): PlanEvent[] {
+  return events.filter((e) => !(PLAN_CHANGE_RULES as readonly string[]).includes(e.rule));
+}
 
 const D0 = '2026-06-01';
 const day = (i: number) => addDays(D0, i);
@@ -71,11 +80,11 @@ export function personalTargetFixture(): Record<string, unknown> {
     );
     out[`${name}:chosen`] = ENTRIES.map((kcal) => {
       const r = choosePersonalTarget(store, D0, kcal, at(D0));
-      return r.ok ? stable({ plan: r.store.plan, profile: r.store.profile, events: r.store.meta.planEvents, today: r.store.dailyLogs.at(-1) }) : r;
+      return r.ok ? stable({ plan: r.store.plan, profile: r.store.profile, events: baseEvents(r.store.meta.planEvents), today: r.store.dailyLogs.at(-1) }) : r;
     });
     out[`${name}:onboarding`] = ENTRIES.map((kcal) => {
       const r = completeOnboardingWithTarget(emptyStore(), profile, D0, at(D0), null, kcal);
-      return r.ok ? stable({ plan: r.store.plan, profile: r.store.profile, events: r.store.meta.planEvents }) : r;
+      return r.ok ? stable({ plan: r.store.plan, profile: r.store.profile, events: baseEvents(r.store.meta.planEvents) }) : r;
     });
   }
   out.takeovers = TAKEOVERS.map((c) => {

@@ -73,6 +73,7 @@ exports[`warm start reference cases (model 1.2.0) > case R (real profile) 1`] = 
     "metCount": 0,
     "remainingDays": 14,
     "remainingWeighIns": 5,
+    "resumedOn": null,
   },
   "goal": {
     "appliedKgPerWeek": 0.612,
@@ -201,7 +202,7 @@ exports[`warm start reference cases (model 1.2.0) > case R (real profile) 1`] = 
     "source": "warm_start",
   },
   "matchesStoredPlan": null,
-  "modelVersion": "1.8.0",
+  "modelVersion": "1.9.0",
   "population": {
     "baseSigmaKcal": 241,
     "interval80": [
@@ -372,6 +373,7 @@ exports[`warm start reference cases (model 1.2.0) > case S (synthetic 5-session 
     "metCount": 0,
     "remainingDays": 14,
     "remainingWeighIns": 5,
+    "resumedOn": null,
   },
   "goal": {
     "appliedKgPerWeek": 0.68,
@@ -491,7 +493,7 @@ exports[`warm start reference cases (model 1.2.0) > case S (synthetic 5-session 
     "source": "warm_start",
   },
   "matchesStoredPlan": null,
-  "modelVersion": "1.8.0",
+  "modelVersion": "1.9.0",
   "population": {
     "baseSigmaKcal": 241,
     "interval80": [

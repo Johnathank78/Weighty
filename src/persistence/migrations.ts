@@ -3,7 +3,7 @@
  * Migrations never drop data they do not understand: unknown fields are carried over.
  */
 import { PLAN_MESSAGE } from '@/domain/planMessages';
-import { defaultJournalPath, emptyFoodJournal, SCHEMA_VERSION } from '@/domain/types';
+import { defaultJournalPath, emptyActivityLog, emptyFoodJournal, SCHEMA_VERSION } from '@/domain/types';
 import type { PlanEvent } from '@/domain/types';
 import { GAIN_RATE_HARD_MAX, GAIN_RATE_MIN, LOSS_RATE_HARD_MAX, LOSS_RATE_MIN, TARGET_BMI_MIN } from '@/science/constants';
 import { localIsoDate } from '@/science/dates';
@@ -164,7 +164,58 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
       ...(isObject(profile) && profile.goal === plan.goal ? { profile: { ...profile, weeklyRateTarget: inRange(profile.weeklyRateTarget) } } : {}),
     };
   },
+  // 10 -> 11 (report 49, points 1 and 4): the activity log starts empty; the trace gets one entry 'recalibration' per applied
+  // calibration snapshot (the warm start excepted) whose plan change it did not keep (`backfillRecalibrations`); the message
+  // asking for a weigh-in was never closed, no periodic replan waits. Every other field, every existing entry and every unknown field is carried over.
+  10: (input) => {
+    const meta = isObject(input.meta) ? input.meta : {};
+    const events = Array.isArray(meta.planEvents) ? meta.planEvents : [];
+    const snapshots = Array.isArray(input.calibrationSnapshots) ? input.calibrationSnapshots : [];
+    return {
+      ...input,
+      schemaVersion: 11,
+      activityLog: input.activityLog ?? emptyActivityLog(),
+      meta: { ...meta, planEvents: backfillRecalibrations(events, snapshots), staleWeighInNoticeClosedOn: meta.staleWeighInNoticeClosedOn ?? null, periodicReplanDeferredOn: meta.periodicReplanDeferredOn ?? null },
+    };
+  },
 };
+
+/**
+ * 10 -> 11 (report 49, point 1e): before schema 11 an applied recalibration left no trace entry. For each applied snapshot
+ * from the weigh-ins (not the warm start), an entry 'recalibration' marked `backfilled`, dated the local day of its
+ * application, with what the snapshot keeps (offset, intervals, confidence) and the unknown fields at null (plans and
+ * maintenances before and after). A snapshot applied by the takeover of a personal target already has its entry
+ * ('personal_target_takeover', applied the same day): it gets none. Each entry goes after the entries of its day or before.
+ */
+export function backfillRecalibrations(events: readonly unknown[], snapshots: readonly unknown[]): unknown[] {
+  const out = [...events];
+  const dateOf = (e: unknown) => (isObject(e) && typeof e.date === 'string' ? e.date : '');
+  for (const s of snapshots) {
+    if (!isObject(s) || typeof s.appliedAt !== 'string' || s.source === 'warm_start') continue;
+    const at = new Date(s.appliedAt);
+    if (Number.isNaN(at.getTime())) continue;
+    const date = localIsoDate(at);
+    if (out.some((e) => isObject(e) && e.rule === 'personal_target_takeover' && e.status === 'applied' && e.date === date)) continue;
+    if (!num(s.posteriorMedianOffsetKcal) || !Array.isArray(s.interval80) || !Array.isArray(s.interval95) || typeof s.createdAt !== 'string') continue;
+    const entry = {
+      id: `e-${s.appliedAt.replace(/\D/g, '')}-backfill`,
+      date,
+      rule: 'recalibration',
+      status: 'applied',
+      before: null,
+      after: null,
+      message: null,
+      seen: true,
+      maintenance: { before: null, after: null, interval80Before: null, interval80After: null },
+      calibration: { offsetKcal: s.posteriorMedianOffsetKcal, interval80: s.interval80, interval95: s.interval95, confidence: String(s.confidence), createdAt: s.createdAt, appliedAt: s.appliedAt },
+      backfilled: true,
+    };
+    let index = out.length;
+    while (index > 0 && dateOf(out[index - 1]) > date) index--;
+    out.splice(index, 0, entry);
+  }
+  return out;
+}
 
 /** 9 -> 10: a rate inside the range of its goal (0 for a maintenance goal); a rate already inside is kept exactly. */
 function goalRate(goal: unknown, rate: number): number {

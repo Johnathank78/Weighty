@@ -36,8 +36,14 @@ import type {
  * whether it lies beyond the slider grid (`PersonalTarget`); the trace rules 'personal_target_set' and
  * 'personal_target_takeover', with their `PlanEvent.personalTarget`. Loaded from schema 9: the predicted rate becomes the
  * signed estimated rate, and the rates of the profile and of the plan are brought inside the range of the goal.
+ * Version 11 (report 49, point 1): `WheightyStore.activityLog`, the persistent activity log (capped, oldest out first); the
+ * trace keeps every plan change (rules 'recalibration', 'recalibration_maintenance', 'onboarding', 'user_goal',
+ * 'user_slider', 'user_profile', without a message), with `PlanEvent.maintenance`, `PlanEvent.calibration` and
+ * `PlanEvent.backfilled`; `AppMeta.staleWeighInNoticeClosedOn` (point 4) and `AppMeta.periodicReplanDeferredOn` (point 5). Loaded from schema 10 with an empty log and one
+ * backfilled 'recalibration' entry per applied calibration snapshot (warm start excepted) whose plan change the trace did not
+ * keep.
  */
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 11;
 
 /**
  * A weigh-in as this app stores it: the engine contract (`WeightEntry`, science) plus fields that are
@@ -277,6 +283,11 @@ export type PlanSummary = {
  * - 'personal_target_set': the user set their own target (no message; schema 10);
  * - 'personal_target_takeover': the app took the personal target over at its first recalibration, with its message (schema
  *   10; failed: the build failed, the personal target stays, no message).
+ * Every plan change, without a message (schema 11, report 49, point 1d), for the history of the plan:
+ * - 'recalibration': a recalibration applied ("Appliquer le nouveau plan"); 'recalibration_maintenance': applied as a
+ *   maintenance ("Passer en maintien");
+ * - 'onboarding': the first plan; 'user_goal': the goal or the rate changed by the user; 'user_slider': the steps / calories
+ *   slider; 'user_profile': the profile edited.
  */
 export type PlanEventRule =
   | 'G1'
@@ -287,7 +298,12 @@ export type PlanEventRule =
   | 'underweight_decline'
   | 'personal_target_set'
   | 'personal_target_takeover'
+  | PlanChangeRule
   | JournalEventRule;
+
+/** Plan changes recorded without a message (schema 11, report 49, point 1d). */
+export type PlanChangeRule = 'recalibration' | 'recalibration_maintenance' | 'onboarding' | 'user_goal' | 'user_slider' | 'user_profile';
+export const PLAN_CHANGE_RULES: readonly PlanChangeRule[] = ['recalibration', 'recalibration_maintenance', 'onboarding', 'user_goal', 'user_slider', 'user_profile'];
 
 /**
  * Rules of the journal path (pass 5b):
@@ -320,6 +336,7 @@ export const PLAN_EVENT_RULES: readonly PlanEventRule[] = [
   'underweight_decline',
   'personal_target_set',
   'personal_target_takeover',
+  ...PLAN_CHANGE_RULES,
   'journal_switch',
   'journal_proposal_declined',
   'journal_log_more',
@@ -350,7 +367,70 @@ export type PlanEvent = {
    * (estimated at the start; read on the new estimate at the takeover), and the case the takeover retained.
    */
   personalTarget?: PersonalTarget & { case?: PersonalTargetCase };
+  /**
+   * Rules 'recalibration' and 'recalibration_maintenance' (schema 11): the maintenance of the plan and its 80 percent interval,
+   * before and after, kcal/day; null when unknown (an entry backfilled by the migration from schema 10).
+   */
+  maintenance?: { before: number | null; after: number | null; interval80Before: Interval | null; interval80After: Interval | null };
+  /** Same rules: the calibration applied, relative to NASEM at the window start (offset and its intervals), kcal/day. */
+  calibration?: { offsetKcal: number; interval80: Interval; interval95: Interval; confidence: string; createdAt: string; appliedAt: string | null };
+  /** Entry written by the migration from schema 10 from an applied calibration snapshot (its plans were not kept). */
+  backfilled?: true;
 };
+
+// ---------------------------------------------------------------------------
+// Activity log (schema 11, report 49, point 1c)
+// ---------------------------------------------------------------------------
+
+/**
+ * Kinds of entries of the activity log: what the app did and what the user did, to rebuild what happened and what was seen.
+ * The `data` of each kind is described where it is written (src/domain/activityLog.ts, src/store/StoreProvider.tsx).
+ */
+export type ActivityType =
+  | 'app_open'
+  | 'build_changed'
+  | 'daily_checks'
+  | 'periodic_replan'
+  | 'calibration'
+  | 'recalibration'
+  | 'plan_event'
+  | 'weight'
+  | 'adherence'
+  | 'steps'
+  | 'food'
+  | 'message'
+  | 'screen'
+  | 'import'
+  | 'export'
+  | 'setting';
+export const ACTIVITY_TYPES: readonly ActivityType[] = [
+  'app_open',
+  'build_changed',
+  'daily_checks',
+  'periodic_replan',
+  'calibration',
+  'recalibration',
+  'plan_event',
+  'weight',
+  'adherence',
+  'steps',
+  'food',
+  'message',
+  'screen',
+  'import',
+  'export',
+  'setting',
+];
+
+/** One entry: UTC timestamp, local day, kind, and its data (plain JSON, figures and identifiers only, never a food name). */
+export type ActivityEntry = { at: string; date: string; type: ActivityType; data: Record<string, unknown> };
+
+/** The log, oldest first, capped (`ACTIVITY_LOG_MAX_ENTRIES`): `droppedCount` entries left it, the oldest first. */
+export type ActivityLog = { entries: ActivityEntry[]; droppedCount: number };
+
+export function emptyActivityLog(): ActivityLog {
+  return { entries: [], droppedCount: 0 };
+}
 
 // ---------------------------------------------------------------------------
 // Journal path (pass 5b, schema 8)
@@ -458,6 +538,16 @@ export type AppMeta = {
   guardrailMaintenanceSince: string | null;
   /** Journal path of the user (pass 5b, schema 8). */
   journalPath: JournalPathState;
+  /**
+   * Last day the user closed the message "Ton plan attend une pesée" (schema 11, report 49, point 4): shown at most once a
+   * day while the last weigh-in is more than 7 days old.
+   */
+  staleWeighInNoticeClosedOn: string | null;
+  /**
+   * D5 (schema 11, report 49, point 5): the day a due periodic replan waited because a recalibration was ready. It waits that
+   * day only; from the next day of the same cycle it runs.
+   */
+  periodicReplanDeferredOn: string | null;
 };
 
 export type WheightyStore = {
@@ -474,6 +564,8 @@ export type WheightyStore = {
   foodJournal: FoodJournal;
   preferences: Preferences;
   meta: AppMeta;
+  /** Activity log (schema 11): never read by the engine, the calibration or the plan. */
+  activityLog: ActivityLog;
 };
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -501,4 +593,6 @@ export const DEFAULT_META: AppMeta = {
   periodicReplanCheckedOn: null,
   guardrailMaintenanceSince: null,
   journalPath: defaultJournalPath(),
+  staleWeighInNoticeClosedOn: null,
+  periodicReplanDeferredOn: null,
 };

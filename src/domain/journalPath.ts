@@ -18,7 +18,7 @@
  * The journal reaches this module through `intakeObservationsFrom` only (D8), directly or through `journalCalibration`.
  */
 import { assessBaseline, planContextFrom } from '@/science/assessment';
-import { buildSnapshot, evaluateGate, fitCalibration, reconstructDays, shouldSurfaceRecalibration, validWeights } from '@/science/calibration';
+import { buildSnapshot, fitCalibration, reconstructDays, shouldSurfaceRecalibration, validWeights } from '@/science/calibration';
 import type { CalibrationInput, GateStatus, IntakeObservation, SurfacingReference } from '@/science/calibration';
 import {
   GATE_MIN_CLEAN_WEIGHINS,
@@ -63,11 +63,13 @@ import {
   createSliderSession,
   currentWeightKg,
   ensureDailyLogs,
+  gateOf,
   planDateOf,
   planSummary,
   PRODUCTION_SOLVER,
   rebuildContextFromStore,
   recordPlanEvent,
+  recordUserPlanChange,
   setAdherence,
   speedSliderModelFor,
   storeSpeedSliderModel,
@@ -82,6 +84,7 @@ import { evaluateJournalGate, journalCalibrationInputFromStore } from './journal
 import type { JournalCalibrationInput, JournalRegimeOptions } from './journalCalibration';
 import { updateProfileKeepingPersonalTarget } from './personalTarget';
 import { JOURNAL_MESSAGE, PLAN_MESSAGE, SHORT_MESSAGE } from './planMessages';
+import { RULES_6A } from './ruleSwitches';
 import type { ShortText } from './planMessages';
 import type { AlignedTarget, CurrentPlan, HabitSummary, JournalEstimate, JournalGateSummary, JournalPathState, MeasuredOffer, WheightyStore } from './types';
 
@@ -220,7 +223,7 @@ export function declineAlignProposal(store: WheightyStore, today: string, nowIso
 export function checkAlignProposal(store: WheightyStore, today: string, nowIso: string): WheightyStore {
   const path = pathOf(store);
   if (path.method !== 'assumed' || !store.plan || path.proposalOpenedOn !== null) return store;
-  if (!revisionProposalTriggered(evaluateGate(store.weights, store.dailyLogs))) return store;
+  if (!revisionProposalTriggered(gateOf(store))) return store;
   const preview = alignedTargetPreview(store, today);
   if (preview.ok) {
     if (withinDays(path.proposalDeclinedOn, today, JOURNAL_MESSAGE_MIN_INTERVAL_DAYS)) return store;
@@ -833,7 +836,7 @@ export function alignedTargetLocked(store: WheightyStore): boolean {
 export function alignedRecalibrationDays(store: WheightyStore, today: string): number {
   const path = pathOf(store);
   const first = path.switchedOn === null ? 0 : JOURNAL_ALIGNED_FIRST_RECAL_DAYS - daysBetween(path.switchedOn, today);
-  const gate = evaluateGate(store.weights, store.dailyLogs);
+  const gate = gateOf(store);
   const missing = gate.met ? 0 : Math.max(GATE_MIN_SPAN_DAYS - gate.spanDays, GATE_MIN_WEIGHINS - gate.weighInCount, GATE_MIN_CLEAN_WEIGHINS - gate.cleanWeighInCount);
   return Math.max(0, first, missing);
 }
@@ -876,6 +879,18 @@ function keepAlignedTarget(before: WheightyStore, after: WheightyStore, today: s
  * aligned). On the aligned target itself, the speed is locked (point 1a): same goal, the aligned target stays in force.
  */
 export function changeGoalOnPath(store: WheightyStore, today: string, input: { goal: Goal; targetWeightKg: number; weeklyRate: number }, options?: { stepTarget?: number }): ChangeResult {
+  return recordedChange(store, changeGoalOnPathUnrecorded(store, today, input, options), 'user_goal', today);
+}
+
+/**
+ * Report 49, point 1d: a plan change made by the user leaves a trace entry without a message (`recordUserPlanChange`); a
+ * failed change leaves none.
+ */
+function recordedChange(before: WheightyStore, result: ChangeResult, rule: 'user_goal' | 'user_slider' | 'user_profile', today: string): ChangeResult {
+  return result.ok ? { ok: true, store: recordUserPlanChange(before, result.store, rule, today) } : result;
+}
+
+function changeGoalOnPathUnrecorded(store: WheightyStore, today: string, input: { goal: Goal; targetWeightKg: number; weeklyRate: number }, options?: { stepTarget?: number }): ChangeResult {
   if (alignedTargetLocked(store) && store.profile && store.plan && input.goal === store.plan.goal) {
     const r = changeGoal(store, today, { ...input, weeklyRate: store.profile.weeklyRateTarget }, options);
     return r.ok ? { ok: true, store: keepAlignedTarget(store, r.store, today) } : r;
@@ -891,6 +906,10 @@ export function changeGoalOnPath(store: WheightyStore, today: string, input: { g
  * in force is kept when neither the goal nor the rate changes (report 47, point 1e).
  */
 export function updateProfileOnPath(store: WheightyStore, today: string, profile: UserProfile): ChangeResult {
+  return recordedChange(store, updateProfileOnPathUnrecorded(store, today, profile), 'user_profile', today);
+}
+
+function updateProfileOnPathUnrecorded(store: WheightyStore, today: string, profile: UserProfile): ChangeResult {
   const kept = updateProfileKeepingPersonalTarget(store, today, profile);
   if (kept) return kept;
   if (alignedTargetLocked(store) && store.profile && store.plan && profile.goal === store.plan.goal) {
@@ -917,7 +936,7 @@ export function pathSpeedSliderModel(store: WheightyStore, today: string, goal: 
 
 /** Maintenance at the current weight chosen by the user ("objectif atteint"), on the journal path. */
 export function switchToMaintenanceOnPath(store: WheightyStore, today: string): ChangeResult {
-  if (pathOf(store).method !== 'measured') return switchToMaintenance(store, today);
+  if (pathOf(store).method !== 'measured') return recordedChange(store, switchToMaintenance(store, today), 'user_goal', today);
   const weight = currentWeightKg(store);
   if (weight === null) return { ok: false, reason: 'no_profile' };
   return changeGoalOnPath(store, today, { goal: 'maintenance', targetWeightKg: weight, weeklyRate: 0 }, store.plan ? { stepTarget: store.plan.stepTarget } : undefined);
@@ -1034,9 +1053,9 @@ export function pathSliderSession(store: WheightyStore, today: string): SliderSe
 
 /** Steps / calories chosen on the slider, on the journal path (`pathSliderSession`). */
 export function applyPathSliderSteps(store: WheightyStore, today: string, steps: number): { ok: true; store: WheightyStore } | { ok: false; reason: string } {
-  if (pathOf(store).method !== 'measured') return applySliderSteps(store, today, steps);
+  if (pathOf(store).method !== 'measured') return recordedChange(store, applySliderSteps(store, today, steps), 'user_slider', today);
   const override = measuredSliderContext(store);
-  return override ? applySliderSteps(store, today, steps, override) : { ok: false, reason: 'journal_path' };
+  return override ? recordedChange(store, applySliderSteps(store, today, steps, override), 'user_slider', today) : { ok: false, reason: 'journal_path' };
 }
 
 /**
@@ -1055,11 +1074,15 @@ export type SuggestedAdherence = { value: NonNullable<DailyLog['adherence']>; te
 /**
  * Category of a logged day from the relative gap of its total to the day's target, |logged - target| / target (in kcal over
  * the target, so that 10 and 25 percent fall exactly on their thresholds): under 10 %: plan respected; 10 to 25 %: minor
- * deviation; beyond 25 %, either way: major deviation.
+ * deviation; beyond 25 % above the target: major deviation. Beyond 25 % under the target: nothing (report 49, point 3, D6,
+ * replaces the part "beyond: major deviation" of the decision of 03/10 for the days under the target): such a day is far
+ * more likely incomplete than eaten that way; it stays not noted, and the user can still note it.
  */
-export function adherenceFromJournal(loggedKcal: number, targetKcal: number): NonNullable<DailyLog['adherence']> {
+export function adherenceFromJournal(loggedKcal: number, targetKcal: number): NonNullable<DailyLog['adherence']> | null {
   const gap = Math.abs(loggedKcal - targetKcal) / targetKcal;
-  return gap < SUGGESTED_ADHERENCE_ON_PLAN_BELOW ? 'on_plan' : gap <= SUGGESTED_ADHERENCE_MINOR_UP_TO ? 'minor_deviation' : 'major_deviation';
+  if (gap < SUGGESTED_ADHERENCE_ON_PLAN_BELOW) return 'on_plan';
+  if (gap <= SUGGESTED_ADHERENCE_MINOR_UP_TO) return 'minor_deviation';
+  return RULES_6A.d6 && loggedKcal < targetKcal ? null : 'major_deviation';
 }
 
 /**
@@ -1074,7 +1097,7 @@ export function suggestedAdherence(store: WheightyStore, date: string): Suggeste
   const target = store.dailyLogs.find((l) => l.date === date)?.calorieTargetForDay ?? store.plan.calorieTarget;
   if (!(target > 0)) return null;
   const value = adherenceFromJournal(day.loggedKcal, target);
-  return { value, text: JOURNAL_MESSAGE.deducedAdherence(value) };
+  return value === null ? null : { value, text: JOURNAL_MESSAGE.deducedAdherence(value) };
 }
 
 /**
@@ -1093,7 +1116,8 @@ export function deduceAdherenceFromJournal(store: WheightyStore, today: string):
   let s = store;
   for (const l of candidates) {
     const o = usable.get(l.date);
-    if (o?.usable) s = setAdherence(s, l.date, adherenceFromJournal(o.loggedKcal, l.calorieTargetForDay), 'journal');
+    const value = o?.usable ? adherenceFromJournal(o.loggedKcal, l.calorieTargetForDay) : null;
+    if (value !== null) s = setAdherence(s, l.date, value, 'journal');
   }
   return s;
 }
