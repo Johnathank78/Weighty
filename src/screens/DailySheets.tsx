@@ -70,7 +70,8 @@ export function WeighSheet() {
     const date = day === 'today' ? today : addDays(today, -1);
     // After each weigh-in: guardrails of the plan in force and underweight alert, on the new trend weight (pass 5a).
     const at = nowIso();
-    update((s) => runWeighInChecks(addWeight(s, { date, weightKg: kg, ...(asksPeriod && menstruating ? { menstruating: true } : {}) }, at), today, at));
+    // Report 49, point 5 (D5): the periodic replan that was due runs once the calibration of this weigh-in comes back.
+    update((s) => runWeighInChecks(addWeight(s, { date, weightKg: kg, ...(asksPeriod && menstruating ? { menstruating: true } : {}) }, at), today, at, { periodic: 'after_calibration' }));
     closeSheet();
     showToast('Pesée enregistrée. Tendance mise à jour.');
   };

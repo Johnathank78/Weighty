@@ -1062,6 +1062,23 @@ export function daysSincePeriodicCheck(store: WheightyStore, plan: CurrentPlan, 
 }
 
 /**
+ * The periodic replan of the current method is due (prompt 38 s3.1): PERIODIC_REPLAN_EVERY_DAYS since the solve or the last
+ * evaluation; never on the aligned target itself (report 40 s3.10) nor on a personal target (fixes of pass 5b, point 6).
+ */
+export function periodicReplanDue(store: WheightyStore, today: string): boolean {
+  const plan = store.plan;
+  if (!plan || !store.profile) return false;
+  if (store.meta.journalPath.chosenTargetActive || plan.source === 'personal_target') return false;
+  return daysSincePeriodicCheck(store, plan, today) >= PERIODIC_REPLAN_EVERY_DAYS;
+}
+
+/** First day of the current periodic cycle: the plan's solve, or the last evaluation that left it in place. */
+export function periodicCycleStart(store: WheightyStore, plan: CurrentPlan): string {
+  const checked = store.meta.periodicReplanCheckedOn;
+  return checked !== null && checked > planDateOf(plan) ? checked : planDateOf(plan);
+}
+
+/**
  * Periodic replan (prompt 38 s3.1, K2 of report 38). Due when PERIODIC_REPLAN_EVERY_DAYS (28) days have passed since the
  * plan was solved, or since the last evaluation that left it in place. The app is local: after days without opening, the
  * evaluation runs once, on the day's state, without replaying the missed days. The plan is rebuilt from the latest applied
@@ -1075,10 +1092,7 @@ export function periodicReplan(store: WheightyStore, today: string, options: { n
   const plan = store.plan;
   if (!plan || !store.profile) return { status: 'not_due', ageDays: 0 };
   const ageDays = planAgeDays(plan, today);
-  // Journal path (report 40 s3.10): no periodic replan while the plan in force is the aligned target itself; nor while it is
-  // the target chosen by the user (fixes of pass 5b, point 6).
-  if (store.meta.journalPath.chosenTargetActive || plan.source === 'personal_target') return { status: 'not_due', ageDays };
-  if (daysSincePeriodicCheck(store, plan, today) < PERIODIC_REPLAN_EVERY_DAYS) return { status: 'not_due', ageDays };
+  if (!periodicReplanDue(store, today)) return { status: 'not_due', ageDays };
   // D3 (report 49, point 4): not without a recent weigh-in; still due (the check date does not move).
   if (weighInStale(store, today)) return { status: 'blocked', ageDays, reason: 'stale_weighin' };
   const nowIso = options.nowIso ?? `${today}T00:00:00.000Z`;

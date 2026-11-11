@@ -376,7 +376,7 @@ describe('weekly evaluation off the main thread', () => {
     const week = evaluateJournalWeek(app, day(28), at(day(28)));
     const written = applyJournalWeek(app, week, day(28), at(day(28)));
     expect(written.meta.journalPath.offer?.plan).toEqual(runDailyChecks(s, day(28), at(day(28))).meta.journalPath.offer?.plan);
-    expect(readFileSync('src/store/StoreProvider.tsx', 'utf8')).toMatch(/runDailyChecks\(s, today, new Date\(\)\.toISOString\(\), \{ journalWeek: false \}\)/);
+    expect(readFileSync('src/store/StoreProvider.tsx', 'utf8')).toMatch(/runDailyChecks\(s, today, new Date\(\)\.toISOString\(\), \{ journalWeek: false, periodic: 'after_calibration' \}\)/);
     expect(readFileSync('src/store/journal.worker.ts', 'utf8')).toMatch(/evaluateJournalWeek\(store, today, nowIso\)/);
   });
 });

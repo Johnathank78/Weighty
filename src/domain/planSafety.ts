@@ -15,8 +15,9 @@ import { addDays, daysBetween } from '@/science/dates';
 import { fastestRateReachableWithSteps, guardrailMaxWeeklyRate, stepsToHoldRateAtFloor } from '@/science/goals';
 import type { GoalPlan, PlanContext } from '@/science/goals';
 import { bmi, weightAtBmi } from '@/science/macros';
-import type { CalibrationState, PlanBuildResult } from './engine';
-import { enforcePlanGuardrails, ensureDailyLogs, journalMethodOf, periodicReplan, recordPlanEvent, trendOf, weighInStale } from './engine';
+import type { CalibrationState, PeriodicReplanResult, PlanBuildResult } from './engine';
+import { computeCalibrationState, enforcePlanGuardrails, ensureDailyLogs, journalMethodOf, periodicCycleStart, periodicReplan, planAgeDays, periodicReplanDue, recordPlanEvent, trendOf, weighInStale } from './engine';
+import { RULES_6A } from './ruleSwitches';
 import { deduceAdherenceFromJournal, enforceMeasuredGuardrails, measuredPeriodicReplan, runJournalDailyChecks } from './journalPath';
 import { PLAN_MESSAGE, SHORT_MESSAGE } from './planMessages';
 import type { ShortText } from './planMessages';
@@ -90,6 +91,12 @@ export type DailyCheckOptions = {
    * the app runs it in a worker (StoreProvider) and passes false.
    */
   journalWeek?: boolean;
+  /**
+   * Periodic replan of the current method (report 49, point 5, D5). 'inline' (default: tests, simulators): here, the
+   * calibration state of the day computed when the replan is due. 'after_calibration' (the app): left out; the store provider
+   * runs it once the calibration of the day comes back from its worker (`periodicReplanUnderRules`).
+   */
+  periodic?: 'inline' | 'after_calibration';
 };
 
 /**
@@ -110,11 +117,40 @@ export function runDailyChecks(store: WheightyStore, today: string, nowIso: stri
   if (journalMethodOf(s) === 'measured') {
     const periodic = measuredPeriodicReplan(s, today, nowIso);
     if (periodic.status !== 'not_due') s = periodic.store;
-  } else {
-    const periodic = periodicReplan(s, today, { nowIso });
+  } else if (options.periodic !== 'after_calibration') {
+    const periodic = periodicReplanUnderRules(s, today, nowIso, 'compute');
     if ('store' in periodic) s = periodic.store;
   }
   return checkUnderweight(s, today, nowIso);
+}
+
+/** A periodic replan decided under the rules of report 49: D3 (`blocked`) and D5 (`deferred`). */
+export type PeriodicDecision = PeriodicReplanResult | { status: 'deferred'; ageDays: number; reason: 'recalibration_ready'; store: WheightyStore };
+
+/**
+ * Periodic replan of the current method under D5 (report 49, point 5): one plan change at a time. When it is due the day a
+ * recalibration is ready (`state.surfaced`), it waits: the recalibration screen shows the only change, before and after. It
+ * waits that day only (`periodicReplanDeferredOn`): if the recalibration is not applied, the replan runs at the check of a
+ * later day, being still due; an applied recalibration rebuilds the plan, which ends the cycle. D3 comes first (no replan
+ * without a recent weigh-in). `state`: the calibration state of the day for this store, or 'compute' to compute it here
+ * (only when the replan is due and may run).
+ */
+export function periodicReplanUnderRules(store: WheightyStore, today: string, nowIso: string, state: CalibrationState | null | 'compute'): PeriodicDecision {
+  const plan = store.plan;
+  if (!plan || !store.profile || journalMethodOf(store) === 'measured' || !periodicReplanDue(store, today) || weighInStale(store, today)) return periodicReplan(store, today, { nowIso });
+  const ageDays = planAgeDays(plan, today);
+  if (RULES_6A.d5) {
+    const deferredOn = store.meta.periodicReplanDeferredOn;
+    const deferredEarlier = deferredOn !== null && deferredOn >= periodicCycleStart(store, plan) && deferredOn < today;
+    if (!deferredEarlier) {
+      const st = state === 'compute' ? computeCalibrationState(store, today, nowIso) : state;
+      if (st?.surfaced === true) {
+        const next = deferredOn === today ? store : { ...store, meta: { ...store.meta, periodicReplanDeferredOn: today } };
+        return { status: 'deferred', ageDays, reason: 'recalibration_ready', store: next };
+      }
+    }
+  }
+  return periodicReplan(store, today, { nowIso });
 }
 
 /**
@@ -130,11 +166,12 @@ export function guardrailsOnPath(store: WheightyStore, today: string, nowIso: st
  * of the current method when it is due (report 49, point 4: held back while the last weigh-in was more than 7 days old, it
  * runs as soon as one comes, without waiting for the next day).
  */
-export function runWeighInChecks(store: WheightyStore, today: string, nowIso: string): WheightyStore {
+export function runWeighInChecks(store: WheightyStore, today: string, nowIso: string, options: Pick<DailyCheckOptions, 'periodic'> = {}): WheightyStore {
   if (!store.plan || !store.profile) return store;
   let s = guardrailsOnPath(store, today, nowIso);
-  if (journalMethodOf(s) !== 'measured') {
-    const periodic = periodicReplan(s, today, { nowIso });
+  // Under D5 (point 5): in the app, after the calibration of the new weigh-in (`after_calibration`).
+  if (journalMethodOf(s) !== 'measured' && options.periodic !== 'after_calibration') {
+    const periodic = periodicReplanUnderRules(s, today, nowIso, 'compute');
     if ('store' in periodic) s = periodic.store;
   }
   return checkUnderweight(s, today, nowIso);

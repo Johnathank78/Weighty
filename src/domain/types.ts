@@ -39,7 +39,7 @@ import type {
  * Version 11 (report 49, point 1): `WheightyStore.activityLog`, the persistent activity log (capped, oldest out first); the
  * trace keeps every plan change (rules 'recalibration', 'recalibration_maintenance', 'onboarding', 'user_goal',
  * 'user_slider', 'user_profile', without a message), with `PlanEvent.maintenance`, `PlanEvent.calibration` and
- * `PlanEvent.backfilled`; `AppMeta.staleWeighInNoticeClosedOn` (point 4). Loaded from schema 10 with an empty log and one
+ * `PlanEvent.backfilled`; `AppMeta.staleWeighInNoticeClosedOn` (point 4) and `AppMeta.periodicReplanDeferredOn` (point 5). Loaded from schema 10 with an empty log and one
  * backfilled 'recalibration' entry per applied calibration snapshot (warm start excepted) whose plan change the trace did not
  * keep.
  */
@@ -543,6 +543,11 @@ export type AppMeta = {
    * day while the last weigh-in is more than 7 days old.
    */
   staleWeighInNoticeClosedOn: string | null;
+  /**
+   * D5 (schema 11, report 49, point 5): the day a due periodic replan waited because a recalibration was ready. It waits that
+   * day only; from the next day of the same cycle it runs.
+   */
+  periodicReplanDeferredOn: string | null;
 };
 
 export type WheightyStore = {
@@ -589,4 +594,5 @@ export const DEFAULT_META: AppMeta = {
   guardrailMaintenanceSince: null,
   journalPath: defaultJournalPath(),
   staleWeighInNoticeClosedOn: null,
+  periodicReplanDeferredOn: null,
 };

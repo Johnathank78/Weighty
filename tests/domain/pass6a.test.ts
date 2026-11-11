@@ -18,6 +18,7 @@ import {
   latestAppliedSnapshot,
   markPlanEventSeen,
   periodicReplan,
+  periodicReplanDue,
   setActualSteps,
   setAdherence,
   unseenPlanMessages,
@@ -26,8 +27,8 @@ import {
 import type { CalibrationState } from '@/domain/engine';
 import { addFoodEntry } from '@/domain/journal';
 import { adherenceFromJournal, applyPathSliderSteps, changeGoalOnPath, suggestedAdherence, updateProfileOnPath } from '@/domain/journalPath';
-import { choosePersonalTarget, computePersonalTakeover } from '@/domain/personalTarget';
-import { closeStaleWeighInNotice, planNotices, runDailyChecks, runWeighInChecks, staleWeighInNotice } from '@/domain/planSafety';
+import { choosePersonalTarget, computePersonalTakeover, takeOverPersonalTarget } from '@/domain/personalTarget';
+import { closeStaleWeighInNotice, periodicReplanUnderRules, planNotices, runDailyChecks, runWeighInChecks, staleWeighInNotice } from '@/domain/planSafety';
 import { CHART_WEIGH_IN_NOTE } from '@/screens/Tracking';
 import { RULES_6A } from '@/domain/ruleSwitches';
 import { analysisView, todayStatusTitle, trackingChart } from '@/domain/views';
@@ -503,6 +504,85 @@ describe('4. no automatic update without a recent weigh-in (D3)', () => {
       expect(periodicReplan(store, addDays(day, 30), { nowIso: at(addDays(day, 30)) }).status).toBe('replanned');
     } finally {
       RULES_6A.d3 = true;
+    }
+  });
+});
+
+describe('5. one plan change at a time (D5)', () => {
+  /** Recalibrated on day 21, then daily weigh-ins, flat, up to `to`: the estimate moves, a new recalibration gets ready. */
+  function flatAfterRecalibration(to: number): WheightyStore {
+    let { store } = recalibrated();
+    for (let i = 22; i <= to; i++) store = addWeight(setAdherence(store, addDays(D0, i - 1), 'on_plan'), { date: addDays(D0, i), weightKg: 90.7 }, at(addDays(D0, i)));
+    return store;
+  }
+
+  it('app closed for days: the replan due waits the day a recalibration is ready; the screen shows the only change; it runs the next day if the recalibration is not applied', () => {
+    const day = addDays(D0, 61);
+    const s = flatAfterRecalibration(61);
+    const state = stateOn(s, day);
+    expect(state.surfaced).toBe(true);
+    expect(periodicReplanDue(s, day)).toBe(true);
+    const checked = runDailyChecks(s, day, at(day));
+    expect(checked.plan).toEqual(s.plan);
+    expect(checked.meta.planEvents.filter((e) => e.rule === 'periodic_replan')).toEqual([]);
+    expect(checked.meta.periodicReplanDeferredOn).toBe(day);
+    expect(periodicReplanUnderRules(checked, day, at(day), state)).toMatchObject({ status: 'deferred', reason: 'recalibration_ready' });
+    // Applied: one change, the recalibration; the replan is no longer due.
+    const applied = applyRecalibration(checked, stateOn(checked, day), day, at(day));
+    if (!applied.ok) throw new Error(applied.reason);
+    expect(applied.store.meta.planEvents.filter((e) => e.date === day).map((e) => e.rule)).toEqual(['recalibration']);
+    expect(periodicReplanDue(applied.store, addDays(day, 1))).toBe(false);
+    // Not applied: the replan runs at the check of the next day.
+    const next = runDailyChecks(checked, addDays(day, 1), at(addDays(day, 1)));
+    expect(next.plan?.source).toBe('periodic_replan');
+    expect(next.plan?.createdAt).toBe(`${addDays(day, 1)}T00:00:00.000Z`);
+  });
+
+  it('a weigh-in that makes a recalibration ready: the replan held back by D3 waits again (D5), the recalibration alone', () => {
+    const s = flatAfterRecalibration(50);
+    const day = addDays(D0, 61);
+    expect(periodicReplanUnderRules(s, day, at(day), 'compute')).toMatchObject({ status: 'blocked', reason: 'stale_weighin' });
+    expect(stateOn(s, day)).toMatchObject({ surfaced: false, blockedByStaleWeighIn: true });
+    const weighed = runWeighInChecks(addWeight(s, { date: day, weightKg: 90.7 }, at(day)), day, at(day));
+    expect(stateOn(weighed, day).surfaced).toBe(true);
+    expect(weighed.plan?.createdAt).toBe(s.plan?.createdAt);
+    expect(weighed.meta.periodicReplanDeferredOn).toBe(day);
+    // In the app the weigh-in leaves it to the calibration: the same store, then the same decision.
+    const app = runWeighInChecks(addWeight(s, { date: day, weightKg: 90.7 }, at(day)), day, at(day), { periodic: 'after_calibration' });
+    expect(app.meta.periodicReplanDeferredOn).toBeNull();
+    expect(periodicReplanUnderRules(app, day, at(day), stateOn(app, day)).status).toBe('deferred');
+  });
+
+  it('the takeover of a personal target: one change; no replan on a personal target, nor right after the takeover', () => {
+    const s = tracked(21);
+    const day21 = addDays(D0, 21);
+    const personal = choosePersonalTarget(s, day21, 2100, at(day21));
+    if (!personal.ok) throw new Error(personal.reason);
+    let p = personal.store;
+    for (let i = 22; i <= 52; i++) p = addWeight(setAdherence(p, addDays(D0, i - 1), 'on_plan'), { date: addDays(D0, i), weightKg: 90.7 }, at(addDays(D0, i)));
+    const day = addDays(D0, 52);
+    expect(periodicReplanDue(p, day)).toBe(false);
+    const t = computePersonalTakeover(p, stateOn(p, day), day, at(day));
+    expect(t?.status).toBe('applied');
+    const taken = takeOverPersonalTarget(p, stateOn(p, day), day, at(day));
+    expect(taken.plan?.source).toBe('recalibrated');
+    expect(periodicReplanDue(taken, day)).toBe(false);
+    expect(runDailyChecks(taken, addDays(day, 1), at(addDays(day, 1))).plan?.createdAt).toBe(taken.plan?.createdAt);
+  });
+
+  it('no recalibration ready: the replan runs as before; the switch reserved to the tests gives back two changes in a day', () => {
+    const { store, day } = recalibrated();
+    const due = addDays(day, 28);
+    const weighed = addWeight(store, { date: due, weightKg: 90.6 }, at(due));
+    expect(stateOn(weighed, due).surfaced).toBe(false);
+    expect(periodicReplanUnderRules(weighed, due, at(due), 'compute').status).toBe('replanned');
+    const s = flatAfterRecalibration(61);
+    const d61 = addDays(D0, 61);
+    RULES_6A.d5 = false;
+    try {
+      expect(periodicReplanUnderRules(s, d61, at(d61), 'compute').status).toBe('replanned');
+    } finally {
+      RULES_6A.d5 = true;
     }
   });
 });

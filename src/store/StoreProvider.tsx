@@ -2,12 +2,12 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from 'react';
 import type { ActivityType, WheightyStore } from '@/domain/types';
 import { emptyActivityLog, emptyFoodJournal, SCHEMA_VERSION } from '@/domain/types';
-import { activityDiff, activityEntry, appendActivity, calibrationSummary, lastActivity, sameData } from '@/domain/activityLog';
+import { activityDiff, activityEntry, appendActivity, calibrationSummary, lastActivity, planBrief, sameData } from '@/domain/activityLog';
 import type { ActivityCause } from '@/domain/activityLog';
 import { buildLabel } from '@/app/build';
 import { SCIENTIFIC_MODEL_VERSION } from '@/science/constants';
-import { ensureDailyLogs } from '@/domain/engine';
-import { runDailyChecks } from '@/domain/planSafety';
+import { ensureDailyLogs, planSummary } from '@/domain/engine';
+import { periodicReplanUnderRules, runDailyChecks } from '@/domain/planSafety';
 import type { CalibrationState } from '@/domain/engine';
 import { calibrationFingerprint, createCalibrationRunner } from './calibrationClient';
 import { applyPersonalTakeover } from '@/domain/personalTarget';
@@ -59,6 +59,23 @@ function opened(store: WheightyStore, reason: 'start' | 'foreground'): WheightyS
   const entries = [activityEntry('app_open', { reason, build, scientificModelVersion: SCIENTIFIC_MODEL_VERSION, schemaVersion: SCHEMA_VERSION }, now)];
   if (previous !== null && previous !== build) entries.push(activityEntry('build_changed', { from: previous, to: build }, now));
   return appendActivity(store, entries);
+}
+
+/**
+ * Periodic replan of the current method once the calibration of the day is known (report 49, point 5, D5), with its entry in
+ * the activity log when it is due: replanned, failed, without a snapshot, held back (D3) or waiting (D5). A decision that
+ * leaves the store as it was is logged once a day.
+ */
+function periodicLogged(store: WheightyStore, today: string, nowIso: string, state: CalibrationState | null): WheightyStore {
+  if (!store.plan || !store.profile) return store;
+  const before = store.plan;
+  const d = periodicReplanUnderRules(store, today, nowIso, state);
+  if (d.status === 'not_due') return store;
+  const next = 'store' in d ? logged(store, d.store, 'calibration') : store;
+  const data = { status: d.status, ...('reason' in d ? { reason: d.reason } : {}), before: planBrief(planSummary(before)), after: next.plan && next.plan !== before ? planBrief(planSummary(next.plan)) : null };
+  const last = lastActivity(next, 'periodic_replan');
+  if (next === store && last && last.date === today && last.data.status === d.status) return store;
+  return appendActivity(next, [activityEntry('periodic_replan', data, new Date())]);
 }
 
 /** Entries of a calibration result: its summary when it changed, and a recalibration that becomes ready. */
@@ -120,7 +137,8 @@ export function StoreProvider({ children, storage: injected }: { children: React
   // replan when due, underweight alert (pass 5a). Evaluated once on the day's state; the same store comes back when nothing
   // changes. Also runs once at start, on the loaded store.
   useEffect(() => {
-    setStore((s) => (s.plan ? logged(s, runDailyChecks(s, today, new Date().toISOString(), { journalWeek: false }), 'daily_checks') : s));
+    // Report 49, point 5 (D5): the periodic replan of the current method waits for the calibration of the day (below).
+    setStore((s) => (s.plan ? logged(s, runDailyChecks(s, today, new Date().toISOString(), { journalWeek: false, periodic: 'after_calibration' }), 'daily_checks') : s));
   }, [today]);
 
   // Return to the foreground: an entry of the activity log (the day change above runs its own checks).
@@ -171,6 +189,8 @@ export function StoreProvider({ children, storage: injected }: { children: React
         if (response.id !== requestId.current) return;
         if (!response.ok) {
           console.error('Calibration failed:', response.message);
+          // Without a calibration state, the periodic replan still runs (no recalibration can be ready).
+          setStore((s) => (calibrationFingerprint(s, today) === calibrationKey ? periodicLogged(s, today, nowIso, null) : s));
           return;
         }
         setCalibration({ key: calibrationKey, state: response.state });
@@ -181,7 +201,10 @@ export function StoreProvider({ children, storage: injected }: { children: React
         setStore((s) => {
           if (calibrationFingerprint(s, today) !== calibrationKey) return s;
           const withLog = calibrationLogged(s, response.state);
-          return takeover ? logged(withLog, applyPersonalTakeover(withLog, takeover, today, nowIso), 'calibration') : withLog;
+          // Report 47: the takeover of a personal target first; then (report 49, point 5, D5) the periodic replan of the
+          // current method, which waits while a recalibration is ready. A takeover rebuilds the plan: the replan is then not due.
+          const taken = takeover ? logged(withLog, applyPersonalTakeover(withLog, takeover, today, nowIso), 'calibration') : withLog;
+          return taken === withLog ? periodicLogged(taken, today, nowIso, response.state) : taken;
         });
       });
     }, CALIBRATION_DEBOUNCE_MS);

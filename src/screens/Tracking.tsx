@@ -534,7 +534,8 @@ export function RecalibrationScreen() {
           {preview ? (
             <>
               {' '}
-              Ton plan quotidien passerait à <strong style={{ color: 'var(--ink)', fontWeight: 600 }}>{formatKcal(preview.calorieTarget)} kcal</strong>.
+              {/* Report 49, point 5 (D5): the only change, before and after (a due periodic replan waits). */}
+              Ton plan quotidien passerait de {formatKcal(plan.calorieTarget)} à <strong style={{ color: 'var(--ink)', fontWeight: 600 }}>{formatKcal(preview.calorieTarget)} kcal</strong>.
             </>
           ) : null}
         </p>
