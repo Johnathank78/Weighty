@@ -252,11 +252,11 @@ export const AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS = 7; // engineering_prior
  */
 export const TRACKING_PAUSE_MIN_GAP_DAYS = 15; // engineering_prior
 /**
- * D7 (report 49, point 7): reanchoring of the calibration after a pause, 'off' (today's fit), 'A' (one level per tracking
- * period) or 'B' (A, with the Hall state restarted at equilibrium after each pause). 'off' until the verdict of amendment 8
- * (tests/experiments-journal/THRESHOLDS.md); a separate commit turns the retained variant on if it passes.
+ * D7 (report 49, point 7): reanchoring of the calibration after a pause, 'off' (the fit of 71bc77e), 'A' (one level per
+ * tracking period) or 'B' (A, with the Hall state restarted at equilibrium after each pause). 'A': retained on the training
+ * seeds of amendment 8 (tests/experiments-journal/THRESHOLDS.md) and GO on its validation seeds (V1 to V5, report 49).
  */
-export const REANCHOR_AFTER_PAUSE: 'off' | 'A' | 'B' = 'off'; // engineering_prior
+export const REANCHOR_AFTER_PAUSE: 'off' | 'A' | 'B' = 'A'; // engineering_prior
 /** A periodic replan is announced to the user when the calorie target moves by at least this much (pass 5a). */
 export const PERIODIC_REPLAN_NOTICE_MIN_KCAL = 10; // ui_rounding_rule
 /** Warning ahead of the BMI-20 guardrail: horizon of the daily projection (pass 5a, 4 weeks). */
@@ -720,7 +720,7 @@ export const CONSTANT_METADATA: Readonly<Record<string, ConstantMetadata>> = {
   RECAL_SURFACE_MIN_DAYS: m('engineering_prior', '05 s12'),
   RECAL_SURFACE_MIN_CHANGE_AFTER_DAYS_KCAL: m('engineering_prior', '05 s12'),
   RECAL_SURFACE_MIN_INTERVAL_DAYS: m('engineering_prior', '05 s12 minimum spacing of surfaced recalibrations, IMPLEMENTATION_NOTES D-34'),
-  REANCHOR_AFTER_PAUSE: m('engineering_prior', 'reanchoring of the calibration after a pause (D7), off until the verdict of amendment 8 of tests/experiments-journal/THRESHOLDS.md, report 49 point 7'),
+  REANCHOR_AFTER_PAUSE: m('engineering_prior', 'reanchoring of the calibration after a pause (D7), variant A, GO on amendment 8 of tests/experiments-journal/THRESHOLDS.md, report 49 point 7'),
   TRACKING_PAUSE_MIN_GAP_DAYS: m('engineering_prior', 'decision of the product owner of 2026-11-11 (D4): a pause, two valid weigh-ins 15 days apart or more; the gate counts the current tracking period, report 49 point 6'),
   AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS: m('engineering_prior', 'decision of the product owner of 2026-11-11 (D3): no automatic plan update nor projection without a recent weigh-in, report 49 point 4'),
   WARM_START_MIN_DAYS: m('engineering_prior', '05 s17 warm start, IMPLEMENTATION_NOTES D-23'),

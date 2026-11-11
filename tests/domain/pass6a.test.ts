@@ -685,10 +685,10 @@ describe('7. reanchoring after a pause (D7), behind the option', () => {
     }
   };
 
-  it('off in production; the option reaches the calibration input', () => {
-    expect(REANCHOR_AFTER_PAUSE).toBe('off');
+  it('variant A in production (GO on amendment 8); the option reaches the calibration input', () => {
+    expect(REANCHOR_AFTER_PAUSE).toBe('A');
     const { store, back } = paused();
-    expect(calibrationInputFromStore(store, back)?.reanchorAfterPause).toBe('off');
+    expect(calibrationInputFromStore(store, back)?.reanchorAfterPause).toBe('A');
     expect(withMode('B', () => calibrationInputFromStore(store, back)?.reanchorAfterPause)).toBe('B');
   });
 
