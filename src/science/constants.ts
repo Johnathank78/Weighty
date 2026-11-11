@@ -22,7 +22,11 @@
  * 1.8.0 (UX pass 2, point 2): a personal target holds at the steps of the plan in force, and the steps / calories slider
  * moves it as for every plan. The plans of the users without a personal target are unchanged.
  */
-export const SCIENTIFIC_MODEL_VERSION = '1.8.0';
+/**
+ * 1.9.0 (report 49, point 3, D6): no "écart important" deduced from the journal under the target; such a day stays not
+ * noted. The declarations read by the current method change for those who log days far under their target.
+ */
+export const SCIENTIFIC_MODEL_VERSION = '1.9.0';
 
 export type ConstantCategory =
   | 'published_constant'

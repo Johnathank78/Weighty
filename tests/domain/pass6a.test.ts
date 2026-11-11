@@ -23,8 +23,9 @@ import {
 } from '@/domain/engine';
 import type { CalibrationState } from '@/domain/engine';
 import { addFoodEntry } from '@/domain/journal';
-import { applyPathSliderSteps, changeGoalOnPath, updateProfileOnPath } from '@/domain/journalPath';
-import { planNotices } from '@/domain/planSafety';
+import { adherenceFromJournal, applyPathSliderSteps, changeGoalOnPath, suggestedAdherence, updateProfileOnPath } from '@/domain/journalPath';
+import { planNotices, runDailyChecks } from '@/domain/planSafety';
+import { RULES_6A } from '@/domain/ruleSwitches';
 import { analysisView, todayStatusTitle, trackingChart } from '@/domain/views';
 import type { PlanEvent, WheightyStore } from '@/domain/types';
 import { emptyActivityLog, PLAN_CHANGE_RULES, SCHEMA_VERSION } from '@/domain/types';
@@ -368,5 +369,54 @@ describe('2. the recalibrated state no longer depends on the gate of the day (D2
     expect(analysisView(s, state)).toMatchObject({ calibrated: false, nextUpdate: null });
     expect(trackingChart(s, day, null, state)?.projectionPending).toBe(true);
     expect(todayStatusTitle(s, day, state, false)).toMatch(/première mise à jour/);
+  });
+});
+
+describe('3. no major deviation deduced under the target (D6), model 1.9.0', () => {
+  /** Maintenance at 2 000 kcal a day; day i logged with `kcal(i)` in one entry (null: not logged). */
+  const logged = (kcal: (i: number) => number | null, to: number): WheightyStore => {
+    const s0 = onboard(makeProfile({ goal: 'maintenance' }));
+    let s: WheightyStore = { ...s0, dailyLogs: s0.dailyLogs.map((l) => ({ ...l, calorieTargetForDay: 2000 })) };
+    for (let i = 0; i <= to; i++) {
+      s = { ...s, dailyLogs: [...s.dailyLogs.filter((l) => l.date !== addDays(D0, i)), { date: addDays(D0, i), calorieTargetForDay: 2000, stepTargetForDay: 7000 }].sort((a, b) => (a.date < b.date ? -1 : 1)) };
+      const k = kcal(i);
+      if (k === null) continue;
+      const r = addFoodEntry(s, { kind: 'manual', date: addDays(D0, i), localTime: '12:00', consumedTime: '12:00', food: { name: 'x', grams: null, intake: { energyKcal: k, proteinG: null, carbsG: null, fatG: null } } }, at(addDays(D0, i)));
+      if (!r.ok) throw new Error(r.reason);
+      s = r.store;
+    }
+    return s;
+  };
+
+  it('the category: under 10 %, 10 to 25 %, beyond 25 % above (major); beyond 25 % under: nothing', () => {
+    expect([1810, 2190, 1800, 2200, 1500, 2500, 2510].map((k) => adherenceFromJournal(k, 2000))).toEqual(['on_plan', 'on_plan', 'minor_deviation', 'minor_deviation', 'minor_deviation', 'minor_deviation', 'major_deviation']);
+    expect([1490, 800, 0].map((k) => adherenceFromJournal(k, 2000))).toEqual([null, null, null]);
+    expect(SCIENTIFIC_MODEL_VERSION).toBe('1.9.0');
+  });
+
+  it('nothing written at the day change, nothing suggested on the tile; the user can still note the day; a stored one is never rewritten', () => {
+    const totals = [1490, 2510, 1800, 600];
+    const s = logged((i) => totals[i] ?? null, totals.length - 1);
+    const day = addDays(D0, totals.length);
+    const after = runDailyChecks(s, day, at(day));
+    const of = (st: WheightyStore, i: number) => st.dailyLogs.find((l) => l.date === addDays(D0, i));
+    expect(totals.map((_, i) => of(after, i)?.adherence)).toEqual([undefined, 'major_deviation', 'minor_deviation', undefined]);
+    expect(suggestedAdherence(s, D0)).toBeNull();
+    expect(suggestedAdherence(s, addDays(D0, 1))?.value).toBe('major_deviation');
+    const noted = setAdherence(after, D0, 'major_deviation');
+    expect(of(noted, 0)).toMatchObject({ adherence: 'major_deviation', adherenceSource: 'user' });
+    // An adherence already deduced (before 1.9.0) stays as it is.
+    const old = setAdherence(s, addDays(D0, 3), 'major_deviation', 'journal');
+    expect(of(runDailyChecks(old, day, at(day)), 3)).toMatchObject({ adherence: 'major_deviation', adherenceSource: 'journal' });
+  });
+
+  it('the switch reserved to the tests gives back the rule of 03/10', () => {
+    RULES_6A.d6 = false;
+    try {
+      expect(adherenceFromJournal(1490, 2000)).toBe('major_deviation');
+    } finally {
+      RULES_6A.d6 = true;
+    }
+    expect(adherenceFromJournal(1490, 2000)).toBeNull();
   });
 });

@@ -83,6 +83,7 @@ import { evaluateJournalGate, journalCalibrationInputFromStore } from './journal
 import type { JournalCalibrationInput, JournalRegimeOptions } from './journalCalibration';
 import { updateProfileKeepingPersonalTarget } from './personalTarget';
 import { JOURNAL_MESSAGE, PLAN_MESSAGE, SHORT_MESSAGE } from './planMessages';
+import { RULES_6A } from './ruleSwitches';
 import type { ShortText } from './planMessages';
 import type { AlignedTarget, CurrentPlan, HabitSummary, JournalEstimate, JournalGateSummary, JournalPathState, MeasuredOffer, WheightyStore } from './types';
 
@@ -1072,11 +1073,15 @@ export type SuggestedAdherence = { value: NonNullable<DailyLog['adherence']>; te
 /**
  * Category of a logged day from the relative gap of its total to the day's target, |logged - target| / target (in kcal over
  * the target, so that 10 and 25 percent fall exactly on their thresholds): under 10 %: plan respected; 10 to 25 %: minor
- * deviation; beyond 25 %, either way: major deviation.
+ * deviation; beyond 25 % above the target: major deviation. Beyond 25 % under the target: nothing (report 49, point 3, D6,
+ * replaces the part "beyond: major deviation" of the decision of 03/10 for the days under the target): such a day is far
+ * more likely incomplete than eaten that way; it stays not noted, and the user can still note it.
  */
-export function adherenceFromJournal(loggedKcal: number, targetKcal: number): NonNullable<DailyLog['adherence']> {
+export function adherenceFromJournal(loggedKcal: number, targetKcal: number): NonNullable<DailyLog['adherence']> | null {
   const gap = Math.abs(loggedKcal - targetKcal) / targetKcal;
-  return gap < SUGGESTED_ADHERENCE_ON_PLAN_BELOW ? 'on_plan' : gap <= SUGGESTED_ADHERENCE_MINOR_UP_TO ? 'minor_deviation' : 'major_deviation';
+  if (gap < SUGGESTED_ADHERENCE_ON_PLAN_BELOW) return 'on_plan';
+  if (gap <= SUGGESTED_ADHERENCE_MINOR_UP_TO) return 'minor_deviation';
+  return RULES_6A.d6 && loggedKcal < targetKcal ? null : 'major_deviation';
 }
 
 /**
@@ -1091,7 +1096,7 @@ export function suggestedAdherence(store: WheightyStore, date: string): Suggeste
   const target = store.dailyLogs.find((l) => l.date === date)?.calorieTargetForDay ?? store.plan.calorieTarget;
   if (!(target > 0)) return null;
   const value = adherenceFromJournal(day.loggedKcal, target);
-  return { value, text: JOURNAL_MESSAGE.deducedAdherence(value) };
+  return value === null ? null : { value, text: JOURNAL_MESSAGE.deducedAdherence(value) };
 }
 
 /**
@@ -1110,7 +1115,8 @@ export function deduceAdherenceFromJournal(store: WheightyStore, today: string):
   let s = store;
   for (const l of candidates) {
     const o = usable.get(l.date);
-    if (o?.usable) s = setAdherence(s, l.date, adherenceFromJournal(o.loggedKcal, l.calorieTargetForDay), 'journal');
+    const value = o?.usable ? adherenceFromJournal(o.loggedKcal, l.calorieTargetForDay) : null;
+    if (value !== null) s = setAdherence(s, l.date, value, 'journal');
   }
   return s;
 }
