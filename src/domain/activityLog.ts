@@ -76,6 +76,8 @@ export function activityDiff(before: WheightyStore, after: WheightyStore, cause:
   }
   for (const s of steps) add('steps', s);
   for (const e of closed) add('message', { action: 'closed', eventId: e.id, rule: e.rule });
+  // The message asking for a weigh-in (report 49, point 4) is closed for the day.
+  if (after.meta.staleWeighInNoticeClosedOn !== before.meta.staleWeighInNoticeClosedOn && after.meta.staleWeighInNoticeClosedOn !== null) add('message', { action: 'closed', kind: 'weigh_in', date: after.meta.staleWeighInNoticeClosedOn });
 
   // Weigh-ins, by identifier.
   if (before.weights !== after.weights) {
@@ -130,6 +132,7 @@ export function calibrationSummary(state: CalibrationState | null): Record<strin
       adherenceCoverage: round(g.adherenceCoverage, 4),
     },
     surfaced: state.surfaced,
+    blockedByStaleWeighIn: state.blockedByStaleWeighIn,
     candidate: state.candidate
       ? { medianOffsetKcal: round(state.candidate.posteriorMedianOffsetKcal, 1), interval80: state.candidate.interval80.map((x) => round(x, 1)), confidence: state.candidate.confidence, proposedMaintenanceKcal: state.proposedMaintenanceKcal === null ? null : round(state.proposedMaintenanceKcal, 1) }
       : null,

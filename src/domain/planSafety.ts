@@ -16,7 +16,7 @@ import { fastestRateReachableWithSteps, guardrailMaxWeeklyRate, stepsToHoldRateA
 import type { GoalPlan, PlanContext } from '@/science/goals';
 import { bmi, weightAtBmi } from '@/science/macros';
 import type { CalibrationState, PlanBuildResult } from './engine';
-import { enforcePlanGuardrails, ensureDailyLogs, journalMethodOf, periodicReplan, recordPlanEvent, trendOf } from './engine';
+import { enforcePlanGuardrails, ensureDailyLogs, journalMethodOf, periodicReplan, recordPlanEvent, trendOf, weighInStale } from './engine';
 import { deduceAdherenceFromJournal, enforceMeasuredGuardrails, measuredPeriodicReplan, runJournalDailyChecks } from './journalPath';
 import { PLAN_MESSAGE, SHORT_MESSAGE } from './planMessages';
 import type { ShortText } from './planMessages';
@@ -112,7 +112,7 @@ export function runDailyChecks(store: WheightyStore, today: string, nowIso: stri
     if (periodic.status !== 'not_due') s = periodic.store;
   } else {
     const periodic = periodicReplan(s, today, { nowIso });
-    if (periodic.status !== 'not_due') s = periodic.store;
+    if ('store' in periodic) s = periodic.store;
   }
   return checkUnderweight(s, today, nowIso);
 }
@@ -125,10 +125,38 @@ export function guardrailsOnPath(store: WheightyStore, today: string, nowIso: st
   return journalMethodOf(store) === 'measured' ? enforceMeasuredGuardrails(store, today, nowIso) : enforcePlanGuardrails(store, today, { nowIso }).store;
 }
 
-/** What runs after each weigh-in: the guardrails and the underweight alert, on the new trend weight. */
+/**
+ * What runs after each weigh-in: the guardrails and the underweight alert, on the new trend weight; and the periodic replan
+ * of the current method when it is due (report 49, point 4: held back while the last weigh-in was more than 7 days old, it
+ * runs as soon as one comes, without waiting for the next day).
+ */
 export function runWeighInChecks(store: WheightyStore, today: string, nowIso: string): WheightyStore {
   if (!store.plan || !store.profile) return store;
-  return checkUnderweight(guardrailsOnPath(store, today, nowIso), today, nowIso);
+  let s = guardrailsOnPath(store, today, nowIso);
+  if (journalMethodOf(s) !== 'measured') {
+    const periodic = periodicReplan(s, today, { nowIso });
+    if ('store' in periodic) s = periodic.store;
+  }
+  return checkUnderweight(s, today, nowIso);
+}
+
+// ---------------------------------------------------------------------------
+// Message asking for a weigh-in (report 49, point 4, D3)
+// ---------------------------------------------------------------------------
+
+/**
+ * "Ton plan attend une pesée" (D3): while the last weigh-in is more than 7 days old, on the current method (the measured habit
+ * has its own weigh-in rules), at most once a day: closed, it comes back the next day; it leaves with the next weigh-in.
+ */
+export function staleWeighInNotice(store: WheightyStore, today: string): ShortText | null {
+  if (!store.plan || !store.profile || journalMethodOf(store) === 'measured') return null;
+  if (!weighInStale(store, today) || store.meta.staleWeighInNoticeClosedOn === today) return null;
+  return SHORT_MESSAGE.weighInNeeded;
+}
+
+/** The user closed the message asking for a weigh-in: not again today. */
+export function closeStaleWeighInNotice(store: WheightyStore, today: string): WheightyStore {
+  return { ...store, meta: { ...store.meta, staleWeighInNoticeClosedOn: today } };
 }
 
 // ---------------------------------------------------------------------------
@@ -194,13 +222,13 @@ export function floorAdviceOf(result: PlanBuildResult | { ok: false; reason: str
 // Message zone of Aujourd'hui and Suivi (UX pass 1, G1)
 // ---------------------------------------------------------------------------
 
-export type PlanNoticeKind = 'underweight' | 'guardrail' | 'bmi20_warning' | 'target_migration' | 'journal' | 'personal_target' | 'periodic_replan';
+export type PlanNoticeKind = 'underweight' | 'guardrail' | 'bmi20_warning' | 'target_migration' | 'weigh_in' | 'journal' | 'personal_target' | 'periodic_replan';
 
 /**
  * Priority of the message zone, first shown first. Journal path messages (pass 5b), then the takeover of a personal target
  * (report 47), come before the periodic replan.
  */
-export const PLAN_NOTICE_ORDER: readonly PlanNoticeKind[] = ['underweight', 'guardrail', 'bmi20_warning', 'target_migration', 'journal', 'personal_target', 'periodic_replan'];
+export const PLAN_NOTICE_ORDER: readonly PlanNoticeKind[] = ['underweight', 'guardrail', 'bmi20_warning', 'target_migration', 'weigh_in', 'journal', 'personal_target', 'periodic_replan'];
 
 /** Messages visible at once; the others wait behind "Voir les autres messages". */
 export const PLAN_NOTICES_VISIBLE = 2;
@@ -310,7 +338,7 @@ export function planEventShort(e: PlanEvent): ShortText | null {
  * in the order of the zone: underweight alert, guardrail, BMI-20 warning, target migration, periodic replan; the trace
  * order within a kind. Which messages exist and when is decided by pass 5a; this only orders and words them.
  */
-export function planNotices(unseen: readonly PlanEvent[], warning: { weeks: number; message: string } | null): PlanNotice[] {
+export function planNotices(unseen: readonly PlanEvent[], warning: { weeks: number; message: string } | null, weighIn: ShortText | null = null): PlanNotice[] {
   const out: PlanNotice[] = [];
   for (const e of unseen) {
     const text = planEventText(e);
@@ -324,6 +352,8 @@ export function planNotices(unseen: readonly PlanEvent[], warning: { weeks: numb
     const short = SHORT_MESSAGE.bmi20Warning(warning.weeks);
     out.push({ kind: 'bmi20_warning', eventId: null, title: short.title, line: short.line, text: warning.message, tone: 'warn', weeks: warning.weeks });
   }
+  // Report 49, point 4 (D3): the message asking for a weigh-in, without "Détails".
+  if (weighIn) out.push({ kind: 'weigh_in', eventId: null, title: weighIn.title, line: weighIn.line, text: '', tone: 'calm' });
   const rank = (k: PlanNoticeKind) => PLAN_NOTICE_ORDER.indexOf(k);
   return out.map((n, i) => ({ n, i })).sort((a, b) => rank(a.n.kind) - rank(b.n.kind) || a.i - b.i).map(({ n }) => n);
 }

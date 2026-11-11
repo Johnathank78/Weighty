@@ -3,7 +3,7 @@ import { PLAN_NOTICE_TEXT } from '@/app/copy';
 import { JournalCards } from '@/components/JournalCards';
 import { ShortNotice } from '@/components/ShortNotice';
 import { markPlanEventSeen, unseenPlanMessages } from '@/domain/engine';
-import { bmi20Warning, PLAN_NOTICES_VISIBLE, planNotices } from '@/domain/planSafety';
+import { bmi20Warning, closeStaleWeighInNotice, PLAN_NOTICES_VISIBLE, planNotices, staleWeighInNotice } from '@/domain/planSafety';
 import { useWheighty } from '@/store/StoreProvider';
 
 /**
@@ -20,7 +20,7 @@ export function PlanNotices() {
   const [expanded, setExpanded] = useState(false);
   const unseen = unseenPlanMessages(store);
   const warning = useMemo(() => bmi20Warning(store, today, calibration), [store, today, calibration]);
-  const notices = planNotices(unseen, warning);
+  const notices = planNotices(unseen, warning, staleWeighInNotice(store, today));
   const shownKeys = (expanded ? notices : notices.slice(0, PLAN_NOTICES_VISIBLE)).map((n) => `${n.kind}|${n.eventId ?? today}`).join(',');
   useEffect(() => {
     for (const key of shownKeys ? shownKeys.split(',') : []) {
@@ -48,10 +48,10 @@ export function PlanNotices() {
           key={n.eventId ?? n.kind}
           title={n.title}
           line={n.line}
-          detail={n.text}
           tone={n.tone}
           onDetails={() => logActivity('message', { action: 'details', kind: n.kind, eventId: n.eventId })}
-          onClose={n.eventId ? () => update((s) => markPlanEventSeen(s, n.eventId as string)) : null}
+          detail={n.text === '' ? null : n.text}
+          onClose={n.eventId ? () => update((s) => markPlanEventSeen(s, n.eventId as string)) : n.kind === 'weigh_in' ? () => update((s) => closeStaleWeighInNotice(s, today)) : null}
         />
       ))}
       {hidden > 0 ? (

@@ -71,6 +71,8 @@ function calibrationLogged(store: WheightyStore, state: CalibrationState | null)
   const entries = [activityEntry('calibration', summary, now)];
   const wasSurfaced = last?.data.surfaced === true;
   if (state?.surfaced && !wasSurfaced) entries.push(activityEntry('recalibration', { event: 'ready', proposedMaintenanceKcal: state.proposedMaintenanceKcal, medianOffsetKcal: state.candidate?.posteriorMedianOffsetKcal ?? null }, now));
+  // D3 (report 49, point 4): a recalibration held back by the age of the last weigh-in.
+  if (state?.blockedByStaleWeighIn && last?.data.blockedByStaleWeighIn !== true) entries.push(activityEntry('recalibration', { event: 'blocked_stale_weighin', proposedMaintenanceKcal: state.proposedMaintenanceKcal }, now));
   return appendActivity(store, entries);
 }
 

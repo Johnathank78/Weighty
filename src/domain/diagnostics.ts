@@ -20,11 +20,12 @@ import {
   planAgeDays,
   trendOf,
   unseenPlanMessages,
+  weighInStale,
 } from './engine';
 import { alignButton, alignedLockLine, balanceSliderAvailable, habitLine, journalBalanceLine, journalObservations, journalRead } from './journalPath';
 import { personalTargetAvailable, personalTargetLine } from './personalTarget';
 import { planChangeOptions } from './planChange';
-import { bmi20Warning, planNotices } from './planSafety';
+import { bmi20Warning, planNotices, staleWeighInNotice } from './planSafety';
 import type { WheightyStore } from './types';
 import {
   adherenceSummary,
@@ -80,6 +81,7 @@ export function buildDiagnostics(store: WheightyStore, today: string, nowIso: st
       gate: st?.gate ?? null,
       lastValidWeighIn: last ? last.date : null,
       lastWeighInAgeDays: last ? daysBetween(last.date, today) : null,
+      weighInStale: weighInStale(store, today),
     })),
     calibration: guarded(() => {
       if (!st) return calibration;
@@ -150,6 +152,7 @@ export function buildDiagnostics(store: WheightyStore, today: string, nowIso: st
         planAgeDays: planAgeDays(plan, today),
         daysSinceCheck: since,
         due: since >= SCIENCE_CONSTANTS.PERIODIC_REPLAN_EVERY_DAYS,
+        blockedByStaleWeighIn: since >= SCIENCE_CONSTANTS.PERIODIC_REPLAN_EVERY_DAYS && weighInStale(store, today),
         checkedOn: store.meta.periodicReplanCheckedOn,
         planSource: plan.source,
         chosenTargetActive: store.meta.journalPath.chosenTargetActive,
@@ -191,7 +194,7 @@ export function screenViewModels(store: WheightyStore, today: string, state: Cal
       confidence: state?.confidence ?? 'low',
       weighInReminderDue: reminderDue(store, today),
       goalReached: goalStatus(store).reached,
-      notices: planNotices(unseenPlanMessages(store), bmi20Warning(store, today, state)),
+      notices: planNotices(unseenPlanMessages(store), bmi20Warning(store, today, state), staleWeighInNotice(store, today)),
     })),
     plan: guarded(() => ({
       plan: plan ? { source: plan.source, goal: plan.goal, calorieTarget: plan.calorieTarget, stepTarget: plan.stepTarget, weeklyRateTarget: plan.weeklyRateTarget, maintenanceKcal: plan.maintenanceKcal, createdAt: plan.createdAt, approximateWeeks: plan.projection.approximateWeeks ?? null } : null,

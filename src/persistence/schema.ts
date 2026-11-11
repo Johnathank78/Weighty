@@ -347,6 +347,7 @@ function sanitizeMeta(v: unknown): AppMeta {
     periodicReplanCheckedOn: optionalDate(v.periodicReplanCheckedOn),
     guardrailMaintenanceSince: optionalDate(v.guardrailMaintenanceSince),
     journalPath: isJournalPath(v.journalPath) ? v.journalPath : defaultJournalPath(),
+    staleWeighInNoticeClosedOn: optionalDate(v.staleWeighInNoticeClosedOn),
   };
 }
 

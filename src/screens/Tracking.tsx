@@ -86,7 +86,11 @@ export function SuiviScreen() {
             axis={{ start: formatShortMonth(chart.startDate), today: 'Auj.', ...(hasFuture ? { future: 'Prévu' } : {}) }}
             bandLabel={CHART_BAND_LABEL}
           />
-          {chart.projectionPending ? (
+          {chart.weighInNeeded ? (
+            <p className="small" style={{ margin: '0 0 22px' }}>
+              {CHART_WEIGH_IN_NOTE}
+            </p>
+          ) : chart.projectionPending ? (
             <p className="small" style={{ margin: '0 0 22px' }}>
               {CHART_LEARNING_NOTE}
             </p>
@@ -160,6 +164,9 @@ export function SuiviScreen() {
 /** No curve ahead while the first calibration is not reached (A3). */
 const CHART_LEARNING_NOTE = 'Pas encore de projection : Wheighty apprend encore de tes pesées avant de te dire où mène ton plan.';
 
+/** No curve ahead while the last weigh-in is more than 7 days old (report 49, point 4, D3; text of the prompt). */
+export const CHART_WEIGH_IN_NOTE = 'Pèse-toi pour voir où mène ton plan.';
+
 /** Text alternative to the drawing: what the curve says, for screen readers (A3). */
 export function chartSummary(chart: ChartSeries, units: UnitPreference): string {
   const unit = weightUnitLabel(units);
@@ -171,7 +178,7 @@ export function chartSummary(chart: ChartSeries, units: UnitPreference): string 
   if (lastTrend && lastProjection && lastProjection.day > lastTrend.day) {
     parts.push(`projection du plan à ${formatWeight(lastProjection.kg, units)} ${unit} dans ${lastProjection.day - lastTrend.day} jours`);
   }
-  return `${parts.join(', ')}.${chart.projectionPending ? ` ${CHART_LEARNING_NOTE}` : ''}`;
+  return `${parts.join(', ')}.${chart.weighInNeeded ? ` ${CHART_WEIGH_IN_NOTE}` : chart.projectionPending ? ` ${CHART_LEARNING_NOTE}` : ''}`;
 }
 
 /** Display of one gate criterion (shared with the explanation panel). */

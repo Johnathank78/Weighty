@@ -14,7 +14,7 @@ import type { GateStatus } from '@/science/calibration';
 import { formatInteger } from './format';
 import { snapWeeklyRate, speedZoneFor } from '@/science/goals';
 import type { CalibrationState } from './engine';
-import { contextForCurrentPlan, goalStatus, hasAppliedRecalibration, latestAppliedSnapshot, latestRawWeight, MAINTENANCE_PROJECTION_DAYS, solverOptionsFor, trendOf, weighInDue } from './engine';
+import { contextForCurrentPlan, goalStatus, hasAppliedRecalibration, latestAppliedSnapshot, weighInStale, latestRawWeight, MAINTENANCE_PROJECTION_DAYS, solverOptionsFor, trendOf, weighInDue } from './engine';
 import { alignedStatusLine, journalRead, measuredProjectionContext } from './journalPath';
 import { JOURNAL_MESSAGE } from './planMessages';
 import { localTimeOf } from './journal';
@@ -187,6 +187,8 @@ export type ChartSeries = {
   startDate: string;
   /** Nothing is drawn ahead yet: Wheighty is still learning (A3). */
   projectionPending: boolean;
+  /** D3 (report 49, point 4): nothing is drawn ahead because the last weigh-in is more than 7 days old. */
+  weighInNeeded: boolean;
 };
 
 /**
@@ -251,7 +253,9 @@ export function trackingChart(store: WheightyStore, today: string, rangeDays: nu
   // drawn ahead rather than a confident looking one (decision of the product owner). Once a recalibration was applied, the
   // projection stays whatever the gate of the day (report 49, point 2, D2).
   const learning = measuredHabit(store) === null && !(state?.gate.met && state.candidate) && !hasAppliedRecalibration(store);
-  const live = learning ? null : projectionFromToday(store, today, state);
+  // D3 (report 49, point 4): no projection without a recent weigh-in (the measured habit has its own weigh-in rules).
+  const weighInNeeded = measuredHabit(store) === null && weighInStale(store, today);
+  const live = learning || weighInNeeded ? null : projectionFromToday(store, today, state);
   let projection: ChartSeries['projection'] = [];
   let band: ChartSeries['band'] = [];
   if (live) {
@@ -267,7 +271,7 @@ export function trackingChart(store: WheightyStore, today: string, rangeDays: nu
       .map((pt, i) => ({ day: anchor + pt.day, lo: (live.lower80[i]?.weightKg ?? pt.weightKg) + shift, hi: (live.upper80[i]?.weightKg ?? pt.weightKg) + shift }))
       .filter((p) => within(p.day));
   }
-  return { raw, trend, projection, band, todayDay, startDate, projectionPending: learning };
+  return { raw, trend, projection, band, todayDay, startDate, projectionPending: learning && !weighInNeeded, weighInNeeded };
 }
 
 export type RecentWeight = {

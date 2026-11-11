@@ -39,8 +39,9 @@ import type {
  * Version 11 (report 49, point 1): `WheightyStore.activityLog`, the persistent activity log (capped, oldest out first); the
  * trace keeps every plan change (rules 'recalibration', 'recalibration_maintenance', 'onboarding', 'user_goal',
  * 'user_slider', 'user_profile', without a message), with `PlanEvent.maintenance`, `PlanEvent.calibration` and
- * `PlanEvent.backfilled`. Loaded from schema 10 with an empty log and one backfilled 'recalibration' entry per applied
- * calibration snapshot (warm start excepted) whose plan change the trace did not keep.
+ * `PlanEvent.backfilled`; `AppMeta.staleWeighInNoticeClosedOn` (point 4). Loaded from schema 10 with an empty log and one
+ * backfilled 'recalibration' entry per applied calibration snapshot (warm start excepted) whose plan change the trace did not
+ * keep.
  */
 export const SCHEMA_VERSION = 11;
 
@@ -537,6 +538,11 @@ export type AppMeta = {
   guardrailMaintenanceSince: string | null;
   /** Journal path of the user (pass 5b, schema 8). */
   journalPath: JournalPathState;
+  /**
+   * Last day the user closed the message "Ton plan attend une pesée" (schema 11, report 49, point 4): shown at most once a
+   * day while the last weigh-in is more than 7 days old.
+   */
+  staleWeighInNoticeClosedOn: string | null;
 };
 
 export type WheightyStore = {
@@ -582,4 +588,5 @@ export const DEFAULT_META: AppMeta = {
   periodicReplanCheckedOn: null,
   guardrailMaintenanceSince: null,
   journalPath: defaultJournalPath(),
+  staleWeighInNoticeClosedOn: null,
 };

@@ -164,9 +164,9 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
       ...(isObject(profile) && profile.goal === plan.goal ? { profile: { ...profile, weeklyRateTarget: inRange(profile.weeklyRateTarget) } } : {}),
     };
   },
-  // 10 -> 11 (report 49, point 1): the activity log starts empty; the trace gets one entry 'recalibration' per applied
-  // calibration snapshot (the warm start excepted) whose plan change it did not keep (`backfillRecalibrations`). Every other
-  // field, every existing entry and every unknown field is carried over as it is.
+  // 10 -> 11 (report 49, points 1 and 4): the activity log starts empty; the trace gets one entry 'recalibration' per applied
+  // calibration snapshot (the warm start excepted) whose plan change it did not keep (`backfillRecalibrations`); the message
+  // asking for a weigh-in was never closed. Every other field, every existing entry and every unknown field is carried over.
   10: (input) => {
     const meta = isObject(input.meta) ? input.meta : {};
     const events = Array.isArray(meta.planEvents) ? meta.planEvents : [];
@@ -175,7 +175,7 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
       ...input,
       schemaVersion: 11,
       activityLog: input.activityLog ?? emptyActivityLog(),
-      meta: { ...meta, planEvents: backfillRecalibrations(events, snapshots) },
+      meta: { ...meta, planEvents: backfillRecalibrations(events, snapshots), staleWeighInNoticeClosedOn: meta.staleWeighInNoticeClosedOn ?? null },
     };
   },
 };

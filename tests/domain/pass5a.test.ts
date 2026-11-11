@@ -156,8 +156,9 @@ describe('periodic replan (28 days, K2)', () => {
   it('a message at 10 kcal/day or more, none under', () => {
     const { store: recal, recalDay } = recalibrated();
     const day = addDays(recalDay, 28);
-    // Logs up to the day first: the rebuild reads them (their targets are the intake the calibration assumes).
-    const store = ensureDailyLogs(recal, day);
+    // Logs up to the day first: the rebuild reads them (their targets are the intake the calibration assumes). Report 49,
+    // point 4 (D3): a weigh-in of the day, without which nothing updates the plan.
+    const store = ensureDailyLogs(addWeight(recal, { date: day, weightKg: 90.6 }, at(day)), day);
     const dry = periodicReplan(store, day);
     if (dry.status !== 'replanned') throw new Error(dry.status);
     const target = dry.store.plan?.calorieTarget as number;
@@ -174,27 +175,31 @@ describe('periodic replan (28 days, K2)', () => {
   });
 
   it('app not opened for several days: one evaluation on the day, nothing replayed', () => {
-    const { store, recalDay } = recalibrated();
+    const { store: recal, recalDay } = recalibrated();
     const day = addDays(recalDay, 40);
+    // Report 49, point 4 (D3): a weigh-in in the last 7 days, without which nothing updates the plan.
+    const store = addWeight(recal, { date: addDays(day, -2), weightKg: 90.2 }, at(addDays(day, -2)));
     const next = runDailyChecks(store, day, at(day));
     const replans = next.meta.planEvents.filter((e) => e.rule === 'periodic_replan');
     expect(replans).toHaveLength(1);
     expect(replans[0]?.date).toBe(day);
     expect(next.plan?.createdAt).toBe(`${day}T00:00:00.000Z`);
     // Missing days are filled with the plan that was in force, the day itself with the new plan.
-    expect(next.dailyLogs.find((l) => l.date === addDays(recalDay, 20))?.calorieTargetForDay).toBe(store.plan?.calorieTarget);
+    expect(next.dailyLogs.find((l) => l.date === addDays(recalDay, 20))?.calorieTargetForDay).toBe(recal.plan?.calorieTarget);
     expect(next.dailyLogs.find((l) => l.date === day)?.calorieTargetForDay).toBe(next.plan?.calorieTarget);
     // The next evaluation is 28 days after this one.
     expect(periodicReplan(next, addDays(day, 27)).status).toBe('not_due');
   });
 
   it('without an applied calibration: no replan, the next evaluation 28 days later', () => {
-    const s = onboard(makeProfile({ goal: 'maintenance' }));
+    // Report 49, point 4 (D3): weigh-ins within 7 days of each evaluation, without which nothing updates the plan.
+    const s = weigh(onboard(makeProfile({ goal: 'maintenance' })), addDays(D0, 29), [70], 1);
     const r = periodicReplan(s, addDays(D0, 30));
     if (r.status !== 'no_snapshot') throw new Error(r.status);
     expect(r.store.plan).toBe(s.plan);
-    expect(periodicReplan(r.store, addDays(D0, 57)).status).toBe('not_due');
-    expect(periodicReplan(r.store, addDays(D0, 58)).status).toBe('no_snapshot');
+    const later = weigh(r.store, addDays(D0, 56), [70], 1);
+    expect(periodicReplan(later, addDays(D0, 57)).status).toBe('not_due');
+    expect(periodicReplan(later, addDays(D0, 58)).status).toBe('no_snapshot');
   });
 });
 

@@ -17,14 +17,18 @@ import {
   hasAppliedRecalibration,
   latestAppliedSnapshot,
   markPlanEventSeen,
+  periodicReplan,
   setActualSteps,
   setAdherence,
   unseenPlanMessages,
+  weighInStale,
 } from '@/domain/engine';
 import type { CalibrationState } from '@/domain/engine';
 import { addFoodEntry } from '@/domain/journal';
 import { adherenceFromJournal, applyPathSliderSteps, changeGoalOnPath, suggestedAdherence, updateProfileOnPath } from '@/domain/journalPath';
-import { planNotices, runDailyChecks } from '@/domain/planSafety';
+import { choosePersonalTarget, computePersonalTakeover } from '@/domain/personalTarget';
+import { closeStaleWeighInNotice, planNotices, runDailyChecks, runWeighInChecks, staleWeighInNotice } from '@/domain/planSafety';
+import { CHART_WEIGH_IN_NOTE } from '@/screens/Tracking';
 import { RULES_6A } from '@/domain/ruleSwitches';
 import { analysisView, todayStatusTitle, trackingChart } from '@/domain/views';
 import type { PlanEvent, WheightyStore } from '@/domain/types';
@@ -32,7 +36,7 @@ import { emptyActivityLog, PLAN_CHANGE_RULES, SCHEMA_VERSION } from '@/domain/ty
 import { EXPORT_FORMAT_VERSION, exportFileName, exportStore, parseImport } from '@/persistence/exportImport';
 import { backfillRecalibrations, migrateToCurrent } from '@/persistence/migrations';
 import { emptyStore, validateStore } from '@/persistence/schema';
-import { CONSTANT_METADATA, SCIENTIFIC_MODEL_VERSION } from '@/science/constants';
+import { AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS, CONSTANT_METADATA, SCIENTIFIC_MODEL_VERSION } from '@/science/constants';
 import { addDays } from '@/science/dates';
 import type { UserProfile } from '@/science/types';
 import { makeProfile } from '../helpers/profiles';
@@ -418,5 +422,87 @@ describe('3. no major deviation deduced under the target (D6), model 1.9.0', () 
       RULES_6A.d6 = true;
     }
     expect(adherenceFromJournal(1490, 2000)).toBeNull();
+  });
+});
+
+describe('4. no automatic update without a recent weigh-in (D3)', () => {
+  it('stale: the last valid weigh-in more than 7 days old', () => {
+    const { store, day } = recalibrated();
+    expect(AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS).toBe(7);
+    expect(CONSTANT_METADATA.AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS?.category).toBe('engineering_prior');
+    expect(weighInStale(store, addDays(day, 7))).toBe(false);
+    expect(weighInStale(store, addDays(day, 8))).toBe(true);
+  });
+
+  it('periodic replan: held back, still due (the check date does not move); after the next weigh-in it runs the same day', () => {
+    const { store, day } = recalibrated();
+    const due = addDays(day, 30);
+    const r = periodicReplan(store, due, { nowIso: at(due) });
+    expect(r).toEqual({ status: 'blocked', ageDays: 30, reason: 'stale_weighin' });
+    const checked = runDailyChecks(store, due, at(due));
+    expect(checked.plan).toEqual(store.plan);
+    expect(checked.meta.periodicReplanCheckedOn).toBe(store.meta.periodicReplanCheckedOn);
+    const weighed = runWeighInChecks(addWeight(checked, { date: due, weightKg: 90 }, at(due)), due, at(due));
+    expect(weighed.plan?.source).toBe('periodic_replan');
+    expect(weighed.plan?.createdAt).toBe(`${due}T00:00:00.000Z`);
+  });
+
+  it('recalibration: not shown (held back), the takeover of a personal target waits; the projection is not drawn', () => {
+    // Gate met on day 21 (never surfaced yet), then 8 days without a weigh-in.
+    const s = tracked(21);
+    const day = addDays(D0, 29);
+    const fresh = stateOn(s, addDays(D0, 21));
+    expect(fresh.surfaced).toBe(true);
+    const state = stateOn(s, day);
+    expect(state).toMatchObject({ surfaced: false, blockedByStaleWeighIn: true });
+    expect(calibrationSummary(state)).toMatchObject({ surfaced: false, blockedByStaleWeighIn: true });
+    const chart = trackingChart(s, day, null, state);
+    expect(chart).toMatchObject({ weighInNeeded: true, projectionPending: false, projection: [], band: [] });
+    const personal = choosePersonalTarget(s, addDays(D0, 21), 2100, at(addDays(D0, 21)));
+    if (!personal.ok) throw new Error(personal.reason);
+    expect(computePersonalTakeover(personal.store, stateOn(personal.store, day), day, at(day))).toBeNull();
+    const weighed = addWeight(personal.store, { date: day, weightKg: 90.5 }, at(day));
+    expect(computePersonalTakeover(weighed, stateOn(weighed, day), day, at(day))?.status).toBe('applied');
+  });
+
+  it('the short message: once a day at most, gone after the weigh-in; not in the measured habit', () => {
+    const { store, day } = recalibrated();
+    const late = addDays(day, 10);
+    expect(staleWeighInNotice(store, addDays(day, 7))).toBeNull();
+    expect(staleWeighInNotice(store, late)).toEqual({ title: 'Ton plan attend une pesée', line: 'Pèse-toi : je mettrai ton plan à jour avec ton poids du jour.' });
+    const closed = closeStaleWeighInNotice(store, late);
+    expect(staleWeighInNotice(closed, late)).toBeNull();
+    expect(staleWeighInNotice(closed, addDays(late, 1))).not.toBeNull();
+    expect(staleWeighInNotice(addWeight(closed, { date: addDays(late, 1), weightKg: 90 }, at(addDays(late, 1))), addDays(late, 1))).toBeNull();
+    const measured: WheightyStore = { ...store, meta: { ...store.meta, journalPath: { ...store.meta.journalPath, method: 'measured' } } };
+    expect(staleWeighInNotice(measured, late)).toBeNull();
+    const n = planNotices([], null, staleWeighInNotice(store, late));
+    expect(n).toEqual([{ kind: 'weigh_in', eventId: null, title: 'Ton plan attend une pesée', line: 'Pèse-toi : je mettrai ton plan à jour avec ton poids du jour.', text: '', tone: 'calm' }]);
+    expect(activityDiff(store, closed, 'user', new Date()).map((e) => e.data)).toEqual([{ action: 'closed', kind: 'weigh_in', date: late, by: 'user' }]);
+    expect(CHART_WEIGH_IN_NOTE).toBe('Pèse-toi pour voir où mène ton plan.');
+  });
+
+  it('not concerned: safety (G1, underweight alert) and the changes made by the user', () => {
+    // 165 cm, BMI 20 at 54.45 kg: a loss plan whose last weigh-in (53.5 kg) is 10 days old.
+    const thin = makeProfile({ heightCm: 165, currentWeightKg: 55, goal: 'loss', targetWeightKg: 54.5, weeklyRateTarget: 0.0025 });
+    let s = onboard(thin);
+    for (let i = 1; i <= 5; i++) s = addWeight(s, { date: addDays(D0, i), weightKg: 53.5 }, at(addDays(D0, i)));
+    const late = addDays(D0, 15);
+    expect(weighInStale(s, late)).toBe(true);
+    const after = runDailyChecks(s, late, at(late));
+    expect(after.plan).toMatchObject({ goal: 'maintenance', source: 'guardrail' });
+    const { store, day } = recalibrated();
+    const goal = changeGoalOnPath(store, addDays(day, 20), { goal: 'loss', targetWeightKg: 82, weeklyRate: 0.004 });
+    expect(goal.ok).toBe(true);
+  });
+
+  it('the switch reserved to the tests gives back the replan without a recent weigh-in', () => {
+    const { store, day } = recalibrated();
+    RULES_6A.d3 = false;
+    try {
+      expect(periodicReplan(store, addDays(day, 30), { nowIso: at(addDays(day, 30)) }).status).toBe('replanned');
+    } finally {
+      RULES_6A.d3 = true;
+    }
   });
 });

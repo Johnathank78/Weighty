@@ -5,9 +5,10 @@
  */
 import { assessBaseline, planContextFrom } from '@/science/assessment';
 import type { BaselineAssessment } from '@/science/assessment';
-import { buildSnapshot, evaluateGate, fitCalibration, shouldSurfaceRecalibration } from '@/science/calibration';
+import { buildSnapshot, evaluateGate, fitCalibration, shouldSurfaceRecalibration, validWeights } from '@/science/calibration';
 import type { CalibrationFit, CalibrationInput, GateStatus } from '@/science/calibration';
 import {
+  AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS,
   GOAL_SOLVER_HORIZON_DAYS,
   HALL_BODY_FAT_MIN_QUALITY,
   JOURNAL_ALIGNED_FIRST_RECAL_DAYS,
@@ -49,6 +50,7 @@ import { intervalWidth } from '@/science/uncertainty';
 import { buildWarmStartSnapshot, validateHistoricalEvidence, warmStartPosterior } from '@/science/warmStart';
 import type { WarmStartResult } from '@/science/warmStart';
 import { PLAN_MESSAGE } from './planMessages';
+import { RULES_6A } from './ruleSwitches';
 import type { AdherenceSource, CurrentPlan, JournalMethod, PlanEvent, PlanSummary, StoredWeight, WheightyStore } from './types';
 
 export const MAINTENANCE_PROJECTION_DAYS = 84;
@@ -217,6 +219,23 @@ export function currentWeightKg(store: WheightyStore): number | null {
   const t = trendOf(store).summary.latest;
   if (t) return t.trendKg;
   return store.profile?.currentWeightKg ?? null;
+}
+
+/** Day of the last valid weigh-in (the weigh-ins the calibration reads), null when none. */
+export function lastValidWeighInDate(store: WheightyStore): string | null {
+  const weights = validWeights(store.weights);
+  return weights[weights.length - 1]?.date ?? null;
+}
+
+/**
+ * D3 (report 49, point 4): the last valid weigh-in is more than AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS (7) days old, or there is
+ * none. Then nothing updates the plan by itself (periodic replan, recalibration shown, takeover of a personal target) and
+ * Suivi draws no projection, until the next weigh-in.
+ */
+export function weighInStale(store: WheightyStore, today: string): boolean {
+  if (!RULES_6A.d3) return false;
+  const last = lastValidWeighInDate(store);
+  return last === null || daysBetween(last, today) > AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS;
 }
 
 export function latestRawWeight(store: WheightyStore): StoredWeight | null {
@@ -820,6 +839,8 @@ export type CalibrationState = {
   surfaced: boolean;
   /** Maintenance the new plan would use (NASEM at the current weight plus the posterior offset). */
   proposedMaintenanceKcal: number | null;
+  /** D3 (report 49, point 4): a recalibration would be shown, but the last weigh-in is more than 7 days old. */
+  blockedByStaleWeighIn: boolean;
 };
 
 export function calibrationInputFromStore(store: WheightyStore, today: string): CalibrationInput | null {
@@ -887,12 +908,17 @@ export function computeCalibrationState(store: WheightyStore, today: string, now
       confidence: latestAppliedSnapshot(store)?.confidence ?? 'low',
       surfaced: false,
       proposedMaintenanceKcal: null,
+      blockedByStaleWeighIn: false,
     };
   }
 
   const proposedMaintenanceKcal = populationNow + candidate.posteriorMedianOffsetKcal;
   const reference = store.meta.lastSurfacedCalibration ?? { tdeeKcal: plan.maintenanceKcal, interval80Width: intervalWidth(plan.maintenanceInterval80), surfacedOn: null };
-  const surfaced = currentMethodMaySurface(store, today) && shouldSurfaceRecalibration(gate, { tdeeKcal: proposedMaintenanceKcal, interval80Width: intervalWidth(candidate.interval80) }, reference, today);
+  const wouldSurface = currentMethodMaySurface(store, today) && shouldSurfaceRecalibration(gate, { tdeeKcal: proposedMaintenanceKcal, interval80Width: intervalWidth(candidate.interval80) }, reference, today);
+  // D3 (report 49, point 4): not shown without a recent weigh-in (the takeover of a personal target, which reads `surfaced`,
+  // waits as well).
+  const stale = weighInStale(store, today);
+  const surfaced = wouldSurface && !stale;
   return {
     gate,
     fit,
@@ -903,6 +929,7 @@ export function computeCalibrationState(store: WheightyStore, today: string, now
     confidence: candidate.confidence,
     surfaced,
     proposedMaintenanceKcal,
+    blockedByStaleWeighIn: wouldSurface && stale,
   };
 }
 
@@ -1015,6 +1042,11 @@ export type PeriodicReplanResult =
   | { status: 'not_due'; ageDays: number }
   /** Due, but no applied calibration snapshot: the plan stays; the check date moves. */
   | { status: 'no_snapshot'; ageDays: number; store: WheightyStore }
+  /**
+   * Due, but held back (report 49): 'stale_weighin', the last weigh-in is more than 7 days old (D3). The plan stays and the
+   * check date does not move: it stays due and runs once a weigh-in comes.
+   */
+  | { status: 'blocked'; ageDays: number; reason: 'stale_weighin' }
   /** Due, but the rebuild failed (e.g. no feasible speed): the plan stays; the check date moves, the trace keeps the reason. */
   | { status: 'failed'; ageDays: number; reason: string; store: WheightyStore }
   | { status: 'replanned'; ageDays: number; store: WheightyStore; event: PlanEvent };
@@ -1047,6 +1079,8 @@ export function periodicReplan(store: WheightyStore, today: string, options: { n
   // the target chosen by the user (fixes of pass 5b, point 6).
   if (store.meta.journalPath.chosenTargetActive || plan.source === 'personal_target') return { status: 'not_due', ageDays };
   if (daysSincePeriodicCheck(store, plan, today) < PERIODIC_REPLAN_EVERY_DAYS) return { status: 'not_due', ageDays };
+  // D3 (report 49, point 4): not without a recent weigh-in; still due (the check date does not move).
+  if (weighInStale(store, today)) return { status: 'blocked', ageDays, reason: 'stale_weighin' };
   const nowIso = options.nowIso ?? `${today}T00:00:00.000Z`;
   const withLogs = ensureDailyLogs(store, today);
   const checked: WheightyStore = { ...withLogs, meta: { ...withLogs.meta, periodicReplanCheckedOn: today } };
