@@ -4,7 +4,7 @@
  * tests. Every date is relative to `today`: a file is only valid on the day it was built for (the windows of the journal
  * path slide with the days), hence the regeneration on the day of the check.
  */
-import { addWeight, completeOnboarding, setAdherence } from '@/domain/engine';
+import { addWeight, applyRecalibration, completeOnboarding, computeCalibrationState, setAdherence } from '@/domain/engine';
 import { addFoodEntry } from '@/domain/journal';
 import { acceptMeasuredOffer, runJournalWeek, switchToAlignedTarget } from '@/domain/journalPath';
 import { completeOnboardingWithTarget } from '@/domain/personalTarget';
@@ -148,4 +148,62 @@ export function takeoverProfile(today: string): WheightyStore {
   const r = completeOnboardingWithTarget(emptyStore(), profile, start, at(start), null, 1350);
   if (!r.ok) throw new Error(r.reason);
   return live(r.store, start, 1, 21, (i) => ({ kg: 66 - 0.1 * i, adherence: 'on_plan' }));
+}
+
+// ---------------------------------------------------------------------------
+// Report 49 (prompt 6a): pauses and the life cycle of the recalibration. No real data: synthetic stores of the same shape.
+// ---------------------------------------------------------------------------
+
+/** Days 1 to `to` of tracking from the start: a weigh-in a day losing 0.06 kg, "Plan respecté" on the days `noted` keeps. */
+function tracked(s: WheightyStore, start: string, from: number, to: number, noted: (i: number) => boolean = () => true, kg: (i: number) => number = (i) => 75 - 0.06 * i): WheightyStore {
+  return live(s, start, from, to, (i) => ({ kg: kg(i), ...(noted(i) ? { adherence: 'on_plan' as const } : {}) }));
+}
+
+/**
+ * 8. Pause without a weigh-in (D3): 18 days of tracking (a weigh-in and "Plan respecté" every day), no recalibration applied,
+ * the last weigh-in 22 days ago. Expected: the message "Ton plan attend une pesée", no recalibration shown, no projection.
+ */
+export function pauseWithoutWeighInProfile(today: string): WheightyStore {
+  const { store, start } = history(verificationProfile('Test pause'), today, 40);
+  return tracked(store, start, 0, 18);
+}
+
+/**
+ * 9. Back after the pause (D4, D7): profile 8, and a weigh-in today. Expected: the gate counts since the return (1 weigh-in,
+ * "Comptées depuis ta reprise du ..."); the projection is reanchored if D7 is on.
+ */
+export function backAfterPauseProfile(today: string): WheightyStore {
+  return addWeight(pauseWithoutWeighInProfile(today), { date: today, weightKg: 74.2 }, at(today));
+}
+
+/**
+ * 10. Recalibrated, gate closed (D2): a recalibration applied 10 days ago (gate met then: "Plan respecté" on 3 days out of 5),
+ * then 10 days of weigh-ins without any adherence noted, so that today's coverage is under 50 %. Expected: the calibrated
+ * layout of Analyse with "Vers la prochaine mise à jour", "prochaine mise à jour" on Aujourd'hui.
+ */
+export function recalibratedGateClosedProfile(today: string): WheightyStore {
+  const { store, start } = history(verificationProfile('Test recalibrée'), today, 31);
+  const s = tracked(store, start, 0, 21, (i) => i % 5 < 3);
+  const day = addDays(start, 21);
+  const state = computeCalibrationState(s, day, at(day));
+  if (!state?.gate.met) throw new Error('gate of profile 10');
+  const r = applyRecalibration(s, state, day, at(day));
+  if (!r.ok) throw new Error(r.reason);
+  return tracked(r.store, start, 22, 31, () => false, (i) => 75 - 0.06 * i);
+}
+
+/**
+ * 11. Periodic replan and recalibration the same day (D5): a recalibration applied 40 days ago, then a weigh-in and "Plan
+ * respecté" every day, the weight flat: the replan is due (more than 28 days) and a new recalibration is ready. Expected: one
+ * change, the recalibration (the replan waits; it runs the next day if the recalibration is not applied).
+ */
+export function replanAndRecalibrationProfile(today: string): WheightyStore {
+  const { store, start } = history(verificationProfile('Test un seul changement'), today, 61);
+  const s = tracked(store, start, 0, 21);
+  const day = addDays(start, 21);
+  const state = computeCalibrationState(s, day, at(day));
+  if (!state?.gate.met) throw new Error('gate of profile 11');
+  const r = applyRecalibration(s, state, day, at(day));
+  if (!r.ok) throw new Error(r.reason);
+  return tracked(r.store, start, 22, 61, () => true, () => 75 - 0.06 * 21);
 }

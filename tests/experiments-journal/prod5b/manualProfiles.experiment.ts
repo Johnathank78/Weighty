@@ -16,7 +16,10 @@ import { runDailyChecks } from '@/domain/planSafety';
 import type { WheightyStore } from '@/domain/types';
 import { exportStore, parseImport } from '@/persistence/exportImport';
 import { addDays, localIsoDate } from '@/science/dates';
-import { at, buttonProfile, deducedAdherenceProfile, eat, firstPlanProfile, incompleteDayProfile, personalTargetProfile, proposalProfile, returnProfile, takeoverProfile } from '../../helpers/verificationProfiles';
+import { at, backAfterPauseProfile, buttonProfile, deducedAdherenceProfile, eat, firstPlanProfile, incompleteDayProfile, pauseWithoutWeighInProfile, personalTargetProfile, proposalProfile, recalibratedGateClosedProfile, replanAndRecalibrationProfile, returnProfile, takeoverProfile } from '../../helpers/verificationProfiles';
+import { hasAppliedRecalibration, periodicReplanDue, weighInStale } from '@/domain/engine';
+import { staleWeighInNotice } from '@/domain/planSafety';
+import { analysisView, gateProgress, todayStatusTitle, trackingChart } from '@/domain/views';
 
 const TODAY = process.env.MANUAL_TODAY ?? localIsoDate(new Date());
 const OUT = 'docs/verification-5b';
@@ -83,4 +86,36 @@ it(`pass 5b manual check profiles, for ${TODAY}`, () => {
   expect(event?.personalTarget?.case).toBe('too_fast');
   expect(event && planEventShort(event)?.title).toBe('Vitesse ajustée');
   write('8-reprise.json', takeover);
+
+  // Report 49 (prompt 6a, 6.5): pauses and the life cycle of the recalibration.
+  const pause = runDailyChecks(pauseWithoutWeighInProfile(TODAY), TODAY, at(TODAY));
+  const pauseState = computeCalibrationState(pause, TODAY, at(TODAY));
+  expect(weighInStale(pause, TODAY)).toBe(true);
+  expect(staleWeighInNotice(pause, TODAY)?.title).toBe('Ton plan attend une pesée');
+  expect(pauseState).toMatchObject({ surfaced: false, blockedByStaleWeighIn: true });
+  expect(trackingChart(pause, TODAY, null, pauseState)).toMatchObject({ weighInNeeded: true, projection: [] });
+  write('8-pause-sans-pesee.json', pauseWithoutWeighInProfile(TODAY));
+
+  const backAfter = runDailyChecks(backAfterPauseProfile(TODAY), TODAY, at(TODAY));
+  const backState = computeCalibrationState(backAfter, TODAY, at(TODAY));
+  expect(backState?.gate).toMatchObject({ weighInCount: 1, periodStart: TODAY });
+  expect(gateProgress(backState, backAfter).resumedOn).toBe(TODAY);
+  expect(staleWeighInNotice(backAfter, TODAY)).toBeNull();
+  write('9-retour-apres-pause.json', backAfterPauseProfile(TODAY));
+
+  const closed = runDailyChecks(recalibratedGateClosedProfile(TODAY), TODAY, at(TODAY));
+  const closedState = computeCalibrationState(closed, TODAY, at(TODAY));
+  expect(hasAppliedRecalibration(closed)).toBe(true);
+  expect(closedState?.gate.met).toBe(false);
+  expect(analysisView(closed, closedState)?.nextUpdate).not.toBeNull();
+  expect(todayStatusTitle(closed, TODAY, closedState, false)).toMatch(/prochaine mise à jour/);
+  write('10-recalibree-porte-fermee.json', recalibratedGateClosedProfile(TODAY));
+
+  const both = replanAndRecalibrationProfile(TODAY);
+  expect(periodicReplanDue(both, TODAY)).toBe(true);
+  const bothChecked = runDailyChecks(both, TODAY, at(TODAY));
+  expect(computeCalibrationState(bothChecked, TODAY, at(TODAY))?.surfaced).toBe(true);
+  expect(bothChecked.plan?.createdAt).toBe(both.plan?.createdAt);
+  expect(bothChecked.meta.periodicReplanDeferredOn).toBe(TODAY);
+  write('11-recalcul-et-recalibration.json', both);
 });
