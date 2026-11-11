@@ -15,7 +15,8 @@ import { formatInteger } from './format';
 import { snapWeeklyRate, speedZoneFor } from '@/science/goals';
 import type { CalibrationState } from './engine';
 import { contextForCurrentPlan, goalStatus, latestAppliedSnapshot, latestRawWeight, MAINTENANCE_PROJECTION_DAYS, solverOptionsFor, trendOf, weighInDue } from './engine';
-import { measuredProjectionContext } from './journalPath';
+import { alignedStatusLine, journalRead, measuredProjectionContext } from './journalPath';
+import { JOURNAL_MESSAGE } from './planMessages';
 import { localTimeOf } from './journal';
 import type { CurrentPlan, WheightyStore } from './types';
 
@@ -377,6 +378,25 @@ export function planEnergyBalanceKcal(store: WheightyStore, today: string): numb
 export function measuredHabit(store: WheightyStore): number | null {
   const path = store.meta.journalPath;
   return path.method === 'measured' ? (path.habit?.h ?? null) : null;
+}
+
+/**
+ * Status line of Aujourd'hui under the tiles (the recalibration line). `recalibrationReady`: a recalibration may be announced
+ * (shown, not pending, not on a personal target).
+ */
+export function todayStatusTitle(store: WheightyStore, today: string, state: CalibrationState | null, recalibrationReady: boolean): string {
+  const gate = gateProgress(state, store);
+  // Measured habit (pass 5b): the plan follows the journal; the gate of the current method does not apply.
+  if (journalRead(store)) return JOURNAL_MESSAGE.statusMeasured;
+  if (recalibrationReady) return 'Une recalibration est prête.';
+  // Pass 5b fixes, point 7: on the aligned target, the days before the next recalibration rather than the deviation days.
+  const alignedLine = alignedStatusLine(store, today);
+  if (alignedLine !== null) return alignedLine;
+  if (!gate.met && gate.remainingWeighIns > 0) return `Encore ${gate.remainingWeighIns} pesée${gate.remainingWeighIns > 1 ? 's' : ''} avant la première mise à jour.`;
+  if (!gate.met && gate.remainingDays > 0) return `Encore ${gate.remainingDays} jour${gate.remainingDays > 1 ? 's' : ''} de suivi avant la première mise à jour.`;
+  if (!gate.met && gate.criteria.some((c) => c.key === 'cleanWeighIns' && !c.met)) return 'Encore quelques pesées en dehors des journées d’écart important.';
+  if (!gate.met) return 'Note tes journées pour débloquer la première mise à jour.';
+  return 'Ton estimation suit tes pesées.';
 }
 
 export { goalStatus };

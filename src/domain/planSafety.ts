@@ -227,6 +227,13 @@ const KIND_OF_RULE: Record<PlanEventRule, PlanNoticeKind> = {
   periodic_replan: 'periodic_replan',
   personal_target_set: 'personal_target',
   personal_target_takeover: 'personal_target',
+  // Plan changes of the history (report 49, point 1d): recorded without a message, never shown in the zone.
+  recalibration: 'periodic_replan',
+  recalibration_maintenance: 'periodic_replan',
+  onboarding: 'periodic_replan',
+  user_goal: 'periodic_replan',
+  user_slider: 'periodic_replan',
+  user_profile: 'periodic_replan',
   journal_switch: 'journal',
   journal_proposal_declined: 'journal',
   journal_log_more: 'journal',

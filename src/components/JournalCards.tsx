@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useNav } from '@/app/navigation';
 import { ShortNotice } from '@/components/ShortNotice';
 import { acceptMeasuredOffer, declineAlignProposal, declineMeasuredOffer, measuredOfferView, openAlignProposal, switchToAlignedTarget } from '@/domain/journalPath';
@@ -28,8 +29,10 @@ export function JournalCards() {
  */
 export function AlignProposalCard({ target, onDeclined }: { target: AlignedTarget; onDeclined: (() => void) | null }) {
   const { showToast } = useNav();
-  const { update, today, nowIso } = useWheighty();
+  const { update, today, nowIso, logActivity } = useWheighty();
   const kcal = target.finalKcal;
+  // Decision screen opened (activity log, report 49, point 1c).
+  useEffect(() => logActivity('screen', { name: 'align_proposal', automatic: onDeclined === null, targetKcal: kcal }), [logActivity, onDeclined, kcal]);
   const accept = () => {
     const at = nowIso();
     update((s) => {
@@ -64,8 +67,13 @@ export function AlignProposalCard({ target, onDeclined }: { target: AlignedTarge
 /** A plan of the measured habit awaiting confirmation ("Utiliser ce plan" / "Plus tard"). */
 function MeasuredOfferCard() {
   const { showToast } = useNav();
-  const { store, update, today, nowIso } = useWheighty();
+  const { store, update, today, nowIso, logActivity } = useWheighty();
   const offer = measuredOfferView(store);
+  const offered = offer ? `${offer.kind}|${offer.targetKcal}` : null;
+  // Decision screen opened (activity log, report 49, point 1c).
+  useEffect(() => {
+    if (offered) logActivity('screen', { name: 'measured_offer', offer: offered });
+  }, [logActivity, offered]);
   if (!offer) return null;
   const accept = () => {
     const at = nowIso();

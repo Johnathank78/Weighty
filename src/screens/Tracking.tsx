@@ -348,9 +348,10 @@ export function AnalyseScreen() {
 
 export function RecalibrationScreen() {
   const { go, openSheet, showToast } = useNav();
-  const { store, calibration, calibrationPending, commit, today, nowIso } = useWheighty();
+  const { store, calibration, calibrationPending, commit, today, nowIso, logActivity } = useWheighty();
   const plan = store.plan;
   const state = calibration;
+  const logged = useRef(false);
   const [shown, setShown] = useState(plan?.maintenanceKcal ?? 0);
   const marked = useRef(false);
   // Only the live screen marks the recalibration seen, never a copy drawn during a swipe.
@@ -389,6 +390,13 @@ export function RecalibrationScreen() {
   // Report 47, point 1d: no recalibration screen while a personal target is in force (the app takes it over by itself).
   const personal = plan?.source === 'personal_target';
 
+  // Recalibration screen opened (activity log, report 49, point 1c), once per opening of the live screen.
+  useEffect(() => {
+    if (!live || logged.current || calibrationPending) return;
+    logged.current = true;
+    logActivity('recalibration', { event: 'screen_opened', surfaced: state?.surfaced ?? false, proposedMaintenanceKcal: state?.proposedMaintenanceKcal ?? null, currentMaintenanceKcal: plan?.maintenanceKcal ?? null, previewTargetKcal: preview?.calorieTarget ?? null, currentTargetKcal: plan?.calorieTarget ?? null, buildOk: build?.ok ?? null });
+  }, [live, calibrationPending, state, plan, preview, build, logActivity]);
+
   useEffect(() => {
     if (live && !personal && !marked.current && !calibrationPending && state?.surfaced && state.candidate) {
       marked.current = true;
@@ -424,6 +432,7 @@ export function RecalibrationScreen() {
       return;
     }
     commit(r.store);
+    logActivity('recalibration', { event: 'applied', targetKcal: r.store.plan?.calorieTarget ?? null, maintenanceKcal: r.store.plan?.maintenanceKcal ?? null });
     showToast('Nouveau plan appliqué.');
     go('today', { replace: true });
   };
@@ -436,6 +445,7 @@ export function RecalibrationScreen() {
       return;
     }
     commit(r.store);
+    logActivity('recalibration', { event: 'applied_maintenance', targetKcal: r.store.plan?.calorieTarget ?? null, maintenanceKcal: r.store.plan?.maintenanceKcal ?? null });
     showToast('Ton plan passe en maintien.');
     go('plan', { replace: true });
   };
@@ -527,7 +537,15 @@ export function RecalibrationScreen() {
       <button type="button" className="btn btn--ghost" onClick={() => openSheet('why', 'recalibration')}>
         Pourquoi ce changement ?
       </button>
-      <button type="button" className="btn btn--ghost" style={{ paddingTop: 0 }} onClick={() => go('analyse', { replace: true })}>
+      <button
+        type="button"
+        className="btn btn--ghost"
+        style={{ paddingTop: 0 }}
+        onClick={() => {
+          logActivity('recalibration', { event: 'later' });
+          go('analyse', { replace: true });
+        }}
+      >
         Plus tard
       </button>
     </main>

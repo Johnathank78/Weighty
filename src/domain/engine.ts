@@ -462,7 +462,7 @@ export function completeOnboarding(
       initialWeightKg: store.meta.initialWeightKg ?? profile.currentWeightKg,
     },
   };
-  return { ok: true, store: ensureDailyLogs(next, today) };
+  return { ok: true, store: recordUserPlanChange(store, ensureDailyLogs(next, today), 'onboarding', today, nowIso) };
 }
 
 // ---------------------------------------------------------------------------
@@ -914,7 +914,38 @@ export function applyRecalibration(store: WheightyStore, state: CalibrationState
   const result = buildPlanFromStore(withSnapshot, today, { source: 'recalibrated', snapshot, ...(store.plan ? { stepTarget: store.plan.stepTarget } : {}), solver });
   if (!result.ok) return { ok: false, reason: result.reason };
   const seen = markRecalibrationSeen(withSnapshot, state, today);
-  return { ok: true, store: endChosenTarget(syncTodayLogTargets({ ...seen, plan: result.plan }, today)) };
+  const next = endChosenTarget(syncTodayLogTargets({ ...seen, plan: result.plan }, today));
+  return { ok: true, store: recordRecalibrationEvent(next, 'recalibration', store.plan, result.plan, snapshot, today, nowIso) };
+}
+
+/**
+ * Trace entry of an applied recalibration (schema 11, report 49, point 1d), without a message: the plans before and after,
+ * their maintenances and 80 percent intervals, and the calibration applied.
+ */
+function recordRecalibrationEvent(store: WheightyStore, rule: 'recalibration' | 'recalibration_maintenance', before: CurrentPlan | null, after: CurrentPlan | null, snapshot: CalibrationSnapshot, today: string, nowIso: string): WheightyStore {
+  return recordPlanEvent(
+    store,
+    {
+      date: today,
+      rule,
+      status: 'applied',
+      before: before ? planSummary(before) : null,
+      after: after ? planSummary(after) : null,
+      message: null,
+      maintenance: { before: before?.maintenanceKcal ?? null, after: after?.maintenanceKcal ?? null, interval80Before: before?.maintenanceInterval80 ?? null, interval80After: after?.maintenanceInterval80 ?? null },
+      calibration: { offsetKcal: snapshot.posteriorMedianOffsetKcal, interval80: snapshot.interval80, interval95: snapshot.interval95, confidence: snapshot.confidence, createdAt: snapshot.createdAt, appliedAt: snapshot.appliedAt ?? null },
+    },
+    nowIso,
+  );
+}
+
+/**
+ * Trace entry of a plan change made by the user (schema 11, report 49, point 1d), without a message: the plans before and
+ * after. Nothing when the change failed or left no plan.
+ */
+export function recordUserPlanChange(before: WheightyStore, after: WheightyStore, rule: 'onboarding' | 'user_goal' | 'user_slider' | 'user_profile', today: string, nowIso = `${today}T00:00:00.000Z`): WheightyStore {
+  if (!after.plan) return after;
+  return recordPlanEvent(after, { date: today, rule, status: 'applied', before: before.plan ? planSummary(before.plan) : null, after: planSummary(after.plan), message: null }, nowIso);
 }
 
 /**
@@ -925,7 +956,8 @@ export function applyRecalibrationAsMaintenance(store: WheightyStore, state: Cal
   if (!state.candidate || !state.gate.met) return { ok: false, reason: 'gate_not_met' };
   const snapshot: CalibrationSnapshot = { ...state.candidate, appliedAt: nowIso };
   const withSnapshot = markRecalibrationSeen({ ...store, calibrationSnapshots: [...store.calibrationSnapshots, snapshot] }, state, today);
-  return switchToMaintenance(withSnapshot, today);
+  const r = switchToMaintenance(withSnapshot, today);
+  return r.ok ? { ok: true, store: recordRecalibrationEvent(r.store, 'recalibration_maintenance', store.plan, r.store.plan, snapshot, today, nowIso) } : r;
 }
 
 // ---------------------------------------------------------------------------
@@ -983,7 +1015,7 @@ export type PeriodicReplanResult =
  * Days since the last periodic evaluation: from the plan's solve, or from the last evaluation that left the plan in place
  * (`periodicReplanCheckedOn`), whichever is later.
  */
-function daysSincePeriodicCheck(store: WheightyStore, plan: CurrentPlan, today: string): number {
+export function daysSincePeriodicCheck(store: WheightyStore, plan: CurrentPlan, today: string): number {
   const checked = store.meta.periodicReplanCheckedOn;
   const since = checked !== null && checked > planDateOf(plan) ? checked : planDateOf(plan);
   return daysBetween(since, today);

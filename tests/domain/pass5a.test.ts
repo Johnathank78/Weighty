@@ -254,7 +254,11 @@ describe('minimal target at BMI 20: migration of stored profiles (schema 6 -> 7)
     const s = v.store;
     for (const k of ['profile', 'plan', 'weights', 'dailyLogs', 'calibrationSnapshots', 'historicalEvidence', 'foodJournal', 'preferences'] as const) expect(s[k]).toEqual(store[k]);
     expect({ ...s.meta, planEvents: undefined, periodicReplanCheckedOn: undefined, guardrailMaintenanceSince: undefined }).toEqual({ ...meta, planEvents: undefined, periodicReplanCheckedOn: undefined, guardrailMaintenanceSince: undefined });
-    expect(s.meta).toMatchObject({ planEvents: [], periodicReplanCheckedOn: null, guardrailMaintenanceSince: null });
+    expect(s.meta).toMatchObject({ periodicReplanCheckedOn: null, guardrailMaintenanceSince: null });
+    // Report 49, point 1e: the migration to schema 11 backfills one entry 'recalibration' per applied snapshot (warm start
+    // excepted), the trace of schema 6 being empty.
+    const applied = store.calibrationSnapshots.filter((x) => x.appliedAt && x.source !== 'warm_start');
+    expect(s.meta.planEvents.map((e) => [e.rule, e.backfilled, e.calibration?.appliedAt])).toEqual(applied.map((x) => ['recalibration', true, x.appliedAt]));
   });
 });
 
@@ -356,7 +360,8 @@ describe('underweight alert', () => {
     const a = checkUnderweight(s, day1, at(day1));
     expect(unseenPlanMessages(a).map((e) => [e.rule, e.message])).toEqual([['underweight_bmi', PLAN_MESSAGE.underweight]]);
     expect(checkUnderweight(a, addDays(day1, 6), at(addDays(day1, 6)))).toBe(a);
-    expect(checkUnderweight(a, addDays(day1, 7), at(addDays(day1, 7))).meta.planEvents).toHaveLength(2);
+    // Report 49, point 1d: the first plan leaves a trace entry 'onboarding', without a message.
+    expect(checkUnderweight(a, addDays(day1, 7), at(addDays(day1, 7))).meta.planEvents.filter((e) => e.rule !== 'onboarding')).toHaveLength(2);
   });
 
   it('G1 maintenance: four weekly declines of the trend trigger it, three do not, outside G1 never', () => {
@@ -366,7 +371,8 @@ describe('underweight alert', () => {
     const imposed: WheightyStore = { ...base, meta: { ...base.meta, guardrailMaintenanceSince: D0 } };
     const day28 = addDays(D0, 28);
     expect(trendDeclinedWeeks(imposed, day28, D0)).toBe(true);
-    expect(checkUnderweight(imposed, day28, at(day28)).meta.planEvents.map((e) => e.rule)).toEqual(['underweight_decline']);
+    // Report 49, point 1d: the first plan leaves a trace entry 'onboarding', without a message.
+    expect(checkUnderweight(imposed, day28, at(day28)).meta.planEvents.map((e) => e.rule)).toEqual(['onboarding', 'underweight_decline']);
     expect(trendDeclinedWeeks(imposed, addDays(D0, 21), D0)).toBe(false);
     expect(checkUnderweight(imposed, addDays(D0, 21), at(addDays(D0, 21)))).toBe(imposed);
     expect(checkUnderweight(base, day28, at(day28))).toBe(base);

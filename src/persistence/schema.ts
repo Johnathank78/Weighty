@@ -5,8 +5,8 @@
 import { isIsoDate } from '@/science/dates';
 import { SCIENTIFIC_MODEL_VERSION } from '@/science/constants';
 import type { CalibrationSnapshot, HistoricalIntakeEvidence, StructuredActivity, UserProfile } from '@/science/types';
-import type { AppMeta, CurrentPlan, FoodEntry, FoodJournal, FoodNutrients, JournalPathState, LibraryFood, PersonalPortion, PlanEvent, PlanSummary, Preferences, StoredDailyLog, StoredWeight, WheightyStore } from '@/domain/types';
-import { ADHERENCE_SOURCES, DEFAULT_META, DEFAULT_PREFERENCES, defaultJournalPath, emptyFoodJournal, JOURNAL_METHODS, PERSONAL_TARGET_CASES, PLAN_EVENT_RULES, PLAN_SOURCES, SCHEMA_VERSION } from '@/domain/types';
+import type { ActivityEntry, ActivityLog, AppMeta, CurrentPlan, FoodEntry, FoodJournal, FoodNutrients, JournalPathState, LibraryFood, PersonalPortion, PlanEvent, PlanSummary, Preferences, StoredDailyLog, StoredWeight, WheightyStore } from '@/domain/types';
+import { ACTIVITY_TYPES as ACTIVITY_LOG_TYPES, ADHERENCE_SOURCES, DEFAULT_META, DEFAULT_PREFERENCES, defaultJournalPath, emptyActivityLog, emptyFoodJournal, JOURNAL_METHODS, PERSONAL_TARGET_CASES, PLAN_EVENT_RULES, PLAN_SOURCES, SCHEMA_VERSION } from '@/domain/types';
 
 type Obj = Record<string, unknown>;
 
@@ -258,8 +258,31 @@ export function isPlanEvent(v: unknown): v is PlanEvent {
     (v.after === null || isPlanSummary(v.after)) &&
     (v.message === null || isStr(v.message)) &&
     isBool(v.seen) &&
-    (v.personalTarget === undefined || (isPersonalTarget(v.personalTarget) && isObject(v.personalTarget) && (v.personalTarget.case === undefined || oneOf(v.personalTarget.case, PERSONAL_TARGET_CASES))))
+    (v.personalTarget === undefined || (isPersonalTarget(v.personalTarget) && isObject(v.personalTarget) && (v.personalTarget.case === undefined || oneOf(v.personalTarget.case, PERSONAL_TARGET_CASES)))) &&
+    (v.maintenance === undefined || isEventMaintenance(v.maintenance)) &&
+    (v.calibration === undefined || isEventCalibration(v.calibration)) &&
+    (v.backfilled === undefined || v.backfilled === true)
   );
+}
+
+const isNullableInterval = (v: unknown): boolean => v === null || isInterval(v);
+
+/** Maintenance before and after of a recalibration entry (schema 11); null when unknown (backfilled). */
+function isEventMaintenance(v: unknown): boolean {
+  return isObject(v) && isNullableNum(v.before) && isNullableNum(v.after) && isNullableInterval(v.interval80Before) && isNullableInterval(v.interval80After);
+}
+
+/** Calibration applied by a recalibration entry (schema 11). */
+function isEventCalibration(v: unknown): boolean {
+  return isObject(v) && isNum(v.offsetKcal) && isInterval(v.interval80) && isInterval(v.interval95) && isStr(v.confidence) && isStr(v.createdAt) && (v.appliedAt === null || isStr(v.appliedAt));
+}
+
+/**
+ * One entry of the activity log (schema 11): a timestamp, a local day, a known kind and plain data. The data is never read
+ * back by the app, so only its shape is checked.
+ */
+export function isActivityEntry(v: unknown): v is ActivityEntry {
+  return isObject(v) && isStr(v.at) && isStr(v.date) && isIsoDate(v.date) && oneOf(v.type, ACTIVITY_LOG_TYPES) && isObject(v.data);
 }
 
 const isNullableIsoDate = (v: unknown): boolean => v === null || (isStr(v) && isIsoDate(v));
@@ -398,6 +421,17 @@ export function validateStore(v: unknown): StoreValidation | { error: string } {
     });
   }
 
+  // Activity log (schema 11): an entry that cannot be read is reported like any other record.
+  let activityLog: ActivityLog = emptyActivityLog();
+  const rawLog = v.activityLog;
+  if (isObject(rawLog)) {
+    const droppedCount = isNum(rawLog.droppedCount) && rawLog.droppedCount >= 0 ? rawLog.droppedCount : 0;
+    if (rawLog.droppedCount !== undefined && droppedCount !== rawLog.droppedCount) dropped.push({ path: 'activityLog.droppedCount', reason: 'invalid' });
+    activityLog = { entries: collectFrom<ActivityEntry>(rawLog, 'entries', 'activityLog.entries', isActivityEntry), droppedCount };
+  } else if (rawLog !== undefined) {
+    dropped.push({ path: 'activityLog', reason: 'invalid' });
+  }
+
   // The journal path (pass 5b) that cannot be read is reported, never reset silently.
   if (isObject(v.meta) && v.meta.journalPath !== undefined && !isJournalPath(v.meta.journalPath)) dropped.push({ path: 'meta.journalPath', reason: 'invalid' });
 
@@ -413,6 +447,7 @@ export function validateStore(v: unknown): StoreValidation | { error: string } {
     foodJournal,
     preferences,
     meta: sanitizeMeta(v.meta),
+    activityLog,
   };
   return { store, dropped, clean: dropped.length === 0 };
 }
@@ -430,5 +465,6 @@ export function emptyStore(): WheightyStore {
     foodJournal: emptyFoodJournal(),
     preferences: { ...DEFAULT_PREFERENCES },
     meta: { ...DEFAULT_META, planEvents: [], journalPath: defaultJournalPath() },
+    activityLog: emptyActivityLog(),
   };
 }

@@ -1,7 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { WheightyStore } from '@/domain/types';
-import { emptyFoodJournal } from '@/domain/types';
+import type { ActivityType, WheightyStore } from '@/domain/types';
+import { emptyActivityLog, emptyFoodJournal, SCHEMA_VERSION } from '@/domain/types';
+import { activityDiff, activityEntry, appendActivity, calibrationSummary, lastActivity, sameData } from '@/domain/activityLog';
+import type { ActivityCause } from '@/domain/activityLog';
+import { buildLabel } from '@/app/build';
+import { SCIENTIFIC_MODEL_VERSION } from '@/science/constants';
 import { ensureDailyLogs } from '@/domain/engine';
 import { runDailyChecks } from '@/domain/planSafety';
 import type { CalibrationState } from '@/domain/engine';
@@ -30,7 +34,45 @@ type StoreContextValue = {
   calibration: CalibrationState | null;
   /** A calibration for the current store is being computed (off the main thread). */
   calibrationPending: boolean;
+  /** Writes an entry of the activity log (report 49, point 1c); nothing before onboarding. */
+  logActivity: (type: ActivityType, data: Record<string, unknown>) => void;
+  /** Replaces the store by an imported one, with the entry of the import in its log (no difference logged). */
+  commitImport: (next: WheightyStore, data: Record<string, unknown>) => void;
 };
+
+/**
+ * A change of the store with its entries in the activity log (report 49, point 1c): what changed (`activityDiff`), tagged
+ * with its cause. The same store when nothing changed.
+ */
+function logged(prev: WheightyStore, next: WheightyStore, cause: ActivityCause): WheightyStore {
+  if (next === prev || !next.profile) return next;
+  return appendActivity(next, activityDiff(prev, next, cause, new Date()));
+}
+
+/** Entry of an opening or of a return to the foreground, and of a change of build since the last opening. */
+function opened(store: WheightyStore, reason: 'start' | 'foreground'): WheightyStore {
+  if (!store.profile) return store;
+  const now = new Date();
+  const last = lastActivity(store, 'app_open');
+  const previous = last && typeof last.data.build === 'string' ? last.data.build : null;
+  const build = buildLabel();
+  const entries = [activityEntry('app_open', { reason, build, scientificModelVersion: SCIENTIFIC_MODEL_VERSION, schemaVersion: SCHEMA_VERSION }, now)];
+  if (previous !== null && previous !== build) entries.push(activityEntry('build_changed', { from: previous, to: build }, now));
+  return appendActivity(store, entries);
+}
+
+/** Entries of a calibration result: its summary when it changed, and a recalibration that becomes ready. */
+function calibrationLogged(store: WheightyStore, state: CalibrationState | null): WheightyStore {
+  if (!store.profile) return store;
+  const summary = calibrationSummary(state);
+  const last = lastActivity(store, 'calibration');
+  if (last && sameData(last.data, summary)) return store;
+  const now = new Date();
+  const entries = [activityEntry('calibration', summary, now)];
+  const wasSurfaced = last?.data.surfaced === true;
+  if (state?.surfaced && !wasSurfaced) entries.push(activityEntry('recalibration', { event: 'ready', proposedMaintenanceKcal: state.proposedMaintenanceKcal, medianOffsetKcal: state.candidate?.posteriorMedianOffsetKcal ?? null }, now));
+  return appendActivity(store, entries);
+}
 
 /** Debounce of the calibration after a store change, so a burst of edits runs a single fit. */
 const CALIBRATION_DEBOUNCE_MS = 300;
@@ -55,7 +97,7 @@ export function StoreProvider({ children, storage: injected }: { children: React
   const storageRef = useRef<KeyValueStorage | null>(injected === undefined ? browserStorage() : injected);
   const today = useToday();
   const [initial] = useState(() => loadStore(storageRef.current, new Date().toISOString()));
-  const [store, setStore] = useState<WheightyStore>(() => (initial.store.plan ? ensureDailyLogs(initial.store, localIsoDate(new Date())) : initial.store));
+  const [store, setStore] = useState<WheightyStore>(() => opened(initial.store.plan ? ensureDailyLogs(initial.store, localIsoDate(new Date())) : initial.store, 'start'));
   const [saveError, setSaveError] = useState(false);
   const skipFirstSave = useRef(initial.status === 'loaded' || initial.status === 'empty');
   const wiped = useRef(false);
@@ -76,11 +118,22 @@ export function StoreProvider({ children, storage: injected }: { children: React
   // replan when due, underweight alert (pass 5a). Evaluated once on the day's state; the same store comes back when nothing
   // changes. Also runs once at start, on the loaded store.
   useEffect(() => {
-    setStore((s) => (s.plan ? runDailyChecks(s, today, new Date().toISOString(), { journalWeek: false }) : s));
+    setStore((s) => (s.plan ? logged(s, runDailyChecks(s, today, new Date().toISOString(), { journalWeek: false }), 'daily_checks') : s));
   }, [today]);
 
-  const commit = useCallback((next: WheightyStore) => setStore(next), []);
-  const update = useCallback((fn: (current: WheightyStore) => WheightyStore) => setStore((s) => fn(s)), []);
+  // Return to the foreground: an entry of the activity log (the day change above runs its own checks).
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') setStore((s) => opened(s, 'foreground'));
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
+  const commit = useCallback((next: WheightyStore) => setStore((prev) => logged(prev, next, 'user')), []);
+  const update = useCallback((fn: (current: WheightyStore) => WheightyStore) => setStore((s) => logged(s, fn(s), 'user')), []);
+  const logActivity = useCallback((type: ActivityType, data: Record<string, unknown>) => setStore((s) => (s.profile ? appendActivity(s, [activityEntry(type, data, new Date())]) : s)), []);
+  const commitImport = useCallback((next: WheightyStore, data: Record<string, unknown>) => setStore(() => (next.profile ? appendActivity(next, [activityEntry('import', data, new Date())]) : next)), []);
   const wipe = useCallback(() => {
     deleteAllData(storageRef.current);
     wiped.current = true;
@@ -109,7 +162,7 @@ export function StoreProvider({ children, storage: injected }: { children: React
     const id = ++requestId.current;
     const timer = window.setTimeout(() => {
       // The food journal never reaches the engine (J-01): it is removed before the store is sent.
-      const engineStore = { ...latestStore.current, foodJournal: emptyFoodJournal() };
+      const engineStore = { ...latestStore.current, foodJournal: emptyFoodJournal(), activityLog: emptyActivityLog() };
       const nowIso = new Date().toISOString();
       runner.current?.run({ id, store: engineStore, today, nowIso }, (response) => {
         // Answers to an older store are ignored: only the latest request may update the state.
@@ -121,8 +174,13 @@ export function StoreProvider({ children, storage: injected }: { children: React
         setCalibration({ key: calibrationKey, state: response.state });
         // Report 47, point 1c: the first recalibration of a personal target is applied without any action of the user, on the
         // store it was computed for (any change since then computes it again).
+        // The result is logged when its summary changed (report 49, point 1c).
         const takeover = response.takeover;
-        if (takeover) setStore((s) => (calibrationFingerprint(s, today) === calibrationKey ? applyPersonalTakeover(s, takeover, today, nowIso) : s));
+        setStore((s) => {
+          if (calibrationFingerprint(s, today) !== calibrationKey) return s;
+          const withLog = calibrationLogged(s, response.state);
+          return takeover ? logged(withLog, applyPersonalTakeover(withLog, takeover, today, nowIso), 'calibration') : withLog;
+        });
       });
     }, CALIBRATION_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
@@ -155,13 +213,13 @@ export function StoreProvider({ children, storage: injected }: { children: React
     const id = ++journalRequest.current;
     const method = latestStore.current.meta.journalPath.method;
     const nowIso = new Date().toISOString();
-    journalRunner.current.run({ id, store: latestStore.current, today, nowIso }, (response) => {
+    journalRunner.current.run({ id, store: { ...latestStore.current, activityLog: emptyActivityLog() }, today, nowIso }, (response) => {
       if (response.id !== journalRequest.current) return;
       if (!response.ok) {
         console.error('Journal evaluation failed:', response.message);
         return;
       }
-      setStore((s) => (journalWeekDue(s, today) && s.meta.journalPath.method === method ? applyJournalWeek(s, response.week, today, nowIso) : s));
+      setStore((s) => (journalWeekDue(s, today) && s.meta.journalPath.method === method ? logged(s, applyJournalWeek(s, response.week, today, nowIso), 'journal_week') : s));
     });
   }, [journalKey, today]);
 
@@ -169,8 +227,8 @@ export function StoreProvider({ children, storage: injected }: { children: React
   const calibrationPending = needsCalibration && calibration?.key !== calibrationKey;
 
   const value = useMemo<StoreContextValue>(
-    () => ({ store, today, nowIso, loadStatus: initial.status, saveError, commit, update, wipe, calibration: calibrationState, calibrationPending }),
-    [store, today, nowIso, initial.status, saveError, commit, update, wipe, calibrationState, calibrationPending],
+    () => ({ store, today, nowIso, loadStatus: initial.status, saveError, commit, update, wipe, calibration: calibrationState, calibrationPending, logActivity, commitImport }),
+    [store, today, nowIso, initial.status, saveError, commit, update, wipe, calibrationState, calibrationPending, logActivity, commitImport],
   );
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

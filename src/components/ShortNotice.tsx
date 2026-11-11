@@ -8,7 +8,7 @@ import { Mascot } from '@/components/Mascot';
  * behind "Détails"; "OK" closes a message of the trace (the warning ahead of BMI 20 has none, it stays while it holds).
  * `children`: the buttons of a card that asks for an answer.
  */
-export function ShortNotice({ title, line, detail, tone = 'calm', onClose = null, mascot = 'search', label, children }: { title: string; line: string; detail: string | null; tone?: 'warn' | 'calm'; onClose?: (() => void) | null; mascot?: 'search' | 'surpris'; label?: string; children?: ReactNode }) {
+export function ShortNotice({ title, line, detail, tone = 'calm', onClose = null, onDetails, mascot = 'search', label, children }: { title: string; line: string; detail: string | null; tone?: 'warn' | 'calm'; onClose?: (() => void) | null; /** "Détails" opened (activity log, report 49). */ onDetails?: () => void; mascot?: 'search' | 'surpris'; label?: string; children?: ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
     <div className={`note ${tone === 'warn' ? 'note--warn' : ''}`} role="group" aria-label={label ?? title} style={children ? { flexDirection: 'column', alignItems: 'stretch', gap: 10 } : undefined}>
@@ -18,7 +18,10 @@ export function ShortNotice({ title, line, detail, tone = 'calm', onClose = null
           {title ? <strong style={{ display: 'block', font: '600 14px/1.35 var(--font)' }}>{title}</strong> : null}
           <span style={{ display: 'block' }}>{line}</span>
           {detail ? (
-            <button type="button" className="link" style={{ fontSize: 12.5, minHeight: 32, padding: 0 }} aria-expanded={open} onClick={() => setOpen(!open)}>
+            <button type="button" className="link" style={{ fontSize: 12.5, minHeight: 32, padding: 0 }} aria-expanded={open} onClick={() => {
+                if (!open) onDetails?.();
+                setOpen(!open);
+              }}>
               {PLAN_NOTICE_TEXT.details}
             </button>
           ) : null}

@@ -82,7 +82,9 @@ describe('2c. the slider on a personal target', () => {
     expect(plan.personalTarget?.estimatedRate).toBe(before.personalTarget?.estimatedRate);
     expect(plan.personalTarget?.beyondGrid).toBe(before.personalTarget?.beyondGrid);
     expect(plan.projection).not.toEqual(before.projection);
-    expect(after.meta.planEvents).toEqual(s.meta.planEvents);
+    // Report 49, point 1d: the slider leaves one trace entry 'user_slider' without a message (none before schema 11).
+    expect(after.meta.planEvents.slice(0, -1)).toEqual(s.meta.planEvents);
+    expect(after.meta.planEvents.at(-1)).toMatchObject({ rule: 'user_slider', message: null, seen: true, after: { calorieTarget: plan.calorieTarget, stepTarget: 9000 } });
     expect(after.dailyLogs.find((l) => l.date === D0)).toMatchObject({ calorieTargetForDay: plan.calorieTarget, stepTargetForDay: 9000 });
     // The line of the personal target in Plan gives the new target, with its text unchanged (point 2b).
     expect(personalTargetLine(after)).toBe(PERSONAL_TARGET_MESSAGE.inPlan(plan.calorieTarget));

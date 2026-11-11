@@ -5,10 +5,10 @@ import { intakeGauge, journalDay } from '@/domain/journal';
 import { Mascot } from '@/components/Mascot';
 import { PlanNotices } from '@/components/PlanNotices';
 import { formatDayMonth, formatGrams, formatInteger, formatKcal, formatLongDate, formatSignedWeight, formatSteps, formatWeight, weightUnitLabel } from '@/domain/format';
-import { displayMacros, gateProgress, goalStatus, nextWeighInDate, reminderDue, todayLog } from '@/domain/views';
+import { displayMacros, goalStatus, nextWeighInDate, reminderDue, todayLog, todayStatusTitle } from '@/domain/views';
 import { trendOf } from '@/domain/engine';
 import { profileInitials } from '@/domain/onboarding';
-import { adherenceAsked, alignedStatusLine, journalRead, suggestedAdherence } from '@/domain/journalPath';
+import { adherenceAsked, suggestedAdherence } from '@/domain/journalPath';
 import { JOURNAL_MESSAGE } from '@/domain/planMessages';
 
 export function TodayScreen() {
@@ -22,7 +22,6 @@ export function TodayScreen() {
   const logged = log?.actualSteps ?? null;
   const progress = logged === null ? 0 : Math.min(1, logged / plan.stepTarget);
   const trend = trendOf(store).summary;
-  const gate = gateProgress(calibration, store);
   const due = reminderDue(store, today);
   const reached = goalStatus(store).reached;
   const initials = profileInitials(store.profile);
@@ -33,19 +32,8 @@ export function TodayScreen() {
   // by itself at its first recalibration (report 47, point 1d).
   const recalibrationReady = calibration?.surfaced === true && !calibrationPending && plan.source !== 'personal_target';
 
-  const alignedLine = alignedStatusLine(store, today);
   const deduced = log?.adherence ? null : suggestedAdherence(store, today);
-  let statusTitle: string;
-  // Measured habit (pass 5b): the plan follows the journal; the gate of the current method does not apply.
-  if (journalRead(store)) statusTitle = JOURNAL_MESSAGE.statusMeasured;
-  else if (recalibrationReady) statusTitle = 'Une recalibration est prête.';
-  // Pass 5b fixes, point 7: on the aligned target, the days before the next recalibration rather than the deviation days.
-  else if (alignedLine !== null) statusTitle = alignedLine;
-  else if (!gate.met && gate.remainingWeighIns > 0) statusTitle = `Encore ${gate.remainingWeighIns} pesée${gate.remainingWeighIns > 1 ? 's' : ''} avant la première mise à jour.`;
-  else if (!gate.met && gate.remainingDays > 0) statusTitle = `Encore ${gate.remainingDays} jour${gate.remainingDays > 1 ? 's' : ''} de suivi avant la première mise à jour.`;
-  else if (!gate.met && gate.criteria.some((c) => c.key === 'cleanWeighIns' && !c.met)) statusTitle = 'Encore quelques pesées en dehors des journées d’écart important.';
-  else if (!gate.met) statusTitle = 'Note tes journées pour débloquer la première mise à jour.';
-  else statusTitle = 'Ton estimation suit tes pesées.';
+  const statusTitle = todayStatusTitle(store, today, calibration, recalibrationReady);
 
   return (
     <main className="screen">

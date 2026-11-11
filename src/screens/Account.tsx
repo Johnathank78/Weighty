@@ -9,8 +9,11 @@ import { NavRow, Range, Row, Segmented, Toggle } from '@/components/controls';
 import { SpeedSlider } from '@/components/SpeedSlider';
 import { currentWeightKg } from '@/domain/engine';
 import { alignedLockLine, changeGoalOnPath, pathSpeedSliderModel, switchToMaintenanceOnPath } from '@/domain/journalPath';
-import { exportFileName, exportStore, parseImport } from '@/persistence/exportImport';
-import type { ImportResult } from '@/persistence/exportImport';
+import { EXPORT_FORMAT_VERSION, exportFileName, exportStore, parseImport } from '@/persistence/exportImport';
+import type { DeviceInfo, ImportResult } from '@/persistence/exportImport';
+import { buildDiagnostics } from '@/domain/diagnostics';
+import { BUILD } from '@/app/build';
+import { SCHEMA_VERSION } from '@/domain/types';
 import { formatFullDate, formatHeight, formatInteger, formatKcal, formatNumber, formatSignedWeight, formatWeight, KG_PER_LB, weightUnitLabel } from '@/domain/format';
 import { defaultWeeklyRate, draftFromProfile, profileInitials } from '@/domain/onboarding';
 import { appliedWeightCalibrations, goalGuardrails, targetWeightSliderBounds, weeksOfTracking } from '@/domain/views';
@@ -333,11 +336,34 @@ function downloadText(filename: string, text: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/** Device of the export (report 49, point 1a): time zone, UTC offset, language, user agent, installed app or browser. */
+function deviceInfo(now: Date): DeviceInfo {
+  const nav = typeof navigator === 'undefined' ? null : navigator;
+  let timeZone: string | null;
+  try {
+    timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? null;
+  } catch {
+    timeZone = null;
+  }
+  const standalone = typeof window !== 'undefined' && (window.matchMedia?.('(display-mode: standalone)').matches === true || (nav as unknown as { standalone?: boolean } | null)?.standalone === true);
+  return { timeZone, utcOffsetMinutes: -now.getTimezoneOffset(), language: nav?.language ?? null, userAgent: nav?.userAgent ?? null, displayMode: typeof window === 'undefined' ? null : standalone ? 'standalone' : 'browser' };
+}
+
+/**
+ * Export, version 2 (report 49, point 1a): the build, the device, the whole store and the diagnostics computed now with the
+ * code in service (the calibration state of the day when it is up to date). The file name carries the local time.
+ */
 export function useExport() {
-  const { store, today, nowIso } = useWheighty();
+  const { store, today, nowIso, calibration, calibrationPending, logActivity } = useWheighty();
   const { showToast } = useNav();
   return () => {
-    downloadText(exportFileName(today), exportStore(store, nowIso()));
+    const now = new Date();
+    const at = nowIso();
+    const diagnostics = buildDiagnostics(store, today, at, calibrationPending ? undefined : calibration);
+    const text = exportStore(store, at, { app: { build: BUILD, scientificModelVersion: SCIENTIFIC_MODEL_VERSION, schemaVersion: SCHEMA_VERSION }, device: deviceInfo(now), diagnostics });
+    // Local time of the file name (HHMM); the journal module is not needed here (D8 boundary of the food journal).
+    downloadText(exportFileName(today, `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`), text);
+    logActivity('export', { formatVersion: EXPORT_FORMAT_VERSION, bytes: text.length, build: BUILD.commit });
     showToast('Export prêt : garde ce fichier en lieu sûr.');
   };
 }
@@ -345,7 +371,7 @@ export function useExport() {
 export function DataScreen() {
   const { back, go, showToast, sheet, openSheet, closeSheet } = useNav();
   const backText = useBackLabel();
-  const { store, commit, update, saveError } = useWheighty();
+  const { store, commitImport, update, saveError } = useWheighty();
   const doExport = useExport();
   const fileRef = useRef<HTMLInputElement>(null);
   const [imported, setImported] = useState<ImportResult | null>(null);
@@ -478,7 +504,7 @@ export function DataScreen() {
               type="button"
               className="btn btn--primary"
               onClick={() => {
-                commit(imported.store);
+                commitImport(imported.store, { ...imported.summary, build: BUILD.commit });
                 setImported(null);
                 showToast('Données importées.');
                 go(imported.store.plan ? 'today' : 'intro', { replace: true });

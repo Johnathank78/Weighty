@@ -68,6 +68,7 @@ import {
   PRODUCTION_SOLVER,
   rebuildContextFromStore,
   recordPlanEvent,
+  recordUserPlanChange,
   setAdherence,
   speedSliderModelFor,
   storeSpeedSliderModel,
@@ -876,6 +877,18 @@ function keepAlignedTarget(before: WheightyStore, after: WheightyStore, today: s
  * aligned). On the aligned target itself, the speed is locked (point 1a): same goal, the aligned target stays in force.
  */
 export function changeGoalOnPath(store: WheightyStore, today: string, input: { goal: Goal; targetWeightKg: number; weeklyRate: number }, options?: { stepTarget?: number }): ChangeResult {
+  return recordedChange(store, changeGoalOnPathUnrecorded(store, today, input, options), 'user_goal', today);
+}
+
+/**
+ * Report 49, point 1d: a plan change made by the user leaves a trace entry without a message (`recordUserPlanChange`); a
+ * failed change leaves none.
+ */
+function recordedChange(before: WheightyStore, result: ChangeResult, rule: 'user_goal' | 'user_slider' | 'user_profile', today: string): ChangeResult {
+  return result.ok ? { ok: true, store: recordUserPlanChange(before, result.store, rule, today) } : result;
+}
+
+function changeGoalOnPathUnrecorded(store: WheightyStore, today: string, input: { goal: Goal; targetWeightKg: number; weeklyRate: number }, options?: { stepTarget?: number }): ChangeResult {
   if (alignedTargetLocked(store) && store.profile && store.plan && input.goal === store.plan.goal) {
     const r = changeGoal(store, today, { ...input, weeklyRate: store.profile.weeklyRateTarget }, options);
     return r.ok ? { ok: true, store: keepAlignedTarget(store, r.store, today) } : r;
@@ -891,6 +904,10 @@ export function changeGoalOnPath(store: WheightyStore, today: string, input: { g
  * in force is kept when neither the goal nor the rate changes (report 47, point 1e).
  */
 export function updateProfileOnPath(store: WheightyStore, today: string, profile: UserProfile): ChangeResult {
+  return recordedChange(store, updateProfileOnPathUnrecorded(store, today, profile), 'user_profile', today);
+}
+
+function updateProfileOnPathUnrecorded(store: WheightyStore, today: string, profile: UserProfile): ChangeResult {
   const kept = updateProfileKeepingPersonalTarget(store, today, profile);
   if (kept) return kept;
   if (alignedTargetLocked(store) && store.profile && store.plan && profile.goal === store.plan.goal) {
@@ -917,7 +934,7 @@ export function pathSpeedSliderModel(store: WheightyStore, today: string, goal: 
 
 /** Maintenance at the current weight chosen by the user ("objectif atteint"), on the journal path. */
 export function switchToMaintenanceOnPath(store: WheightyStore, today: string): ChangeResult {
-  if (pathOf(store).method !== 'measured') return switchToMaintenance(store, today);
+  if (pathOf(store).method !== 'measured') return recordedChange(store, switchToMaintenance(store, today), 'user_goal', today);
   const weight = currentWeightKg(store);
   if (weight === null) return { ok: false, reason: 'no_profile' };
   return changeGoalOnPath(store, today, { goal: 'maintenance', targetWeightKg: weight, weeklyRate: 0 }, store.plan ? { stepTarget: store.plan.stepTarget } : undefined);
@@ -1034,9 +1051,9 @@ export function pathSliderSession(store: WheightyStore, today: string): SliderSe
 
 /** Steps / calories chosen on the slider, on the journal path (`pathSliderSession`). */
 export function applyPathSliderSteps(store: WheightyStore, today: string, steps: number): { ok: true; store: WheightyStore } | { ok: false; reason: string } {
-  if (pathOf(store).method !== 'measured') return applySliderSteps(store, today, steps);
+  if (pathOf(store).method !== 'measured') return recordedChange(store, applySliderSteps(store, today, steps), 'user_slider', today);
   const override = measuredSliderContext(store);
-  return override ? applySliderSteps(store, today, steps, override) : { ok: false, reason: 'journal_path' };
+  return override ? recordedChange(store, applySliderSteps(store, today, steps, override), 'user_slider', today) : { ok: false, reason: 'journal_path' };
 }
 
 /**
