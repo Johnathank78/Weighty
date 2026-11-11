@@ -195,6 +195,14 @@ export function buildPlan(input: PlanBuildInput): PlanBuildResult {
 // Store-level helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * A recalibration from the weigh-ins was applied at least once (report 49, point 2, D2): an applied snapshot other than the
+ * warm start. From then on the screens never go back to the state "first recalibration", whatever the gate of the day.
+ */
+export function hasAppliedRecalibration(store: WheightyStore): boolean {
+  return store.calibrationSnapshots.some((s) => s.appliedAt !== undefined && s.source !== 'warm_start');
+}
+
 export function latestAppliedSnapshot(store: WheightyStore): CalibrationSnapshot | null {
   const applied = store.calibrationSnapshots.filter((s) => s.appliedAt !== undefined);
   return applied[applied.length - 1] ?? null;

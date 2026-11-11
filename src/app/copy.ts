@@ -298,6 +298,11 @@ export const ADHERENCE_NOTED_TEXT = {
   regular: 'Plus tu te pèses et notes ton adhérence régulièrement, plus l’estimation peut s’affiner.',
   firstAdjustment: (percent: number) =>
     `Les jours en écart important ne servent pas de preuve, les écarts légers comptent moins. Il faut au moins 5 pesées sur 14 jours et ton adhérence notée au moins ${percent} % des jours pour qu’un premier ajustement soit fiable.`,
+  /** After a recalibration (report 49, point 2, D2): the next update, never the first one again. */
+  nextAdjustment: (percent: number) =>
+    `Les jours en écart important ne servent pas de preuve, les écarts légers comptent moins. Il faut au moins 5 pesées sur 14 jours et ton adhérence notée au moins ${percent} % des jours pour que la prochaine mise à jour soit fiable.`,
+  /** Analyse after a recalibration, gate closed (report 49, point 2). */
+  nextUpdateTitle: 'Vers la prochaine mise à jour',
   count: 'adhérences notées',
 } as const;
 

@@ -14,7 +14,7 @@ import type { GateStatus } from '@/science/calibration';
 import { formatInteger } from './format';
 import { snapWeeklyRate, speedZoneFor } from '@/science/goals';
 import type { CalibrationState } from './engine';
-import { contextForCurrentPlan, goalStatus, latestAppliedSnapshot, latestRawWeight, MAINTENANCE_PROJECTION_DAYS, solverOptionsFor, trendOf, weighInDue } from './engine';
+import { contextForCurrentPlan, goalStatus, hasAppliedRecalibration, latestAppliedSnapshot, latestRawWeight, MAINTENANCE_PROJECTION_DAYS, solverOptionsFor, trendOf, weighInDue } from './engine';
 import { alignedStatusLine, journalRead, measuredProjectionContext } from './journalPath';
 import { JOURNAL_MESSAGE } from './planMessages';
 import { localTimeOf } from './journal';
@@ -248,8 +248,9 @@ export function trackingChart(store: WheightyStore, today: string, rangeDays: nu
   // Based on the span actually shown, not the nominal range: ranges that clip to the same first weigh-in draw the same curve.
   const horizonAhead = Math.max(21, Math.round(Math.max(28, todayDay) / 3));
   // While the first calibration is not reached, the estimate is still the onboarding prior: no curve is
-  // drawn ahead rather than a confident looking one (decision of the product owner).
-  const learning = measuredHabit(store) === null && !(state?.gate.met && state.candidate);
+  // drawn ahead rather than a confident looking one (decision of the product owner). Once a recalibration was applied, the
+  // projection stays whatever the gate of the day (report 49, point 2, D2).
+  const learning = measuredHabit(store) === null && !(state?.gate.met && state.candidate) && !hasAppliedRecalibration(store);
   const live = learning ? null : projectionFromToday(store, today, state);
   let projection: ChartSeries['projection'] = [];
   let band: ChartSeries['band'] = [];
@@ -309,7 +310,13 @@ export function warmStartView(result: { status: WarmStartView['reason'] & string
 }
 
 export type AnalysisView = {
+  /** The calibrated layout: the gate of the day is met, or a recalibration was applied (report 49, point 2, D2). */
   calibrated: boolean;
+  /**
+   * Report 49, point 2: a recalibration was applied and the gate of the day is closed: the block "Vers la prochaine mise à
+   * jour" with the criteria of the counted period; null otherwise.
+   */
+  nextUpdate: GateProgress | null;
   maintenanceKcal: number;
   initialMaintenanceKcal: number | null;
   changeSinceInitialKcal: number | null;
@@ -330,6 +337,7 @@ export function analysisView(store: WheightyStore, state: CalibrationState | nul
     // Measured habit (pass 5b): the balance of the journal of the plan in force; no recalibration of the current method.
     return {
       calibrated: true,
+      nextUpdate: null,
       maintenanceKcal: plan.maintenanceKcal,
       initialMaintenanceKcal: null,
       changeSinceInitialKcal: null,
@@ -343,11 +351,16 @@ export function analysisView(store: WheightyStore, state: CalibrationState | nul
       observationSpanDays: 0,
     };
   }
-  const calibrated = Boolean(state?.gate.met && state.candidate);
+  const gateMet = Boolean(state?.gate.met && state.candidate);
+  // Report 49, point 2 (D2): after a recalibration, the calibrated layout even with the gate closed (the estimate applied and
+  // its confidence: the state then carries the plan's maintenance and the confidence of the last applied snapshot).
+  const applied = hasAppliedRecalibration(store);
+  const calibrated = gateMet || applied;
   const maintenanceKcal = state?.currentMaintenanceKcal ?? plan.maintenanceKcal;
   const initial = store.meta.initialMaintenanceKcal;
   return {
     calibrated,
+    nextUpdate: applied && !gateMet ? gateProgress(state, store) : null,
     maintenanceKcal,
     initialMaintenanceKcal: initial,
     changeSinceInitialKcal: initial === null ? null : maintenanceKcal - initial,
@@ -386,16 +399,18 @@ export function measuredHabit(store: WheightyStore): number | null {
  */
 export function todayStatusTitle(store: WheightyStore, today: string, state: CalibrationState | null, recalibrationReady: boolean): string {
   const gate = gateProgress(state, store);
+  // Report 49, point 2 (D2): after a recalibration, the next update, never the first one again.
+  const update = hasAppliedRecalibration(store) ? 'la prochaine mise à jour' : 'la première mise à jour';
   // Measured habit (pass 5b): the plan follows the journal; the gate of the current method does not apply.
   if (journalRead(store)) return JOURNAL_MESSAGE.statusMeasured;
   if (recalibrationReady) return 'Une recalibration est prête.';
   // Pass 5b fixes, point 7: on the aligned target, the days before the next recalibration rather than the deviation days.
   const alignedLine = alignedStatusLine(store, today);
   if (alignedLine !== null) return alignedLine;
-  if (!gate.met && gate.remainingWeighIns > 0) return `Encore ${gate.remainingWeighIns} pesée${gate.remainingWeighIns > 1 ? 's' : ''} avant la première mise à jour.`;
-  if (!gate.met && gate.remainingDays > 0) return `Encore ${gate.remainingDays} jour${gate.remainingDays > 1 ? 's' : ''} de suivi avant la première mise à jour.`;
+  if (!gate.met && gate.remainingWeighIns > 0) return `Encore ${gate.remainingWeighIns} pesée${gate.remainingWeighIns > 1 ? 's' : ''} avant ${update}.`;
+  if (!gate.met && gate.remainingDays > 0) return `Encore ${gate.remainingDays} jour${gate.remainingDays > 1 ? 's' : ''} de suivi avant ${update}.`;
   if (!gate.met && gate.criteria.some((c) => c.key === 'cleanWeighIns' && !c.met)) return 'Encore quelques pesées en dehors des journées d’écart important.';
-  if (!gate.met) return 'Note tes journées pour débloquer la première mise à jour.';
+  if (!gate.met) return `Note tes journées pour débloquer ${update}.`;
   return 'Ton estimation suit tes pesées.';
 }
 

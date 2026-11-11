@@ -2,7 +2,9 @@
  * Prompt 6a (report 49): the tracking pauses and the life cycle of the recalibration. One block per point.
  * Point 1: complete export (format 2, diagnostics), activity log and full trace of the plan changes (schema 11).
  */
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { ADHERENCE_NOTED_TEXT } from '@/app/copy';
 import { activityDiff, activityEntry, ACTIVITY_LOG_MAX_ENTRIES, appendActivity, calibrationSummary, lastActivity, sameData } from '@/domain/activityLog';
 import { buildDiagnostics, constantsDump } from '@/domain/diagnostics';
 import {
@@ -12,6 +14,8 @@ import {
   completeOnboarding,
   computeCalibrationState,
   deleteWeight,
+  hasAppliedRecalibration,
+  latestAppliedSnapshot,
   markPlanEventSeen,
   setActualSteps,
   setAdherence,
@@ -21,6 +25,7 @@ import type { CalibrationState } from '@/domain/engine';
 import { addFoodEntry } from '@/domain/journal';
 import { applyPathSliderSteps, changeGoalOnPath, updateProfileOnPath } from '@/domain/journalPath';
 import { planNotices } from '@/domain/planSafety';
+import { analysisView, todayStatusTitle, trackingChart } from '@/domain/views';
 import type { PlanEvent, WheightyStore } from '@/domain/types';
 import { emptyActivityLog, PLAN_CHANGE_RULES, SCHEMA_VERSION } from '@/domain/types';
 import { EXPORT_FORMAT_VERSION, exportFileName, exportStore, parseImport } from '@/persistence/exportImport';
@@ -303,5 +308,65 @@ describe('1e. migration 10 -> 11, without loss', () => {
     for (const k of ['profile', 'plan', 'weights', 'calibrationSnapshots', 'historicalEvidence', 'foodJournal', 'preferences'] as const) expect(v.store[k]).toEqual(JSON.parse(JSON.stringify(store[k])));
     expect(v.store.dailyLogs).toEqual(JSON.parse(JSON.stringify(store.dailyLogs)));
     expect(v.store.meta.planEvents.map((e) => e.rule)).toEqual(['recalibration']);
+  });
+});
+
+describe('2. the recalibrated state no longer depends on the gate of the day (D2)', () => {
+  /** Recalibrated on day 21, then 30 days of weigh-ins without any adherence noted: the gate of the day closes (coverage). */
+  function closedAfterRecalibration(): { store: WheightyStore; day: string; state: CalibrationState } {
+    let { store } = recalibrated();
+    for (let i = 22; i <= 52; i++) store = addWeight(store, { date: addDays(D0, i), weightKg: 92 - 0.06 * i }, at(addDays(D0, i)));
+    const day = addDays(D0, 52);
+    return { store, day, state: stateOn(store, day) };
+  }
+  const withoutApplied = (s: WheightyStore): WheightyStore => ({ ...s, calibrationSnapshots: s.calibrationSnapshots.filter((x) => !x.appliedAt || x.source === 'warm_start') });
+
+  it('hasAppliedRecalibration: an applied snapshot from the weigh-ins; not the warm start, not a candidate', () => {
+    expect(hasAppliedRecalibration(tracked(21))).toBe(false);
+    expect(hasAppliedRecalibration(recalibrated().store)).toBe(true);
+    const warm = onboard(PROFILE);
+    const withWarm: WheightyStore = { ...warm, calibrationSnapshots: [{ ...(recalibrated().store.calibrationSnapshots.at(-1) as NonNullable<WheightyStore['calibrationSnapshots'][number]>), source: 'warm_start' }] };
+    expect(hasAppliedRecalibration(withWarm)).toBe(false);
+  });
+
+  it('Analyse: the calibrated layout with the gate closed, the estimate applied and its confidence, and the block towards the next update', () => {
+    const { store, state } = closedAfterRecalibration();
+    expect(state.gate.met).toBe(false);
+    const v = analysisView(store, state);
+    expect(v?.calibrated).toBe(true);
+    expect(v?.maintenanceKcal).toBe(store.plan?.maintenanceKcal);
+    expect(v?.confidence).toBe(latestAppliedSnapshot(store)?.confidence);
+    expect(v?.nextUpdate?.criteria.find((c) => c.key === 'adherence')?.met).toBe(false);
+    // Without the applied recalibration, the same store is back to "J'observe encore".
+    const before = analysisView(withoutApplied(store), stateOn(withoutApplied(store), addDays(D0, 52)));
+    expect(before?.calibrated).toBe(false);
+    expect(before?.nextUpdate).toBeNull();
+    // Gate open: the calibrated layout as before, without the block.
+    const open = recalibrated();
+    expect(analysisView(open.store, stateOn(open.store, open.day))?.nextUpdate).toBeNull();
+  });
+
+  it('Suivi keeps drawing the projection; Aujourd\'hui and the sheet speak of the next update', () => {
+    const { store, day, state } = closedAfterRecalibration();
+    const chart = trackingChart(store, day, null, state);
+    expect(chart?.projectionPending).toBe(false);
+    expect(chart?.projection.length).toBeGreaterThan(0);
+    const bare = withoutApplied(store);
+    const chartBefore = trackingChart(bare, day, null, stateOn(bare, day));
+    expect(chartBefore?.projectionPending).toBe(true);
+    expect(chartBefore?.projection).toEqual([]);
+    expect(todayStatusTitle(store, day, state, false)).toBe('Note tes journées pour débloquer la prochaine mise à jour.');
+    expect(todayStatusTitle(bare, day, stateOn(bare, day), false)).toBe('Note tes journées pour débloquer la première mise à jour.');
+    expect(ADHERENCE_NOTED_TEXT.nextAdjustment(50)).toMatch(/prochaine mise à jour/);
+    expect(readFileSync('src/screens/WhySheet.tsx', 'utf8')).toMatch(/hasAppliedRecalibration\(store\) \? ADHERENCE_NOTED_TEXT\.nextAdjustment/);
+  });
+
+  it('before any recalibration, with or without a warm start: nothing changes', () => {
+    const s = tracked(10);
+    const day = addDays(D0, 10);
+    const state = stateOn(s, day);
+    expect(analysisView(s, state)).toMatchObject({ calibrated: false, nextUpdate: null });
+    expect(trackingChart(s, day, null, state)?.projectionPending).toBe(true);
+    expect(todayStatusTitle(s, day, state, false)).toMatch(/première mise à jour/);
   });
 });

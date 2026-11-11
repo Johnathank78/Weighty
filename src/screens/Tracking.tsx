@@ -286,6 +286,31 @@ export function AnalyseScreen() {
         </span>
       </div>
 
+      {view.nextUpdate ? (
+        // Report 49, point 2 (D2): after a recalibration, the gate of the counted period, towards the next update.
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+            <span className="eyebrow">{ADHERENCE_NOTED_TEXT.nextUpdateTitle}</span>
+            <span className="small">
+              {view.nextUpdate.metCount} / {view.nextUpdate.criteria.length}
+            </span>
+          </div>
+          <div className="rows" style={{ marginBottom: 30 }}>
+            {view.nextUpdate.criteria.map((c) => (
+              <div key={c.key} className="gate-row" data-met={c.met}>
+                <div className="gate-row__head">
+                  <span>{GATE_CRITERION_LABEL[c.key]}</span>
+                  <span className="tabular">{gateCriterionValue(c)}</span>
+                </div>
+                <div className="gate-row__bar" aria-hidden="true">
+                  <i style={{ width: `${Math.round(c.fill * 100)}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
+
       <div className="rows" style={{ marginBottom: 26 }}>
         <div className="row">
           <span className="row__label">Tendance de poids</span>
