@@ -141,13 +141,12 @@ export function periodicReplanUnderRules(store: WheightyStore, today: string, no
   const ageDays = planAgeDays(plan, today);
   if (RULES_6A.d5) {
     const deferredOn = store.meta.periodicReplanDeferredOn;
-    const deferredEarlier = deferredOn !== null && deferredOn >= periodicCycleStart(store, plan) && deferredOn < today;
-    if (!deferredEarlier) {
+    const inCycle = deferredOn !== null && deferredOn >= periodicCycleStart(store, plan);
+    // Waiting today: it waits the whole day, even once the recalibration was seen (no longer shown) without being applied.
+    if (inCycle && deferredOn === today) return { status: 'deferred', ageDays, reason: 'recalibration_ready', store };
+    if (!(inCycle && deferredOn < today)) {
       const st = state === 'compute' ? computeCalibrationState(store, today, nowIso) : state;
-      if (st?.surfaced === true) {
-        const next = deferredOn === today ? store : { ...store, meta: { ...store.meta, periodicReplanDeferredOn: today } };
-        return { status: 'deferred', ageDays, reason: 'recalibration_ready', store: next };
-      }
+      if (st?.surfaced === true) return { status: 'deferred', ageDays, reason: 'recalibration_ready', store: { ...store, meta: { ...store.meta, periodicReplanDeferredOn: today } } };
     }
   }
   return periodicReplan(store, today, { nowIso });

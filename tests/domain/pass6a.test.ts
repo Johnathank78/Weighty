@@ -19,6 +19,7 @@ import {
   hasAppliedRecalibration,
   latestAppliedSnapshot,
   markPlanEventSeen,
+  markRecalibrationSeen,
   periodicReplan,
   periodicReplanDue,
   setActualSteps,
@@ -46,6 +47,7 @@ import { AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS, CONSTANT_METADATA, REANCHOR_AFTER_PAU
 import { addDays } from '@/science/dates';
 import type { UserProfile } from '@/science/types';
 import { makeProfile } from '../helpers/profiles';
+import { backAfterPauseProfile, pauseWithoutWeighInProfile, personalTargetProfile, recalibratedGateClosedProfile, replanAndRecalibrationProfile, takeoverProfile } from '../helpers/verificationProfiles';
 
 const D0 = '2026-06-01';
 const at = (date: string) => `${date}T08:00:00.000Z`;
@@ -532,6 +534,11 @@ describe('5. one plan change at a time (D5)', () => {
     expect(checked.meta.planEvents.filter((e) => e.rule === 'periodic_replan')).toEqual([]);
     expect(checked.meta.periodicReplanDeferredOn).toBe(day);
     expect(periodicReplanUnderRules(checked, day, at(day), state)).toMatchObject({ status: 'deferred', reason: 'recalibration_ready' });
+    // Seen (the screen opened) but not applied: it still waits that day (found in the browser, profile 11).
+    const seen = markRecalibrationSeen(checked, state, day);
+    expect(stateOn(seen, day).surfaced).toBe(false);
+    expect(periodicReplanUnderRules(seen, day, at(day), stateOn(seen, day))).toMatchObject({ status: 'deferred', store: seen });
+    expect(runDailyChecks(seen, day, at(day)).plan).toEqual(s.plan);
     // Applied: one change, the recalibration; the replan is no longer due.
     const applied = applyRecalibration(checked, stateOn(checked, day), day, at(day));
     if (!applied.ok) throw new Error(applied.reason);
@@ -712,5 +719,35 @@ describe('7. reanchoring after a pause (D7), behind the option', () => {
     expect(modeled('B').reanchor).toEqual({ mode: 'B', periodStart: back });
     // The journal regime is outside the scope: the option is ignored there.
     expect(fitCalibration({ ...input, reanchorAfterPause: 'A', intakeObservations: { days: [], nonUsableDayWeight: 0.5 } })?.reanchor).toBeUndefined();
+  });
+});
+
+describe('6.5 and 6.6: verification profiles 8 to 11 (synthetic, no real data), and the export round trip', () => {
+  const TODAY = '2026-11-11';
+  const builders = { pause: pauseWithoutWeighInProfile, back: backAfterPauseProfile, closed: recalibratedGateClosedProfile, both: replanAndRecalibrationProfile, takeover: takeoverProfile, personal: personalTargetProfile } as const;
+
+  it('each profile shows what it is built for', () => {
+    const pause = runDailyChecks(pauseWithoutWeighInProfile(TODAY), TODAY, at(TODAY));
+    expect(stateOn(pause, TODAY)).toMatchObject({ surfaced: false, blockedByStaleWeighIn: true });
+    expect(staleWeighInNotice(pause, TODAY)).not.toBeNull();
+    const back = runDailyChecks(backAfterPauseProfile(TODAY), TODAY, at(TODAY));
+    expect(stateOn(back, TODAY).gate).toMatchObject({ weighInCount: 1, periodStart: TODAY });
+    const closed = runDailyChecks(recalibratedGateClosedProfile(TODAY), TODAY, at(TODAY));
+    expect(analysisView(closed, stateOn(closed, TODAY))).toMatchObject({ calibrated: true });
+    const both = runDailyChecks(replanAndRecalibrationProfile(TODAY), TODAY, at(TODAY));
+    expect(both.meta.periodicReplanDeferredOn).toBe(TODAY);
+    expect(stateOn(both, TODAY).surfaced).toBe(true);
+  });
+
+  it('export, import, export again: the same store (productSearchEnabled set off by the import, as always)', () => {
+    for (const build of Object.values(builders)) {
+      const s = build(TODAY);
+      const a = parseImport(exportStore(s, at(TODAY), { diagnostics: buildDiagnostics(s, TODAY, at(TODAY)) }));
+      if (!a.ok) throw new Error(a.error);
+      expect(a.store).toEqual({ ...s, preferences: { ...s.preferences, productSearchEnabled: false } });
+      const b = parseImport(exportStore(a.store, at(TODAY)));
+      if (!b.ok) throw new Error(b.error);
+      expect(b.store).toEqual(a.store);
+    }
   });
 });
