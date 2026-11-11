@@ -46,7 +46,10 @@ type StoreContextValue = {
  */
 function logged(prev: WheightyStore, next: WheightyStore, cause: ActivityCause): WheightyStore {
   if (next === prev || !next.profile) return next;
-  return appendActivity(next, activityDiff(prev, next, cause, new Date()));
+  // Only this provider writes the log, always on the latest store: a store computed by a screen from an older render (a
+  // commit) keeps the entries written since.
+  const current = next.activityLog === prev.activityLog ? next : { ...next, activityLog: prev.activityLog };
+  return appendActivity(current, activityDiff(prev, current, cause, new Date()));
 }
 
 /** Entry of an opening or of a return to the foreground, and of a change of build since the last opening. */
