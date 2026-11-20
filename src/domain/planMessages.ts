@@ -182,6 +182,8 @@ export const JOURNAL_MESSAGE = {
 export const PLAN_CHANGE_MESSAGE = {
   button: 'Je souhaite changer de plan',
   title: 'Changer de plan',
+  /** Under the title of the sheet (UX pass 3, after John's review of 20/11). */
+  lead: 'Comment veux-tu fixer ta cible ?',
   personalTitle: 'Choisir ma cible',
   personalSub: 'Tu connais déjà les calories qui te conviennent.',
   alignTitle: 'Aligner ma cible sur ce que je mange',

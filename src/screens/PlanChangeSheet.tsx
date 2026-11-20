@@ -52,7 +52,7 @@ export function PlanChangeSheet({ options, onAlign }: { options: PlanChangeOptio
   };
 
   return (
-    <BottomSheet open={open} onClose={closeSheet} title={confirming ? PERSONAL_TARGET_MESSAGE.returnTitle : PLAN_CHANGE_MESSAGE.title}>
+    <BottomSheet open={open} onClose={closeSheet} title={confirming ? PERSONAL_TARGET_MESSAGE.returnTitle : PLAN_CHANGE_MESSAGE.title} {...(!confirming && !weighFirst ? { lead: PLAN_CHANGE_MESSAGE.lead } : {})}>
       {weighFirst ? (
         <WeighFirst sheet="planChange" onContinue={() => setContinued(true)} />
       ) : confirming ? (
@@ -88,9 +88,16 @@ export function PlanChangeSheet({ options, onAlign }: { options: PlanChangeOptio
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 8 }}>
           {(options ?? []).map((o) => (
-            <button key={o.id} type="button" className="opt-card" disabled={!o.enabled} style={o.enabled ? undefined : { opacity: 0.5 }} onClick={() => choose(o)}>
-              <span className="opt-card__title">{o.title}</span>
-              <span className="opt-card__sub">{o.sub}</span>
+            <button key={o.id} type="button" className="opt-card opt-card--action" disabled={!o.enabled} onClick={() => choose(o)}>
+              <span className="opt-card__text">
+                <span className="opt-card__title">{o.title}</span>
+                <span className="opt-card__sub">{o.sub}</span>
+              </span>
+              {o.enabled ? (
+                <span className="chevron" aria-hidden="true">
+                  ›
+                </span>
+              ) : null}
             </button>
           ))}
         </div>
