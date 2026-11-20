@@ -12,6 +12,7 @@ import { DEFAULT_META, SCHEMA_VERSION } from '@/domain/types';
 import type { WheightyStore } from '@/domain/types';
 import { migrateToCurrent } from '@/persistence/migrations';
 import { validateStore } from '@/persistence/schema';
+import { exportStore, parseImport } from '@/persistence/exportImport';
 import { addDays } from '@/science/dates';
 import { addWeight, setAdherence } from '@/domain/engine';
 import * as profiles from '../helpers/verificationProfiles';
@@ -384,5 +385,19 @@ describe('7. defects of report 48 (E7)', () => {
     const src = readFileSync('src/components/BottomSheet.tsx', 'utf8');
     expect(src).toMatch(/window\.setTimeout\(\(\) => sheetRef\.current\?\.focus\(\{ preventScroll: true \}\), 50\)/);
     expect(src).toMatch(/role="dialog"/);
+  });
+});
+
+describe('4.6 export, import, export on profiles 12 to 16', () => {
+  it('the store comes back identical (productSearchEnabled is set to false by the import, as always)', () => {
+    const NEW = [firstRecalibrationProfile, personalTargetRecalibrationProfile, planHistoryProfile, profiles.pauseAndProjectionProfile, oldWeighInChangeProfile];
+    for (const build of NEW) {
+      const store = opened(build(TODAY));
+      const text = exportStore(store, at(TODAY));
+      const back = parseImport(text);
+      if (!back.ok) throw new Error(`${build.name}: ${back.error}`);
+      expect(back.store, build.name).toEqual({ ...JSON.parse(JSON.stringify(store)), preferences: { ...store.preferences, productSearchEnabled: false } });
+      expect(exportStore(back.store, at(TODAY)), build.name).toBe(exportStore({ ...store, preferences: { ...store.preferences, productSearchEnabled: false } }, at(TODAY)));
+    }
   });
 });
