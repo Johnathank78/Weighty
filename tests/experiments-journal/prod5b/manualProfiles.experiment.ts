@@ -16,10 +16,10 @@ import { runDailyChecks } from '@/domain/planSafety';
 import type { WheightyStore } from '@/domain/types';
 import { exportStore, parseImport } from '@/persistence/exportImport';
 import { addDays, localIsoDate } from '@/science/dates';
-import { at, backAfterPauseProfile, buttonProfile, deducedAdherenceProfile, eat, firstPlanProfile, incompleteDayProfile, pauseWithoutWeighInProfile, personalTargetProfile, proposalProfile, recalibratedGateClosedProfile, replanAndRecalibrationProfile, returnProfile, takeoverProfile } from '../../helpers/verificationProfiles';
+import { at, backAfterPauseProfile, buttonProfile, deducedAdherenceProfile, eat, firstPlanProfile, incompleteDayProfile, pauseWithoutWeighInProfile, personalTargetProfile, proposalProfile, pauseAndProjectionProfile, recalibratedGateClosedProfile, replanAndRecalibrationProfile, returnProfile, takeoverProfile } from '../../helpers/verificationProfiles';
 import { hasAppliedRecalibration, periodicReplanDue, weighInStale } from '@/domain/engine';
 import { staleWeighInNotice } from '@/domain/planSafety';
-import { analysisView, gateProgress, todayStatusTitle, trackingChart } from '@/domain/views';
+import { analysisView, gateProgress, todayStatusTitle, trackingChart, TRACKING_RANGE_DAYS } from '@/domain/views';
 
 const TODAY = process.env.MANUAL_TODAY ?? localIsoDate(new Date());
 const OUT = 'docs/verification-5b';
@@ -118,4 +118,16 @@ it(`pass 5b manual check profiles, for ${TODAY}`, () => {
   expect(bothChecked.plan?.createdAt).toBe(both.plan?.createdAt);
   expect(bothChecked.meta.periodicReplanDeferredOn).toBe(TODAY);
   write('11-recalcul-et-recalibration.json', both);
+
+  // Report 50 (UX pass 3, 4.5): synthetic profiles 12 to 16.
+  const paused = runDailyChecks(pauseAndProjectionProfile(TODAY), TODAY, at(TODAY));
+  const pausedState = computeCalibrationState(paused, TODAY, at(TODAY));
+  for (const range of [TRACKING_RANGE_DAYS.month, TRACKING_RANGE_DAYS.all]) {
+    const chart = trackingChart(paused, TODAY, range, pausedState);
+    expect(chart?.pauses).toHaveLength(1);
+    expect(chart?.projection[0]?.day).toBe(chart?.todayDay);
+    expect((chart?.todayDay ?? 0) - (chart?.trend[chart.trend.length - 1]?.day ?? 0)).toBe(3);
+    expect(chart?.projection[1]?.day).toBe((chart?.todayDay ?? 0) + 1);
+  }
+  write('15-pause-et-projection.json', pauseAndProjectionProfile(TODAY));
 });

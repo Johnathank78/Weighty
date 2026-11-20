@@ -1,21 +1,25 @@
 /**
- * Suivi chart (A3): the pure scale, the projection joined to the last trend point, and the weigh-in list
- * when a day carries several entries. No rendering here: `chartScale` maps data to pixels on its own.
+ * Suivi chart (A3, reworked by UX pass 3, point 1): the pure scale, one time scale for the window, "Auj." on today, the
+ * projection from today joined to the last trend point, one sample per day, the pauses, and the weigh-in list when a day
+ * carries several entries. No rendering here: `chartScale` maps data to pixels on its own.
+ *
+ * UX pass 3 replaced the fixed share of the width kept for the days ahead (`FUTURE_WIDTH_SHARE`, decision of A3) by a single
+ * time scale (decision of the product owner of 11/11, E1): the tests of that share are replaced by the tests of the new rule.
  */
 import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { WeightChart } from '@/components/WeightChart';
-import { chartScale, clipBandFrom, FUTURE_WIDTH_SHARE } from '@/domain/chartScale';
+import { axisLabels, chartScale, clipBandFrom, splitAtPauses } from '@/domain/chartScale';
 import type { DayPoint } from '@/domain/chartScale';
 import { addWeight, completeOnboarding, computeCalibrationState, setAdherence } from '@/domain/engine';
 import type { CalibrationState } from '@/domain/engine';
-import { projectionFromToday, recentWeights, trackingChart } from '@/domain/views';
+import { projectionFromToday, recentWeights, trackingChart, TRACKING_ALL_DAYS_AHEAD, TRACKING_ALL_MAX_DAYS_AHEAD, TRACKING_MONTH_DAYS_EACH_SIDE, TRACKING_RANGE_DAYS } from '@/domain/views';
 import { chartSummary } from '@/screens/Tracking';
 import type { WheightyStore } from '@/domain/types';
 import { emptyStore } from '@/persistence/schema';
-import { addDays } from '@/science/dates';
+import { addDays, daysBetween } from '@/science/dates';
 import { makeProfile } from '../helpers/profiles';
 
 const TODAY = '2026-09-21';
@@ -24,8 +28,8 @@ const W = 342;
 const H = 168;
 const PAD = 8;
 
-function storeWith(weights: Array<{ date: string; kg: number; time?: string }>, start = addDays(TODAY, -1)): WheightyStore {
-  const onboarded = completeOnboarding(emptyStore(), makeProfile({ goal: 'loss', currentWeightKg: 81, targetWeightKg: 76, weeklyRateTarget: 0.005 }), start, at(start));
+function storeWith(weights: Array<{ date: string; kg: number; time?: string }>, start = addDays(TODAY, -1), profile = makeProfile({ goal: 'loss', currentWeightKg: 81, targetWeightKg: 76, weeklyRateTarget: 0.005 })): WheightyStore {
+  const onboarded = completeOnboarding(emptyStore(), profile, start, at(start));
   if (!onboarded.ok) throw new Error(onboarded.reason);
   let s: WheightyStore = { ...onboarded.store, weights: [] };
   for (const w of weights) s = addWeight(s, { date: w.date, weightKg: w.kg }, at(w.date, w.time));
@@ -33,11 +37,15 @@ function storeWith(weights: Array<{ date: string; kg: number; time?: string }>, 
 }
 
 /** Enough weigh-ins and noted days for the first calibration: without it nothing is drawn ahead. */
-function calibratedStore(days = 77): { store: WheightyStore; state: CalibrationState } {
+function calibratedStore(days = 77, lastWeighInDaysAgo = 0, profile?: ReturnType<typeof makeProfile>): { store: WheightyStore; state: CalibrationState } {
   const start = addDays(TODAY, -days);
+  // A weigh-in every 7 days, and the last one `lastWeighInDaysAgo` days before today.
+  const last = days - lastWeighInDaysAgo;
+  const offsets = [...Array.from({ length: Math.ceil(last / 7) }, (_, i) => i * 7), last];
   let s = storeWith(
-    Array.from({ length: days / 7 + 1 }, (_, i) => ({ date: addDays(start, i * 7), kg: 81 - i * 0.35 })),
+    offsets.map((d) => ({ date: addDays(start, d), kg: 81 - (d / 7) * 0.35 })),
     start,
+    profile,
   );
   for (let d = 0; d <= days; d++) s = setAdherence(s, addDays(start, d), 'on_plan');
   const state = computeCalibrationState(s, TODAY, at(TODAY));
@@ -45,43 +53,48 @@ function calibratedStore(days = 77): { store: WheightyStore; state: CalibrationS
   return { store: s, state };
 }
 
-describe('chart scale (A3)', () => {
+describe('chart scale (UX pass 3, point 1a: one time scale)', () => {
   const trend: DayPoint[] = [
-    { day: 0, kg: 81 },
-    { day: 1, kg: 81.2 },
+    { day: 20, kg: 81 },
+    { day: 27, kg: 80.6 },
   ];
   const projection: DayPoint[] = [
-    { day: 0, kg: 81 },
-    { day: 7, kg: 80.2 },
-    { day: 14, kg: 79.8 },
-    { day: 21, kg: 79.5 },
+    { day: 30, kg: 80.6 },
+    { day: 31, kg: 80.5 },
+    { day: 45, kg: 79.8 },
+    { day: 60, kg: 79.5 },
   ];
   const band = projection.map((p) => ({ day: p.day, lo: p.kg - 0.7, hi: p.kg + 0.7 }));
 
-  it('keeps a fixed share of the width for the days ahead, so today never lands on the left edge', () => {
-    const s = chartScale({ width: W, height: H, trend, raw: trend, projection, band });
+  it('a day has the same width before and after today, and today sits at its real position', () => {
+    const s = chartScale({ width: W, height: H, domainDays: [0, 60], todayDay: 30, trend, raw: trend, projection, band });
     if (!s) throw new Error('scale');
-    // The reported case drew today at 5 % of the width, under the month label.
-    expect(s.todayRatio).toBeGreaterThan(0.6);
-    expect(s.todayX).toBeCloseTo(PAD + (1 - FUTURE_WIDTH_SHARE) * (W - 2 * PAD), 6);
-    expect(s.x(0)).toBeCloseTo(PAD, 6);
-    expect(s.x(1)).toBeCloseTo(s.todayX, 6);
-    expect(s.x(21)).toBeCloseTo(W - PAD, 6);
-    // Continuous and increasing across the junction.
-    expect(s.x(0.999)).toBeLessThan(s.x(1));
-    expect(s.x(1)).toBeLessThan(s.x(1.001));
+    const day = (W - 2 * PAD) / 60;
+    expect(s.x(0)).toBeCloseTo(PAD, 9);
+    expect(s.x(60)).toBeCloseTo(W - PAD, 9);
+    expect(s.x(1) - s.x(0)).toBeCloseTo(day, 9);
+    expect(s.x(31) - s.x(30)).toBeCloseTo(day, 9);
+    expect(s.x(59) - s.x(58)).toBeCloseTo(day, 9);
+    // "Ce mois-ci": today in the middle, whatever the amount of history.
+    expect(s.todayX).toBeCloseTo(W / 2, 9);
+    expect(s.todayRatio).toBeCloseTo(0.5, 9);
+    expect(s.domainDays).toEqual([0, 60]);
   });
 
-  it('joins the projection to the last trend point, and starts the band on that day', () => {
-    const s = chartScale({ width: W, height: H, trend, raw: trend, projection, band });
+  it('joins the last trend point to the projection, which starts today', () => {
+    const s = chartScale({ width: W, height: H, domainDays: [0, 60], todayDay: 30, trend, raw: trend, projection, band });
     if (!s) throw new Error('scale');
     const lastTrend = s.trend[s.trend.length - 1];
+    // The dashed join: from the last trend point (day 27) to today (day 30), then the plan's samples.
     expect(s.projection[0]).toEqual(lastTrend);
-    // Samples of the plan before the junction are dropped, never drawn back into the past.
-    expect(s.projection).toHaveLength(4);
-    expect(s.projection.every((p) => p.x >= (lastTrend?.x ?? 0) - 1e-9)).toBe(true);
-    expect(s.band.top[0]?.x).toBeCloseTo(s.todayX, 6);
-    expect(s.band.bottom[0]?.x).toBeCloseTo(s.todayX, 6);
+    expect(s.projection[1]?.x).toBeCloseTo(s.x(30), 9);
+    expect(s.projection).toHaveLength(projection.length + 1);
+    // The band starts today, not on the last weigh-in.
+    expect(s.band.top[0]?.x).toBeCloseTo(s.todayX, 9);
+    // Weighed today: no join to draw, the projection starts on the trend point itself.
+    const weighedToday = chartScale({ width: W, height: H, domainDays: [0, 60], todayDay: 30, trend: [{ day: 30, kg: 80.6 }], projection });
+    expect(weighedToday?.projection).toHaveLength(projection.length);
+    expect(weighedToday?.projection[0]).toEqual(weighedToday?.trend[0]);
   });
 
   it('interpolates the band on the segment that crosses the junction', () => {
@@ -94,9 +107,26 @@ describe('chart scale (A3)', () => {
     );
     expect(clipped[0]).toEqual({ day: 1, lo: 80 - 1 / 7, hi: 82 - 1 / 7 });
     expect(clipped).toHaveLength(2);
-    // A band that starts after the junction is extended flat back to it, so it never floats away.
     expect(clipBandFrom([{ day: 7, lo: 79, hi: 81 }], 1)[0]).toEqual({ day: 1, lo: 79, hi: 81 });
     expect(clipBandFrom([], 1)).toEqual([]);
+  });
+
+  it('interrupts the trend over a pause and gives the pause its own span (point 1d)', () => {
+    const points = [0, 5, 10, 32, 36].map((day) => ({ day, kg: 80 }));
+    const pauses = [{ fromDay: 10, toDay: 32 }];
+    expect(splitAtPauses(points, pauses).map((seg) => seg.map((p) => p.day))).toEqual([
+      [0, 5, 10],
+      [32, 36],
+    ]);
+    expect(splitAtPauses(points, [])).toHaveLength(1);
+    const s = chartScale({ width: W, height: H, domainDays: [0, 60], todayDay: 36, trend: points, raw: points, pauses });
+    if (!s) throw new Error('scale');
+    expect(s.trendSegments).toHaveLength(2);
+    expect(s.trend).toHaveLength(5);
+    expect(s.pauses).toEqual([{ x0: s.x(10), x1: s.x(32) }]);
+    // A pause that started before the window is cut at its left edge.
+    const clipped = chartScale({ width: W, height: H, domainDays: [0, 60], todayDay: 36, trend: points, pauses: [{ fromDay: -8, toDay: 0 }] });
+    expect(clipped?.pauses[0]?.x0).toBeCloseTo(PAD, 9);
   });
 
   it('a single weigh-in draws one point without a degenerate scale', () => {
@@ -107,18 +137,6 @@ describe('chart scale (A3)', () => {
     expect(one.domainKg[1] - one.domainKg[0]).toBeGreaterThan(1);
     expect(Number.isFinite(one.trend[0]?.x ?? Number.NaN)).toBe(true);
     expect(Number.isFinite(one.trend[0]?.y ?? Number.NaN)).toBe(true);
-    // With a plan, that single point sits on the junction and the projection still starts on it.
-    const withPlan = chartScale({ width: W, height: H, trend: [{ day: 0, kg: 81 }], projection: [{ day: 7, kg: 80.5 }] });
-    expect(withPlan?.trend[0]?.x).toBeCloseTo(withPlan?.todayX ?? -1, 6);
-    expect(withPlan?.projection[0]).toEqual(withPlan?.trend[0]);
-  });
-
-  it('gives the whole width to the history when there is nothing ahead', () => {
-    const s = chartScale({ width: W, height: H, trend, raw: trend });
-    if (!s) throw new Error('scale');
-    expect(s.todayX).toBeCloseTo(W - PAD, 6);
-    expect(s.x(0)).toBeCloseTo(PAD, 6);
-    expect(s.band.top).toEqual([]);
   });
 
   it('two points on the same day share one abscissa, a gap of days spreads them apart', () => {
@@ -135,73 +153,124 @@ describe('chart scale (A3)', () => {
   it('returns nothing when there is nothing to draw', () => {
     expect(chartScale({ width: W, height: H })).toBeNull();
   });
+
+  it('labels: the first date, "Auj." and the last date; an end label too close to "Auj." is left out', () => {
+    expect(axisLabels(0.5)).toEqual({ start: true, end: true });
+    expect(axisLabels(0.95)).toEqual({ start: true, end: false });
+    expect(axisLabels(0.03)).toEqual({ start: false, end: true });
+  });
 });
 
-describe('Suivi chart data (A3)', () => {
-  /** The reported case: first weigh-in yesterday, two more today, 3 month window. */
+describe('Suivi chart data (UX pass 3, point 1)', () => {
+  /** The reported case of A3: first weigh-in yesterday, two more today. */
   const reported = storeWith([
     { date: addDays(TODAY, -1), kg: 81 },
     { date: TODAY, kg: 82, time: '07:10' },
     { date: TODAY, kg: 83, time: '09:40' },
   ]);
 
-  it('draws nothing ahead while Wheighty is still learning', () => {
-    const chart = trackingChart(reported, TODAY, 90, computeCalibrationState(reported, TODAY, at(TODAY)));
+  it('"Ce mois-ci": 30 days before today and 30 after, today in the middle, even for a new user', () => {
+    const chart = trackingChart(reported, TODAY, TRACKING_RANGE_DAYS.month, computeCalibrationState(reported, TODAY, at(TODAY)));
     if (!chart) throw new Error('chart');
+    expect(TRACKING_MONTH_DAYS_EACH_SIDE).toBe(30);
+    expect(chart.startDate).toBe(addDays(TODAY, -30));
+    expect(chart.todayDay).toBe(30);
+    expect(chart.endDay).toBe(60);
+    expect(chart.endDate).toBe(addDays(TODAY, 30));
+    // Learning (D3 of A3): nothing ahead, the window does not change.
     expect(chart.projectionPending).toBe(true);
     expect(chart.projection).toEqual([]);
     expect(chart.band).toEqual([]);
-    // The history then takes the whole width instead of leaving an empty third.
-    const s = chartScale({ width: W, height: H, trend: chart.trend, raw: chart.raw });
-    expect(s?.todayX).toBeCloseTo(W - PAD, 6);
+    const s = chartScale({ width: W, height: H, domainDays: [0, chart.endDay], todayDay: chart.todayDay, trend: chart.trend, raw: chart.raw });
+    expect(s?.todayRatio).toBeCloseTo(0.5, 9);
   });
 
-  it('the 1 month, 3 month and "Tout" windows all place today at the same spot', () => {
+  it('"Tout": from the first weigh-in to the day the projection reaches the target weight', () => {
     const { store, state } = calibratedStore();
-    for (const days of [30, 90, null]) {
-      const chart = trackingChart(store, TODAY, days, state);
-      if (!chart) throw new Error('chart');
-      expect(chart.projectionPending).toBe(false);
-      expect(chart.projection.length).toBeGreaterThan(1);
-      const s = chartScale({ width: W, height: H, trend: chart.trend, raw: chart.raw, projection: chart.projection, band: chart.band });
+    const chart = trackingChart(store, TODAY, TRACKING_RANGE_DAYS.all, state);
+    const live = projectionFromToday(store, TODAY, state);
+    if (!chart || !live || live.daysToTarget === null) throw new Error('chart');
+    expect(chart.startDate).toBe(store.weights[0]?.date);
+    expect(chart.todayDay).toBe(daysBetween(chart.startDate, TODAY));
+    expect(chart.endDay).toBe(chart.todayDay + Math.min(TRACKING_ALL_MAX_DAYS_AHEAD, live.daysToTarget));
+    expect(chart.arrival?.date).toBe(addDays(TODAY, live.daysToTarget));
+    expect(chart.arrival?.day).toBe(chart.endDay);
+    // The projection is drawn to the arrival, never beyond the window.
+    expect(chart.projection[chart.projection.length - 1]?.day).toBe(chart.endDay);
+    expect(chart.projection.every((p) => p.day <= chart.endDay)).toBe(true);
+  });
+
+  it('"Tout" in maintenance: 30 days after today', () => {
+    const { store, state } = calibratedStore(77, 0, makeProfile({ goal: 'maintenance', currentWeightKg: 81, targetWeightKg: 81, weeklyRateTarget: 0 }));
+    const chart = trackingChart(store, TODAY, TRACKING_RANGE_DAYS.all, state);
+    if (!chart) throw new Error('chart');
+    expect(chart.endDay - chart.todayDay).toBe(TRACKING_ALL_DAYS_AHEAD);
+    expect(chart.arrival).toBeNull();
+    expect(chart.projection.length).toBeGreaterThan(1);
+  });
+
+  it('"Auj." and day 0 of the projection are on today, not on the last weigh-in; a dashed join fills the gap (point 1b)', () => {
+    // Last weigh-in 3 days ago: A3 drew today and the start of the projection 3 days early.
+    const { store, state } = calibratedStore(77, 3);
+    const live = projectionFromToday(store, TODAY, state, undefined, 1);
+    for (const range of [TRACKING_RANGE_DAYS.month, TRACKING_RANGE_DAYS.all]) {
+      const chart = trackingChart(store, TODAY, range, state);
+      if (!chart || !live) throw new Error('chart');
+      const lastTrend = chart.trend[chart.trend.length - 1];
+      if (!lastTrend) throw new Error('trend');
+      expect(chart.todayDay - lastTrend.day).toBe(3);
+      expect(chart.projection[0]?.day).toBe(chart.todayDay);
+      // The display shift in service is kept as is: the projection starts at the height of the last trend point.
+      const shift = lastTrend.kg - (live.trajectory[0]?.weightKg ?? Number.NaN);
+      expect(chart.projection[0]?.kg).toBeCloseTo(lastTrend.kg, 9);
+      expect(chart.projection[5]?.kg).toBeCloseTo((live.trajectory[5]?.weightKg ?? Number.NaN) + shift, 9);
+      const s = chartScale({ width: W, height: H, domainDays: [0, chart.endDay], todayDay: chart.todayDay, trend: chart.trend, projection: chart.projection });
       if (!s) throw new Error('scale');
-      expect(s.todayRatio).toBeCloseTo((PAD + (1 - FUTURE_WIDTH_SHARE) * (W - 2 * PAD)) / W, 6);
-      expect(s.projection[0]).toEqual(s.trend[s.trend.length - 1]);
+      expect(s.projection[0]?.x).toBeCloseTo(s.x(lastTrend.day), 9);
+      expect(s.projection[1]?.x).toBeCloseTo(s.todayX, 9);
     }
   });
 
-  it('the projection is drawn from the current trend weight, not from the weight the plan was built with', () => {
+  it('the projection is drawn day by day; the plan announcement keeps its own sampling (point 1c)', () => {
     const { store, state } = calibratedStore();
-    const chart = trackingChart(store, TODAY, 90, state);
-    const live = projectionFromToday(store, TODAY, state);
-    const plan = store.plan;
-    if (!chart || !live || !plan) throw new Error('chart');
-    const lastTrend = chart.trend[chart.trend.length - 1];
-    if (!lastTrend) throw new Error('trend');
-    // Model 1.4.0: the fresh simulation starts from the modeled weight of the day (production solver), close to the trend
-    // point; the chart draws it from the trend point itself: no step at the junction.
-    expect(Math.abs((live.trajectory[0]?.weightKg ?? Number.NaN) - lastTrend.kg)).toBeLessThan(0.5);
-    const shift = lastTrend.kg - (live.trajectory[0]?.weightKg ?? Number.NaN);
-    expect(chart.projection[1]?.kg).toBeCloseTo((live.trajectory[1]?.weightKg ?? Number.NaN) + shift, 6);
-    expect(chart.projection[0]?.day).toBe(lastTrend.day);
-    expect(chart.projection[0]?.kg).toBeCloseTo(lastTrend.kg, 6);
-    // The stored snapshot still says something else: it was computed for the starting weight, months ago.
-    expect(plan.projection.trajectory[0]?.weightKg).not.toBeCloseTo(lastTrend.kg, 1);
-    // The 80 % band opens near the junction instead of arriving already several kilos wide. Model 1.4.0: its bounds start
-    // from the modeled bodies at the bounds of the offset interval, so today's state is uncertain too (under 1 kg here).
-    const firstBand = chart.band[0];
-    const lastBand = chart.band[chart.band.length - 1];
-    if (!firstBand || !lastBand) throw new Error('band');
-    expect(firstBand.hi - firstBand.lo).toBeLessThan(1);
-    expect(lastBand.hi - lastBand.lo).toBeGreaterThan(firstBand.hi - firstBand.lo);
-    expect(lastBand.hi - lastBand.lo).toBeLessThan(4);
+    const chart = trackingChart(store, TODAY, TRACKING_RANGE_DAYS.all, state);
+    if (!chart) throw new Error('chart');
+    for (let i = 1; i < chart.projection.length; i++) expect((chart.projection[i]?.day ?? 0) - (chart.projection[i - 1]?.day ?? 0)).toBe(1);
+    const weekly = projectionFromToday(store, TODAY, state);
+    const daily = projectionFromToday(store, TODAY, state, undefined, 1);
+    if (!weekly || !daily) throw new Error('projection');
+    // Same day of arrival, same weeks, same horizon: only the samples in between are added.
+    expect(daily.daysToTarget).toBe(weekly.daysToTarget);
+    expect(daily.approximateWeeks).toBe(weekly.approximateWeeks);
+    expect(daily.horizonDays).toBe(weekly.horizonDays);
+    const sameDays = (list: typeof daily.trajectory) => list.filter((p) => weekly.trajectory.some((w) => w.day === p.day));
+    expect(sameDays(daily.trajectory)).toEqual(weekly.trajectory);
+    expect(sameDays(daily.lower80)).toEqual(weekly.lower80);
+    expect(sameDays(daily.upper80)).toEqual(weekly.upper80);
+  });
+
+  it('pauses of the gate are passed as they are, clipped to the window (point 1d)', () => {
+    const start = addDays(TODAY, -60);
+    const s = storeWith(
+      [0, 7, 14, 36, 43, 50, 57].map((d, i) => ({ date: addDays(start, d), kg: 81 - i * 0.2 })),
+      start,
+    );
+    const all = trackingChart(s, TODAY, TRACKING_RANGE_DAYS.all, null);
+    expect(all?.pauses).toEqual([{ fromDay: 14, toDay: 36, from: addDays(start, 14), to: addDays(start, 36) }]);
+    // "Ce mois-ci" starts 30 days ago, inside the pause: the pause is kept, from before the left edge.
+    expect(trackingChart(s, TODAY, TRACKING_RANGE_DAYS.month, null)?.pauses).toEqual([{ fromDay: -16, toDay: 6, from: addDays(start, 14), to: addDays(start, 36) }]);
+    // A pause that ended before the window is left out.
+    const old = storeWith([0, 20, 50, 57].map((d) => ({ date: addDays(start, d), kg: 81 })), start);
+    expect(trackingChart(old, TODAY, TRACKING_RANGE_DAYS.month, null)?.pauses).toEqual([{ fromDay: -10, toDay: 20, from: addDays(start, 20), to: addDays(start, 50) }]);
+    expect(trackingChart(old, TODAY, TRACKING_RANGE_DAYS.all, null)?.pauses).toHaveLength(2);
   });
 
   it('the plan stored in the store is never rewritten by what the chart draws', () => {
     const { store, state } = calibratedStore();
     const before = JSON.stringify(store.plan);
-    trackingChart(store, TODAY, 90, state);
-    projectionFromToday(store, TODAY, state);
+    trackingChart(store, TODAY, 30, state);
+    trackingChart(store, TODAY, null, state);
+    projectionFromToday(store, TODAY, state, undefined, 1);
     expect(JSON.stringify(store.plan)).toBe(before);
   });
 
@@ -211,23 +280,30 @@ describe('Suivi chart data (A3)', () => {
     expect(todayRows).toHaveLength(2);
     expect(todayRows.every((r) => r.time !== null)).toBe(true);
     expect(new Set(todayRows.map((r) => r.time)).size).toBe(2);
-    // A day with a single weigh-in keeps a plain label.
     expect(rows.find((r) => r.date === addDays(TODAY, -1))?.time).toBeNull();
   });
 
-  it('the chart carries a text alternative for screen readers', () => {
+  it('the text alternative says the window, the pause and where the projection leads (point 1e)', () => {
     const { store, state } = calibratedStore();
-    const chart = trackingChart(store, TODAY, 90, state);
+    const chart = trackingChart(store, TODAY, TRACKING_RANGE_DAYS.all, state);
     if (!chart) throw new Error('chart');
     const summary = chartSummary(chart, 'metric');
-    expect(summary).toMatch(/pesées depuis le/);
-    expect(summary).toMatch(/tendance de .* à .* kg/);
-    expect(summary).toMatch(/projection du plan à .* kg dans \d+ jours/);
-    const html = renderToStaticMarkup(createElement(WeightChart, { height: H, trend: chart.trend, raw: chart.raw, projection: chart.projection, band: chart.band, label: 'Évolution du poids', summary, axis: { start: 'Sept.', today: 'Auj.', future: 'Prévu' } }));
+    expect(summary).toMatch(/^Du \d+ \S+ au \d+ \S+ : \d+ pesées, tendance de .* à .* kg, projection du plan : poids cible atteint vers le \d+ \S+\.$/);
+    const month = trackingChart(store, TODAY, TRACKING_RANGE_DAYS.month, state);
+    if (!month) throw new Error('chart');
+    expect(chartSummary(month, 'metric')).toMatch(/projection du plan : .* kg le \d+ \S+\.$/);
+    const start = addDays(TODAY, -60);
+    const paused = trackingChart(storeWith([0, 7, 14, 36, 43].map((d) => ({ date: addDays(start, d), kg: 81 })), start), TODAY, null, null);
+    if (!paused) throw new Error('chart');
+    expect(chartSummary(paused, 'metric')).toMatch(/pause du suivi du \d+ \S+ au \d+ \S+/);
+    const html = renderToStaticMarkup(
+      createElement(WeightChart, { height: H, domainDays: [0, chart.endDay], todayDay: chart.todayDay, trend: chart.trend, raw: chart.raw, projection: chart.projection, band: chart.band, pauses: chart.pauses, label: 'Évolution du poids', summary, axis: { start: '1 sept.', today: 'Auj.', end: '3 mars' } }),
+    );
     expect(html).toContain('role="img"');
     expect(html).toContain('aria-label="Évolution du poids"');
     expect(html).toContain(summary);
     expect(html).toContain('chart-axis__today');
+    expect(html).toContain('3 mars');
   });
 
   it('no chart library, and the drawing reads its colours from the theme tokens', () => {
@@ -240,5 +316,12 @@ describe('Suivi chart data (A3)', () => {
     expect(src).toMatch(/data-theme/);
     expect(src).toMatch(/devicePixelRatio/);
     expect(src).not.toMatch(/<svg/);
+  });
+
+  it('the drawing depends on the content of the series, not on the identity of their arrays (point 1f)', () => {
+    const src = readFileSync('src/components/WeightChart.tsx', 'utf8');
+    expect(src).toMatch(/const dataKey = JSON\.stringify\(/);
+    expect(src).toMatch(/\[width, height, dataKey\]/);
+    expect(src).toMatch(/\[scale, theme, reveal\]/);
   });
 });

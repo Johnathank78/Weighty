@@ -1,38 +1,52 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEntryMotion } from '@/app/navigation';
-import { chartScale, FUTURE_WIDTH_SHARE } from '@/domain/chartScale';
-import type { ChartScale, DayBand, DayPoint, Marker } from '@/domain/chartScale';
+import { axisLabels, chartScale } from '@/domain/chartScale';
+import type { ChartScale, ChartScaleInput, DayBand, DayPoint, DaySpan, Marker } from '@/domain/chartScale';
 
 export type ChartPoint = DayPoint;
 export type BandPoint = DayBand;
 
 type Props = {
   height: number;
+  /** First and last day of the window (UX pass 3, point 1a: one time scale). Absent: the days of the data. */
+  domainDays?: readonly [number, number];
+  /** Day of "aujourd'hui" (UX pass 3, point 1b). Absent: the last trend point. */
+  todayDay?: number;
   trend?: readonly DayPoint[];
   raw?: readonly DayPoint[];
   projection?: readonly DayPoint[];
   band?: readonly DayBand[];
   markers?: readonly Marker[];
+  /** Tracking pauses (UX pass 3, point 1d): the trend is interrupted there, under a grey band. */
+  pauses?: readonly DaySpan[];
   /** Read out in place of the drawing. */
   label: string;
   /** Longer text alternative: what the curve says, in words. */
   summary?: string;
-  /** Labels under the chart. "today" is placed on the junction, the same one the drawing uses. */
-  axis?: { start: string; today: string; future?: string };
+  /** Labels under the chart: the first date, "Auj." at its real position, the last date. */
+  axis?: { start: string; today: string; end?: string };
   /** Legend of the projection band, shown when a band is drawn (UX pass 1, G7). */
   bandLabel?: string;
 };
 
 const REVEAL_MS = 900;
+const EMPTY: readonly never[] = [];
 
-/** Weight chart on a canvas (A3). The geometry comes from `chartScale`; this only paints it. */
-export function WeightChart({ height, trend = [], raw = [], projection = [], band = [], markers = [], label, summary, axis, bandLabel }: Props) {
+/**
+ * Weight chart on a canvas (A3). The geometry comes from `chartScale`; this only paints it. UX pass 3, point 1f: the drawing
+ * runs again only when what it draws changes (its data, its size, the theme), not on every render of the screen: a new
+ * array with the same content keeps the drawing in place.
+ */
+export function WeightChart({ height, domainDays, todayDay, trend = EMPTY, raw = EMPTY, projection = EMPTY, band = EMPTY, markers = EMPTY, pauses = EMPTY, label, summary, axis, bandLabel }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [width, setWidth] = useState(0);
   const [theme, setTheme] = useState<string>(() => (typeof document === 'undefined' ? 'light' : (document.documentElement.dataset.theme ?? 'light')));
-  const [scale, setScale] = useState<ChartScale | null>(null);
   // Drawn at once, without the progressive reveal, in a copy under a swipe and on the screen a swipe lands on (UX pass 2).
   const reveal = useEntryMotion();
+
+  // The content of the drawing, as one string: the geometry and the drawing depend on it, not on the identity of the arrays.
+  const dataKey = JSON.stringify({ ...(domainDays ? { domainDays } : {}), ...(todayDay !== undefined ? { todayDay } : {}), trend, raw, projection, band, markers, pauses });
+  const scale = useMemo<ChartScale | null>(() => (width > 0 ? chartScale({ width, height, ...(JSON.parse(dataKey) as Omit<ChartScaleInput, 'width' | 'height'>) }) : null), [width, height, dataKey]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -58,14 +72,12 @@ export function WeightChart({ height, trend = [], raw = [], projection = [], ban
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || width <= 0) return;
-    const geometry = chartScale({ width, height, trend, raw, projection, band, markers });
-    setScale(geometry);
+    if (!canvas || !scale) return;
     const ctx = canvas.getContext('2d');
-    if (!ctx || !geometry) return;
+    if (!ctx) return;
     const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
-    canvas.width = Math.round(width * dpr);
-    canvas.height = Math.round(height * dpr);
+    canvas.width = Math.round(scale.width * dpr);
+    canvas.height = Math.round(scale.height * dpr);
     const css = getComputedStyle(canvas);
     const colors = {
       coral: css.getPropertyValue('--coral').trim() || '#ff8162',
@@ -79,15 +91,16 @@ export function WeightChart({ height, trend = [], raw = [], projection = [], ban
     const frame = () => {
       const progress = reduced || !reveal ? 1 : Math.min(1, (performance.now() - t0) / REVEAL_MS);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, width, height);
-      paint(ctx, geometry, colors, 1 - Math.pow(1 - progress, 3));
+      ctx.clearRect(0, 0, scale.width, scale.height);
+      paint(ctx, scale, colors, 1 - Math.pow(1 - progress, 3));
       if (progress < 1) raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [width, height, theme, trend, raw, projection, band, markers, reveal]);
+  }, [scale, theme, reveal]);
 
-  const todayRatio = scale?.todayRatio ?? 1 - FUTURE_WIDTH_SHARE;
+  const todayRatio = scale?.todayRatio ?? 0.5;
+  const edges = axisLabels(todayRatio);
   return (
     <>
       <canvas ref={canvasRef} className="chart" style={{ height }} role="img" aria-label={label}>
@@ -96,17 +109,11 @@ export function WeightChart({ height, trend = [], raw = [], projection = [], ban
       {summary ? <p className="sr-only">{summary}</p> : null}
       {axis ? (
         <div className="chart-axis" aria-hidden="true">
-          <span>{axis.start}</span>
-          {axis.future ? (
-            <>
-              <span className="chart-axis__today" style={{ left: `${(todayRatio * 100).toFixed(1)}%` }}>
-                {axis.today}
-              </span>
-              <span style={{ opacity: 0.6 }}>{axis.future}</span>
-            </>
-          ) : (
-            <span>{axis.today}</span>
-          )}
+          <span style={edges.start ? undefined : { visibility: 'hidden' }}>{axis.start}</span>
+          <span className="chart-axis__today" style={{ left: `${(todayRatio * 100).toFixed(1)}%` }}>
+            {axis.today}
+          </span>
+          {axis.end ? <span style={edges.end ? { opacity: 0.6 } : { visibility: 'hidden' }}>{axis.end}</span> : null}
         </div>
       ) : null}
       {bandLabel && band.length > 1 ? (
@@ -135,16 +142,24 @@ function paint(ctx: CanvasRenderingContext2D, s: ChartScale, colors: Colors, pro
   ctx.lineTo(width, height - 0.5);
   ctx.stroke();
 
-  // Junction between the days behind and the days ahead: they do not share the same days per pixel.
-  if (s.projection.length > 1) {
+  // UX pass 3, point 1d: a discreet grey band over each pause, without text.
+  if (s.pauses.length > 0) {
     ctx.save();
-    ctx.setLineDash([2, 4]);
-    ctx.beginPath();
-    ctx.moveTo(s.todayX, 2);
-    ctx.lineTo(s.todayX, height - 1);
-    ctx.stroke();
+    ctx.globalAlpha = 0.08;
+    ctx.fillStyle = colors.ink2;
+    for (const p of s.pauses) if (p.x1 > p.x0) ctx.fillRect(p.x0, 0, p.x1 - p.x0, height - 1);
     ctx.restore();
   }
+
+  // Today (UX pass 3, point 1a): a discreet vertical line at its real position; one scale, so it marks no change of scale.
+  ctx.save();
+  ctx.globalAlpha = 0.7;
+  ctx.setLineDash([2, 4]);
+  ctx.beginPath();
+  ctx.moveTo(s.todayX, 2);
+  ctx.lineTo(s.todayX, height - 1);
+  ctx.stroke();
+  ctx.restore();
 
   if (s.band.top.length > 1) {
     ctx.save();
@@ -161,15 +176,17 @@ function paint(ctx: CanvasRenderingContext2D, s: ChartScale, colors: Colors, pro
     ctx.restore();
   }
 
-  if (s.trend.length > 1) {
+  // The area under the trend, one per tracking period (nothing under a pause).
+  for (const segment of s.trendSegments) {
+    if (segment.length < 2) continue;
     const area = ctx.createLinearGradient(0, 0, 0, height);
     area.addColorStop(0, withAlpha(colors.coral, 0.22));
     area.addColorStop(1, withAlpha(colors.coral, 0));
     ctx.fillStyle = area;
     ctx.beginPath();
-    trace(ctx, s.trend, 1);
-    const last = s.trend[s.trend.length - 1] as { x: number; y: number };
-    const first = s.trend[0] as { x: number; y: number };
+    trace(ctx, segment, 1);
+    const last = segment[segment.length - 1] as { x: number; y: number };
+    const first = segment[0] as { x: number; y: number };
     ctx.lineTo(last.x, height);
     ctx.lineTo(first.x, height);
     ctx.closePath();
@@ -199,14 +216,24 @@ function paint(ctx: CanvasRenderingContext2D, s: ChartScale, colors: Colors, pro
     ctx.restore();
   }
 
-  if (s.trend.length > 1) {
-    ctx.strokeStyle = line;
-    ctx.lineWidth = 3.2;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    trace(ctx, s.trend, progress);
-    ctx.stroke();
+  // The trend line, interrupted at each pause; revealed left to right over the whole history.
+  const total = s.trend.length - 1;
+  let before = 0;
+  ctx.strokeStyle = line;
+  ctx.lineWidth = 3.2;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (const segment of s.trendSegments) {
+    const n = segment.length;
+    if (n > 1 && total > 0) {
+      const reach = progress * total - before;
+      if (reach > 0) {
+        ctx.beginPath();
+        trace(ctx, segment, Math.min(1, reach / (n - 1)));
+        ctx.stroke();
+      }
+    }
+    before += n;
   }
 
   for (const m of s.markers) {

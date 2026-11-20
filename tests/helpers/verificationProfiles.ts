@@ -207,3 +207,25 @@ export function replanAndRecalibrationProfile(today: string): WheightyStore {
   if (!r.ok) throw new Error(r.reason);
   return tracked(r.store, start, 22, 61, () => true, () => 75 - 0.06 * 21);
 }
+
+// ---------------------------------------------------------------------------
+// UX pass 3 (report 50, section 4.5). No real data: synthetic stores.
+// ---------------------------------------------------------------------------
+
+/**
+ * 15. Pause and projection (point 1): a weigh-in and "Plan respecté" a day for 21 days, a pause of 20 days without a weigh-in,
+ * the return on day 42, a recalibration applied on day 60 (gate of the period met), then weigh-ins up to 3 days ago.
+ * Expected in Suivi: a grey band over the pause, "Auj." on today, the dashed join from the last weigh-in, the projection drawn
+ * day by day, on "Ce mois-ci" and on "Tout".
+ */
+export function pauseAndProjectionProfile(today: string): WheightyStore {
+  const { store, start } = history(verificationProfile('Test pause et projection'), today, 70);
+  const before = tracked(store, start, 0, 21);
+  const back = tracked(before, start, 42, 60, () => true, (i) => 75 - 0.06 * i + 0.4);
+  const day = addDays(start, 60);
+  const state = computeCalibrationState(back, day, at(day));
+  if (!state?.gate.met) throw new Error('gate of profile 15');
+  const r = applyRecalibration(back, state, day, at(day));
+  if (!r.ok) throw new Error(r.reason);
+  return tracked(r.store, start, 61, 67, () => true, (i) => 75 - 0.06 * i + 0.4);
+}
