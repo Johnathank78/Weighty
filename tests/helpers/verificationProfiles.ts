@@ -6,7 +6,8 @@
  */
 import { addWeight, applyRecalibration, completeOnboarding, computeCalibrationState, setAdherence } from '@/domain/engine';
 import { addFoodEntry } from '@/domain/journal';
-import { acceptMeasuredOffer, runJournalWeek, switchToAlignedTarget } from '@/domain/journalPath';
+import { acceptMeasuredOffer, changeGoalOnPath, runJournalWeek, switchToAlignedTarget } from '@/domain/journalPath';
+import { backfillRecalibrations } from '@/persistence/migrations';
 import { completeOnboardingWithTarget } from '@/domain/personalTarget';
 import { runDailyChecks } from '@/domain/planSafety';
 import type { WheightyStore } from '@/domain/types';
@@ -250,4 +251,37 @@ export function personalTargetRecalibrationProfile(today: string): WheightyStore
   const r = completeOnboardingWithTarget(emptyStore(), verificationProfile('Test cible et recalibration'), start, at(start), null, 1700);
   if (!r.ok) throw new Error(r.reason);
   return tracked(r.store, start, 1, 21, () => true, (i) => 75 - 0.1 * i);
+}
+
+/** A recalibration applied on day `day` of the tracking (the gate must be met). */
+function recalibrateOn(s: WheightyStore, start: string, day: number): WheightyStore {
+  const date = addDays(start, day);
+  const state = computeCalibrationState(s, date, at(date));
+  if (!state?.gate.met || !state.candidate) throw new Error(`gate on day ${day}`);
+  const r = applyRecalibration(s, state, date, at(date));
+  if (!r.ok) throw new Error(r.reason);
+  return r.store;
+}
+
+/**
+ * 14. History of the plan (point 3): onboarding 70 days ago; a recalibration on day 21 whose entry is the one the migration
+ * 10 -> 11 rebuilds (backfilled, plans unknown); a second recalibration on day 35; the speed changed on day 40 (0.5 -> 0.75 %
+ * a week); the periodic replan 28 days later (day 68). A weigh-in and "Plan respecté" a day. Expected: the page lists the
+ * five changes, most recent first, the rebuilt one as "Recalibration (détails non conservés)".
+ */
+export function planHistoryProfile(today: string): WheightyStore {
+  const { store, start } = history(verificationProfile('Test historique'), today, 70);
+  let s = tracked(store, start, 0, 21, () => true, (i) => 75 - 0.1 * i);
+  s = recalibrateOn(s, start, 21);
+  // As if written before schema 11: the entry of that recalibration is the rebuilt one.
+  const kept = s.meta.planEvents.filter((e) => e.rule !== 'recalibration');
+  s = { ...s, meta: { ...s.meta, planEvents: backfillRecalibrations(kept, s.calibrationSnapshots) as typeof kept } };
+  s = tracked(s, start, 22, 35, () => true, (i) => 75 - 0.1 * i);
+  s = recalibrateOn(s, start, 35);
+  s = tracked(s, start, 36, 40, () => true, (i) => 75 - 0.1 * i);
+  const d40 = addDays(start, 40);
+  const goal = changeGoalOnPath(s, d40, { goal: 'loss', targetWeightKg: 64, weeklyRate: 0.0075 });
+  if (!goal.ok) throw new Error(goal.reason);
+  s = tracked(goal.store, start, 41, 68, () => true, (i) => 75 - 0.1 * i);
+  return runDailyChecks(s, addDays(start, 68), at(addDays(start, 68)));
 }

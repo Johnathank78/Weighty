@@ -22,12 +22,13 @@ import { WhySheet } from '@/screens/WhySheet';
 import { PersonalTargetSheet } from '@/screens/PersonalTargetSheet';
 import { JournalScreen } from '@/screens/Journal';
 import { HistoryScreen } from '@/screens/History';
+import { PlanHistoryScreen } from '@/screens/PlanHistory';
 import { firstRecalibrationAutoOpenDue, markFirstRecalibrationOpened } from '@/domain/firstRecalibration';
 
 /** Screens shown with the bottom navigation; the others (moments, onboarding, deletion) take the whole screen. */
-const WITH_BOTTOM_NAV: ReadonlySet<ScreenId> = new Set(['today', 'journal', 'plan', 'macros', 'suivi', 'history', 'analyse', 'profil', 'params', 'data']);
+const WITH_BOTTOM_NAV: ReadonlySet<ScreenId> = new Set(['today', 'journal', 'plan', 'macros', 'suivi', 'history', 'analyse', 'profil', 'params', 'data', 'planHistory']);
 
-const NEEDS_PLAN: ReadonlySet<ScreenId> = new Set(['today', 'plan', 'macros', 'suivi', 'analyse', 'recalibration', 'profil', 'reached', 'journal', 'history']);
+const NEEDS_PLAN: ReadonlySet<ScreenId> = new Set(['today', 'plan', 'macros', 'suivi', 'analyse', 'recalibration', 'profil', 'reached', 'journal', 'history', 'planHistory']);
 
 /** The component of a screen: the live one, or a copy drawn under or beside it during a swipe. */
 function renderScreen(screen: ScreenId, hasPlan: boolean): ReactNode {
@@ -66,6 +67,8 @@ function renderScreen(screen: ScreenId, hasPlan: boolean): ReactNode {
       return <JournalScreen />;
     case 'history':
       return <HistoryScreen />;
+    case 'planHistory':
+      return <PlanHistoryScreen />;
   }
 }
 

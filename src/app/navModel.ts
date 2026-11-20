@@ -30,7 +30,8 @@ export type ScreenId =
   | 'delete'
   | 'reached'
   | 'journal'
-  | 'history';
+  | 'history'
+  | 'planHistory';
 
 export type SheetId = 'balance' | 'weigh' | 'adherence' | 'steps' | 'why' | 'goal' | 'food' | 'foodEdit' | 'weighOptions' | 'productConsent' | 'productClear' | 'personalTarget' | 'planChange';
 

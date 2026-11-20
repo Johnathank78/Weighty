@@ -16,10 +16,11 @@ import { runDailyChecks } from '@/domain/planSafety';
 import type { WheightyStore } from '@/domain/types';
 import { exportStore, parseImport } from '@/persistence/exportImport';
 import { addDays, localIsoDate } from '@/science/dates';
-import { at, backAfterPauseProfile, buttonProfile, deducedAdherenceProfile, eat, firstPlanProfile, firstRecalibrationProfile, personalTargetRecalibrationProfile, incompleteDayProfile, pauseWithoutWeighInProfile, personalTargetProfile, proposalProfile, pauseAndProjectionProfile, recalibratedGateClosedProfile, replanAndRecalibrationProfile, returnProfile, takeoverProfile } from '../../helpers/verificationProfiles';
+import { at, backAfterPauseProfile, buttonProfile, deducedAdherenceProfile, eat, firstPlanProfile, firstRecalibrationProfile, personalTargetRecalibrationProfile, planHistoryProfile, incompleteDayProfile, pauseWithoutWeighInProfile, personalTargetProfile, proposalProfile, pauseAndProjectionProfile, recalibratedGateClosedProfile, replanAndRecalibrationProfile, returnProfile, takeoverProfile } from '../../helpers/verificationProfiles';
 import { hasAppliedRecalibration, periodicReplanDue, weighInStale } from '@/domain/engine';
 import { staleWeighInNotice } from '@/domain/planSafety';
 import { firstRecalibrationAutoOpenDue } from '@/domain/firstRecalibration';
+import { planHistory } from '@/domain/planHistory';
 import { analysisView, gateProgress, todayStatusTitle, trackingChart, TRACKING_RANGE_DAYS } from '@/domain/views';
 
 const TODAY = process.env.MANUAL_TODAY ?? localIsoDate(new Date());
@@ -131,6 +132,10 @@ it(`pass 5b manual check profiles, for ${TODAY}`, () => {
   expect(firstRecalibrationAutoOpenDue(personalRecal, TODAY, personalRecalState, false)).toBe(false);
   expect(takeOverPersonalTarget(personalRecal, personalRecalState, TODAY, at(TODAY)).plan?.source).toBe('recalibrated');
   write('13-cible-personnelle-recalibration.json', personalTargetRecalibrationProfile(TODAY));
+
+  const historyStore = runDailyChecks(planHistoryProfile(TODAY), TODAY, at(TODAY));
+  expect(planHistory(historyStore, TODAY).map((e) => e.cause)).toEqual(['Recalcul régulier', 'Tu as changé de vitesse ou d’objectif', 'Mise à jour avec tes pesées', 'Recalibration (détails non conservés)', 'Ton premier plan']);
+  write('14-historique-du-plan.json', planHistoryProfile(TODAY));
 
   const paused = runDailyChecks(pauseAndProjectionProfile(TODAY), TODAY, at(TODAY));
   const pausedState = computeCalibrationState(paused, TODAY, at(TODAY));

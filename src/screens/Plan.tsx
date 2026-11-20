@@ -9,7 +9,8 @@ import { displayMacros, goalStatus, maintenanceZoneFor, planEnergyBalanceKcal, s
 import { sliderBoundsFor } from '@/domain/sliderView';
 import { AlignProposalCard } from '@/components/JournalCards';
 import { alignButton, alignedLockLine, alignedTargetPreview, balanceSliderAvailable, habitLine, journalBalanceLine } from '@/domain/journalPath';
-import { JOURNAL_MESSAGE, PLAN_CHANGE_MESSAGE } from '@/domain/planMessages';
+import { JOURNAL_MESSAGE, PLAN_CHANGE_MESSAGE, PLAN_HISTORY_MESSAGE } from '@/domain/planMessages';
+import { NavRow } from '@/components/controls';
 import { personalTargetLine } from '@/domain/personalTarget';
 import { planChangeOptions } from '@/domain/planChange';
 import { PlanChangeSheet } from '@/screens/PlanChangeSheet';
@@ -209,6 +210,10 @@ export function PlanScreen() {
         </button>
       ) : null}
       <PlanChangeSheet options={changeOptions} onAlign={() => setAsking(true)} />
+      {/* Report 50, point 3: the changes of the plan, read in the trace (a page stacked above Plan). */}
+      <div className="rows" style={{ marginTop: 22 }}>
+        <NavRow label={PLAN_HISTORY_MESSAGE.link} onClick={() => go('planHistory')} />
+      </div>
       {plan.warnings?.belowRee ? (
         <div className="note" style={{ marginTop: 16 }}>
           <Mascot variant="search" width={40} />

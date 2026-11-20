@@ -214,6 +214,7 @@ export const BACK_LABEL: Partial<Record<string, string>> = {
   data: 'Mes données',
   history: 'Historique',
   recalibration: 'Recalibration',
+  planHistory: 'Historique',
 };
 
 /** UX pass 1, G: the message zone of Aujourd'hui and Suivi. */

@@ -15,7 +15,10 @@ import { validateStore } from '@/persistence/schema';
 import { addDays } from '@/science/dates';
 import { addWeight, setAdherence } from '@/domain/engine';
 import * as profiles from '../helpers/verificationProfiles';
-import { at, firstRecalibrationProfile, history, personalTargetRecalibrationProfile, recalibratedGateClosedProfile, verificationProfile } from '../helpers/verificationProfiles';
+import { inPlanHistory, planHistory, PLAN_HISTORY_RULES } from '@/domain/planHistory';
+import { PLAN_EVENT_RULES } from '@/domain/types';
+import type { PlanEvent } from '@/domain/types';
+import { at, firstRecalibrationProfile, history, planHistoryProfile, personalTargetRecalibrationProfile, recalibratedGateClosedProfile, verificationProfile } from '../helpers/verificationProfiles';
 
 /** Every verification profile (1 to 11 of reports 45 to 49, and those of this pass), for the migration and the round trip. */
 const ALL_PROFILES = Object.entries(profiles).filter(([name, f]) => name.endsWith('Profile') && name !== 'verificationProfile' && typeof f === 'function') as Array<[string, (today: string) => WheightyStore]>;
@@ -160,5 +163,48 @@ describe('2. the first recalibration (E2)', () => {
     expect(days[1]).toMatchObject({ surfaced: true, deferredOn: TODAY, checkedOn: addDays(TODAY, 1), sameplan: true, target });
     expect(days[2]).toMatchObject({ surfaced: true, checkedOn: addDays(TODAY, 1), sameplan: true, target });
     expect(days[3]).toMatchObject({ surfaced: true, checkedOn: addDays(TODAY, 1), sameplan: true, target });
+  });
+});
+
+describe('3. the history of the plan (E3)', () => {
+  it('lists the changes of the trace, most recent first, with the date, the target before -> after and the cause', () => {
+    const store = opened(planHistoryProfile(TODAY));
+    const entries = planHistory(store, TODAY);
+    expect(entries.map((e) => e.cause)).toEqual(['Recalcul régulier', 'Tu as changé de vitesse ou d’objectif', 'Mise à jour avec tes pesées', 'Recalibration (détails non conservés)', 'Ton premier plan']);
+    // Most recent first: the dates never increase down the list.
+    for (let i = 1; i < entries.length; i++) expect((entries[i]?.date ?? '') <= (entries[i - 1]?.date ?? '')).toBe(true);
+    const [replan, speed, recal, rebuilt, first] = entries;
+    expect(first).toMatchObject({ beforeKcal: null, backfilled: false });
+    expect(first?.targetText).toMatch(/^\d[\d\s]* kcal par jour$/);
+    expect(speed?.targetText).toMatch(/→/);
+    expect(speed?.details[1]?.replace(/\s/g, ' ')).toMatch(/^Vitesse : 0,5 % par semaine → 0,75 % par semaine\.$/);
+    expect(recal?.details[0]).toMatch(/^Maintien estimé : .* → .* kcal par jour\.$/);
+    expect(replan?.beforeKcal).toBe(speed?.afterKcal);
+    // The entry rebuilt by the migration: no plans, no details.
+    expect(rebuilt).toMatchObject({ backfilled: true, beforeKcal: null, afterKcal: null, targetText: null, details: [] });
+    // The source is the trace alone: the same list from the trace, whatever the rest of the store.
+    expect(planHistory({ ...store, weights: [], calibrationSnapshots: [], dailyLogs: [] }, TODAY)).toEqual(entries);
+  });
+
+  it('kept and left out, rule by rule', () => {
+    const summary = { createdAt: 'x', source: 'initial', goal: 'loss', calorieTarget: 1800, stepTarget: 7000, weeklyRateTarget: 0.005, requestedWeeklyRate: 0.005, maintenanceKcal: 2300, targetWeightKg: 64 } as const;
+    const entry = (rule: PlanEvent['rule'], over: Partial<PlanEvent> = {}): PlanEvent => ({ id: rule, date: TODAY, rule, status: 'applied', before: summary, after: summary, message: null, seen: true, ...over });
+    for (const rule of PLAN_EVENT_RULES) expect(inPlanHistory(entry(rule)), rule).toBe((PLAN_HISTORY_RULES as readonly string[]).includes(rule));
+    expect(inPlanHistory(entry('recalibration', { status: 'failed' }))).toBe(false);
+    expect(inPlanHistory(entry('periodic_replan', { after: null }))).toBe(false);
+    expect(inPlanHistory(entry('recalibration', { before: null, after: null, backfilled: true }))).toBe(true);
+    // An offer of the measured habit carries the plan offered, not applied: left out.
+    expect(inPlanHistory(entry('journal_measured_offer'))).toBe(false);
+  });
+
+  it('empty: a short sentence; a date of another year carries the year', () => {
+    const store = opened(firstRecalibrationProfile(TODAY));
+    const onlyOther = { ...store, meta: { ...store.meta, planEvents: store.meta.planEvents.filter((e) => e.rule !== 'onboarding') } };
+    expect(planHistory(onlyOther, TODAY)).toEqual([]);
+    const old = { ...store, meta: { ...store.meta, planEvents: store.meta.planEvents.map((e) => ({ ...e, date: '2025-12-31' })) } };
+    expect(planHistory(old, TODAY)[0]?.dateText).toBe('31 décembre 2025');
+    const src = readFileSync('src/screens/PlanHistory.tsx', 'utf8');
+    expect(src).toMatch(/PLAN_HISTORY_MESSAGE\.empty/);
+    expect(src).toMatch(/planHistory\(store, today\)/);
   });
 });

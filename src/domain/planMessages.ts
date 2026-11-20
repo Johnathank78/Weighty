@@ -263,3 +263,41 @@ export function refusalReasonText(reason: string, floorKcal: number | null): str
 export function recalibrationRefusedText(reason: string, floorKcal: number | null): string {
   return `On n’a pas pu recalculer ton plan : ${refusalReasonText(reason, floorKcal)}. Tu peux passer en maintien.`;
 }
+
+/**
+ * History of the plan (report 50, UX pass 3, point 3): the cause of each change, in plain words, one per rule of the trace.
+ * Texts of the prompt for 'recalibration', 'user_goal', 'periodic_replan' and 'G1'; the others in the same style (listed in
+ * report 50). Never use the em dash character in this file.
+ */
+export const PLAN_HISTORY_MESSAGE = {
+  link: 'Historique de mon plan',
+  title: 'Historique de mon plan',
+  lead: 'Chaque changement de ta cible, le plus récent en haut.',
+  empty: 'Ton plan n’a pas encore changé.',
+  details: 'Détails',
+  cause: {
+    onboarding: 'Ton premier plan',
+    recalibration: 'Mise à jour avec tes pesées',
+    recalibration_maintenance: 'Mise à jour avec tes pesées, passage en maintien',
+    user_goal: 'Tu as changé de vitesse ou d’objectif',
+    user_slider: 'Tu as ajusté l’équilibre manger / marcher',
+    user_profile: 'Tu as modifié tes informations',
+    periodic_replan: 'Recalcul régulier',
+    G1: 'Sécurité : IMC 20',
+    G2: 'Sécurité : vitesse ramenée au maximum',
+    personal_target_set: 'Tu as choisi ta cible',
+    personal_target_takeover: 'Ta cible, reprise après tes pesées',
+    journal_switch: 'Cible alignée sur ton journal',
+    journal_measured_enter: 'Plan calé sur ton journal',
+    journal_measured_update: 'Plan mis à jour avec ton journal',
+  },
+  backfilled: 'Recalibration (détails non conservés)',
+  target: (before: number, after: number) => `${formatKcal(before)} → ${formatKcal(after)} kcal par jour`,
+  firstTarget: (after: number) => `${formatKcal(after)} kcal par jour`,
+  maintenance: (before: number | null, after: number | null) =>
+    before === null ? `Maintien estimé : ${formatKcal(after ?? 0)} kcal par jour.` : `Maintien estimé : ${formatKcal(before)} → ${formatKcal(after ?? before)} kcal par jour.`,
+  speed: (text: string) => `Vitesse : ${text}.`,
+  speedChange: (before: string, after: string) => (before === after ? `Vitesse : ${after}.` : `Vitesse : ${before} → ${after}.`),
+  maintenanceGoal: 'maintien du poids',
+  perWeek: (rate: number) => `${formatRatePercent(rate)} par semaine`,
+} as const;
