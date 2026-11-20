@@ -16,9 +16,10 @@ import { runDailyChecks } from '@/domain/planSafety';
 import type { WheightyStore } from '@/domain/types';
 import { exportStore, parseImport } from '@/persistence/exportImport';
 import { addDays, localIsoDate } from '@/science/dates';
-import { at, backAfterPauseProfile, buttonProfile, deducedAdherenceProfile, eat, firstPlanProfile, incompleteDayProfile, pauseWithoutWeighInProfile, personalTargetProfile, proposalProfile, pauseAndProjectionProfile, recalibratedGateClosedProfile, replanAndRecalibrationProfile, returnProfile, takeoverProfile } from '../../helpers/verificationProfiles';
+import { at, backAfterPauseProfile, buttonProfile, deducedAdherenceProfile, eat, firstPlanProfile, firstRecalibrationProfile, personalTargetRecalibrationProfile, incompleteDayProfile, pauseWithoutWeighInProfile, personalTargetProfile, proposalProfile, pauseAndProjectionProfile, recalibratedGateClosedProfile, replanAndRecalibrationProfile, returnProfile, takeoverProfile } from '../../helpers/verificationProfiles';
 import { hasAppliedRecalibration, periodicReplanDue, weighInStale } from '@/domain/engine';
 import { staleWeighInNotice } from '@/domain/planSafety';
+import { firstRecalibrationAutoOpenDue } from '@/domain/firstRecalibration';
 import { analysisView, gateProgress, todayStatusTitle, trackingChart, TRACKING_RANGE_DAYS } from '@/domain/views';
 
 const TODAY = process.env.MANUAL_TODAY ?? localIsoDate(new Date());
@@ -120,6 +121,17 @@ it(`pass 5b manual check profiles, for ${TODAY}`, () => {
   write('11-recalcul-et-recalibration.json', both);
 
   // Report 50 (UX pass 3, 4.5): synthetic profiles 12 to 16.
+  const firstRecal = runDailyChecks(firstRecalibrationProfile(TODAY), TODAY, at(TODAY));
+  expect(firstRecalibrationAutoOpenDue(firstRecal, TODAY, computeCalibrationState(firstRecal, TODAY, at(TODAY)), false)).toBe(true);
+  write('12-premiere-recalibration.json', firstRecalibrationProfile(TODAY));
+
+  const personalRecal = runDailyChecks(personalTargetRecalibrationProfile(TODAY), TODAY, at(TODAY));
+  const personalRecalState = computeCalibrationState(personalRecal, TODAY, at(TODAY));
+  expect(personalRecalState?.surfaced).toBe(true);
+  expect(firstRecalibrationAutoOpenDue(personalRecal, TODAY, personalRecalState, false)).toBe(false);
+  expect(takeOverPersonalTarget(personalRecal, personalRecalState, TODAY, at(TODAY)).plan?.source).toBe('recalibrated');
+  write('13-cible-personnelle-recalibration.json', personalTargetRecalibrationProfile(TODAY));
+
   const paused = runDailyChecks(pauseAndProjectionProfile(TODAY), TODAY, at(TODAY));
   const pausedState = computeCalibrationState(paused, TODAY, at(TODAY));
   for (const range of [TRACKING_RANGE_DAYS.month, TRACKING_RANGE_DAYS.all]) {

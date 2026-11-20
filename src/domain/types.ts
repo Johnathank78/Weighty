@@ -42,8 +42,10 @@ import type {
  * `PlanEvent.backfilled`; `AppMeta.staleWeighInNoticeClosedOn` (point 4) and `AppMeta.periodicReplanDeferredOn` (point 5). Loaded from schema 10 with an empty log and one
  * backfilled 'recalibration' entry per applied calibration snapshot (warm start excepted) whose plan change the trace did not
  * keep.
+ * Version 12 (report 50, UX pass 3, point 2): `AppMeta.firstRecalibrationOpenedOn`, the day the screen of the first
+ * recalibration opened by itself (once per store). Loaded from schema 11 with the date at null; nothing else changes.
  */
-export const SCHEMA_VERSION = 11;
+export const SCHEMA_VERSION = 12;
 
 /**
  * A weigh-in as this app stores it: the engine contract (`WeightEntry`, science) plus fields that are
@@ -548,6 +550,11 @@ export type AppMeta = {
    * day only; from the next day of the same cycle it runs.
    */
   periodicReplanDeferredOn: string | null;
+  /**
+   * Schema 12 (report 50, point 2): the day the screen of the first recalibration opened by itself. Set when it opens, even
+   * if the user leaves without answering: it never opens by itself again for this store. Null until then.
+   */
+  firstRecalibrationOpenedOn: string | null;
 };
 
 export type WheightyStore = {
@@ -595,4 +602,5 @@ export const DEFAULT_META: AppMeta = {
   journalPath: defaultJournalPath(),
   staleWeighInNoticeClosedOn: null,
   periodicReplanDeferredOn: null,
+  firstRecalibrationOpenedOn: null,
 };

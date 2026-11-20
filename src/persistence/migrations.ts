@@ -178,6 +178,12 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
       meta: { ...meta, planEvents: backfillRecalibrations(events, snapshots), staleWeighInNoticeClosedOn: meta.staleWeighInNoticeClosedOn ?? null, periodicReplanDeferredOn: meta.periodicReplanDeferredOn ?? null },
     };
   },
+  // 11 -> 12 (report 50, point 2): the screen of the first recalibration has never opened by itself. Every other field,
+  // every entry and every unknown field is carried over.
+  11: (input) => {
+    const meta = isObject(input.meta) ? input.meta : {};
+    return { ...input, schemaVersion: 12, meta: { ...meta, firstRecalibrationOpenedOn: meta.firstRecalibrationOpenedOn ?? null } };
+  },
 };
 
 /**

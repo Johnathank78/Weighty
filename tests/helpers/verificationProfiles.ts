@@ -229,3 +229,25 @@ export function pauseAndProjectionProfile(today: string): WheightyStore {
   if (!r.ok) throw new Error(r.reason);
   return tracked(r.store, start, 61, 67, () => true, (i) => 75 - 0.06 * i + 0.4);
 }
+
+/**
+ * 12. First recalibration (point 2): the target assumed to be followed, no recalibration applied, 21 days of a weigh-in and
+ * "Plan respecté" a day, losing faster than the plan: a first recalibration is ready. Expected: its screen opens by itself
+ * at the loading; after "Plus tard" the card stays in Analyse; after a reload the screen does not open again.
+ */
+export function firstRecalibrationProfile(today: string): WheightyStore {
+  const { store, start } = history(verificationProfile('Test première recalibration'), today, 21);
+  return tracked(store, start, 1, 21, () => true, (i) => 75 - 0.1 * i);
+}
+
+/**
+ * 13. Personal target and first recalibration (point 2b): a target of 1 700 kcal chosen at the onboarding 21 days ago, a
+ * weigh-in and "Plan respecté" a day, losing 0.1 kg a day: the first recalibration is ready. Expected: no screen; the app
+ * takes the target over by itself, with its short message.
+ */
+export function personalTargetRecalibrationProfile(today: string): WheightyStore {
+  const start = addDays(today, -21);
+  const r = completeOnboardingWithTarget(emptyStore(), verificationProfile('Test cible et recalibration'), start, at(start), null, 1700);
+  if (!r.ok) throw new Error(r.reason);
+  return tracked(r.store, start, 1, 21, () => true, (i) => 75 - 0.1 * i);
+}

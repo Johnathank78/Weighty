@@ -398,7 +398,7 @@ export function AnalyseScreen() {
 }
 
 export function RecalibrationScreen() {
-  const { go, openSheet, showToast } = useNav();
+  const { go, openSheet, showToast, autoOpened } = useNav();
   const { store, calibration, calibrationPending, commit, today, nowIso, logActivity } = useWheighty();
   const plan = store.plan;
   const state = calibration;
@@ -441,20 +441,24 @@ export function RecalibrationScreen() {
   // Report 47, point 1d: no recalibration screen while a personal target is in force (the app takes it over by itself).
   const personal = plan?.source === 'personal_target';
 
+  // Report 50, point 2c: opened by itself (the first recalibration), the screen does not mark the recalibration seen, nor
+  // does "Plus tard": it stays ready in Analyse and on Aujourd'hui. Opened by the user, the rule of 05 s12 as before.
+  const auto = live && autoOpened;
+
   // Recalibration screen opened (activity log, report 49, point 1c), once per opening of the live screen.
   useEffect(() => {
     if (!live || logged.current || calibrationPending) return;
     logged.current = true;
-    logActivity('recalibration', { event: 'screen_opened', surfaced: state?.surfaced ?? false, proposedMaintenanceKcal: state?.proposedMaintenanceKcal ?? null, currentMaintenanceKcal: plan?.maintenanceKcal ?? null, previewTargetKcal: preview?.calorieTarget ?? null, currentTargetKcal: plan?.calorieTarget ?? null, buildOk: build?.ok ?? null });
-  }, [live, calibrationPending, state, plan, preview, build, logActivity]);
+    logActivity('recalibration', { event: 'screen_opened', ...(auto ? { auto: true } : {}), surfaced: state?.surfaced ?? false, proposedMaintenanceKcal: state?.proposedMaintenanceKcal ?? null, currentMaintenanceKcal: plan?.maintenanceKcal ?? null, previewTargetKcal: preview?.calorieTarget ?? null, currentTargetKcal: plan?.calorieTarget ?? null, buildOk: build?.ok ?? null });
+  }, [live, auto, calibrationPending, state, plan, preview, build, logActivity]);
 
   useEffect(() => {
-    if (live && !personal && !marked.current && !calibrationPending && state?.surfaced && state.candidate) {
+    if (live && !auto && !personal && !marked.current && !calibrationPending && state?.surfaced && state.candidate) {
       marked.current = true;
       // Seen: surfacing thresholds now compare against this event (05 s12). The plan is unchanged until applied.
       commit(markRecalibrationSeen(store, state, today));
     }
-  }, [live, personal, state, calibrationPending, store, today, commit]);
+  }, [live, auto, personal, state, calibrationPending, store, today, commit]);
 
   if (!plan || personal || !state?.candidate || target === null) {
     return (
@@ -594,7 +598,7 @@ export function RecalibrationScreen() {
         className="btn btn--ghost"
         style={{ paddingTop: 0 }}
         onClick={() => {
-          logActivity('recalibration', { event: 'later' });
+          logActivity('recalibration', { event: 'later', ...(auto ? { auto: true } : {}) });
           go('analyse', { replace: true });
         }}
       >

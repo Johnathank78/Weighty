@@ -349,6 +349,7 @@ function sanitizeMeta(v: unknown): AppMeta {
     journalPath: isJournalPath(v.journalPath) ? v.journalPath : defaultJournalPath(),
     staleWeighInNoticeClosedOn: optionalDate(v.staleWeighInNoticeClosedOn),
     periodicReplanDeferredOn: optionalDate(v.periodicReplanDeferredOn),
+    firstRecalibrationOpenedOn: optionalDate(v.firstRecalibrationOpenedOn),
   };
 }
 

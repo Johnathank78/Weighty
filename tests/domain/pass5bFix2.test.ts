@@ -402,9 +402,9 @@ describe('2. preview of a profile edit on the target assumed to be followed', ()
 });
 
 describe('3. versions, schema 10', () => {
-  it('model 1.7.0 or later (1.9.0, report 49), schema 10 or later (11, report 49)', () => {
+  it('model 1.7.0 or later (1.9.0, report 49), schema 10 or later (11, report 49; 12, report 50, a date of meta)', () => {
     expect(SCIENTIFIC_MODEL_VERSION).toBe('1.9.0');
-    expect(SCHEMA_VERSION).toBe(11);
+    expect(SCHEMA_VERSION).toBe(12);
   });
 
   it('a schema-9 store with a personal target loads without loss: the signed estimated rate, the rates inside the range', () => {

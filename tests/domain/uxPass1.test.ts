@@ -371,8 +371,9 @@ describe('G. messages of pass 5a', () => {
     // Report 46, point 5: the short format of every message (title and one line) replaces the one-line text of G2.
     expect(warning).toMatchObject({ kind: 'bmi20_warning', eventId: null, weeks: 1, title: 'IMC 20 dans 1 sem.', line: 'Ton plan passera alors en maintien.', text: PLAN_MESSAGE.bmi20Warning(1) });
     // Pass 5b (schema 8) adds the journal path; schema 11 (report 49, points 4 and 5) the day the message asking for a weigh-in
-    // was closed and the day a periodic replan waited; still no dismissal date for this warning.
-    expect(Object.keys(DEFAULT_META)).toEqual(['onboardingDate', 'initialMaintenanceKcal', 'initialInterval80', 'initialPalCategory', 'initialProvisionalPal', 'initialWeightKg', 'lastSurfacedCalibration', 'recoveredCorruptData', 'planEvents', 'periodicReplanCheckedOn', 'guardrailMaintenanceSince', 'journalPath', 'staleWeighInNoticeClosedOn', 'periodicReplanDeferredOn']);
+    // was closed and the day a periodic replan waited; schema 12 (report 50, point 2) the day the first recalibration opened by
+    // itself; still no dismissal date for this warning.
+    expect(Object.keys(DEFAULT_META)).toEqual(['onboardingDate', 'initialMaintenanceKcal', 'initialInterval80', 'initialPalCategory', 'initialProvisionalPal', 'initialWeightKg', 'lastSurfacedCalibration', 'recoveredCorruptData', 'planEvents', 'periodicReplanCheckedOn', 'guardrailMaintenanceSince', 'journalPath', 'staleWeighInNoticeClosedOn', 'periodicReplanDeferredOn', 'firstRecalibrationOpenedOn']);
   });
 
   it('periodic replan: the new words, also for an entry written before this pass; other entries show their message', () => {
