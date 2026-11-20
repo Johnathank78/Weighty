@@ -12,7 +12,7 @@ Date : 20/11/2026. Branche `ux/pass-3`, partie de `292d617`, non fusionnée, non
 6. Depuis une cible personnelle, « Revenir au plan de Wheighty » montre un aperçu avant de confirmer. Avant toute recalibration, il change peu : 1 700 → 1 700 kcal sur le profil 16 [mesuré].
 7. Avec une pesée de plus de 7 jours, un changement de plan propose « Me peser d'abord ». Sur ton cas du 24/10 : 1 586 kcal sans pesée, 1 573 avec, et la projection part du vrai poids [mesuré].
 8. Textes : « prochaine » après une recalibration, reste du jour arrondi, ligne d'état pendant D3, un seul message à la fois, chaque maintien avec son poids. Les deux défauts du rapport 48 sont corrigés [mesuré].
-9. Aucune sortie scientifique ne change : T-03, T-04 et golden sont identiques au bit près, R, S et parcours ne diffèrent que par le schéma 12. Équivalence de la 5b : 0 échec sur 17 275 appels. Les tests passent de 737 à 767 [mesuré].
+9. Aucune sortie scientifique ne change : T-03, T-04 et golden sont identiques au bit près, R, S et parcours ne diffèrent que par le schéma 12. Équivalence de la 5b : 0 échec sur 17 275 appels. Les tests passent de 737 à 768 [mesuré].
 10. À faire : ta vérification (section 8, 20 minutes), puis ton accord pour la fusion.
 
 ## 2. Git
@@ -30,6 +30,7 @@ Base vérifiée : `main` = `origin/main` = `292d617` [mesuré]. Branche `ux/pass
 | `d6a1539` | point 7 : défauts du rapport 48 |
 | `371a614` | vérifications : aller-retour des profils 12 à 16 (4.6), script des mesures 1b et 1c |
 | `8b73a31` | `IMPLEMENTATION_NOTES.md` |
+| `c88082d` | après ta revue du 20/11 : feuille « Changer de plan » retouchée (section 10) |
 | ce rapport | rapport seul, en dernier |
 
 - Les commits sont faits par chemins explicites. Le `.gitignore` n'est pas touché. Aucun brut, archive ni donnée réelle n'est commité : les bruts sont dans `tests/experiments-journal/results/ux3/`, ignoré [mesuré].
@@ -319,8 +320,8 @@ Le harnais appelle les fonctions du domaine. Aucune de cette passe n'y change de
 
 ### 5.3 Tests
 
-737 tests au départ, **767** à la fin, tous verts ; `npm run check` est propre [mesuré].
-- Ajoutés : 26 dans `tests/domain/uxPass3.test.ts`, un bloc par point et l'aller-retour.
+737 tests au départ, **768** à la fin, tous verts ; `npm run check` est propre [mesuré].
+- Ajoutés : 27 dans `tests/domain/uxPass3.test.ts`, un bloc par point et l'aller-retour.
 - `trackingChart.test.ts` est réécrit (19 tests).
 - Huit tests existants, dans six fichiers, sont adaptés, chaque fois avec la raison écrite dans le test : `pass5bFix2` (2), `uxPass2` (2), `pass6a`, `uxPass1`, `foodJournalPersistence`, `pass5bFix`.
 
@@ -432,3 +433,17 @@ git push origin main
   - D-48 : défauts du rapport 48.
 - **Section 13** : passe UX 3, écrans seulement, modèle 1.9.0 inchangé.
 - **Rien sur la science**, hormis le paramètre optionnel `sampleEveryDays` de `projectPlan`, sans effet quand il est absent.
+
+## 10. Après ta revue du 20/11 : la feuille « Changer de plan »
+
+**Diagnostic** [lu, mesuré au navigateur] :
+- La feuille a la couleur d'une carte (`--surf`), et les cartes de choix aussi : elles ne se distinguaient que par un filet presque invisible.
+- La carte non disponible était délavée par une opacité de 50 %.
+- Rien ne séparait le titre des cartes.
+
+**Changement** (`c88082d`) :
+- les cartes de cette feuille seulement (`.opt-card--action`) prennent un fond teinté (`--surf2`) et une flèche ;
+- l'option pas encore disponible garde un texte lisible (`--ink2`) sur un contour en pointillés ;
+- une ligne sous le titre : « Comment veux-tu fixer ta cible ? ».
+
+Les cartes des objectifs de l'onboarding ne changent pas. Vérifié à 375 px en clair et en sombre, sur le profil 7 [mesuré, navigateur]. 768 tests verts.
