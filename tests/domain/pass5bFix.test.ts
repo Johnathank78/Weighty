@@ -346,7 +346,9 @@ describe('point 7: small points of report 45 (section 5)', () => {
     const s = aligned(16);
     expect(alignedLockLine(s, day(16))).not.toBeNull();
     expect(JOURNAL_MESSAGE.deadlineLabel).toBe('Échéance');
-    expect(JOURNAL_MESSAGE.deadlineAfterRecalibration).toBe('Après la première recalibration');
+    // Report 50, point 6a: a function of whether a recalibration was applied ("prochaine" then).
+    expect(JOURNAL_MESSAGE.deadlineAfterRecalibration()).toBe('Après la première recalibration');
+    expect(JOURNAL_MESSAGE.deadlineAfterRecalibration(true)).toBe('Après la prochaine recalibration');
   });
 
   it('point 3: no weigh-in encouragement within 7 days of a return to the aligned target', () => {

@@ -265,7 +265,8 @@ describe('1c. takeover by the app at the first recalibration', () => {
       const e = lastEvent(t);
       expect(e).toMatchObject({ rule: 'personal_target_takeover', status: 'applied', seen: false, before: { calorieTarget: c.kcal, source: 'personal_target' }, after: { source: 'recalibrated' } });
       expect(e.personalTarget).toMatchObject({ kcal: c.kcal, case: c.expected });
-      expect(e.message).toBe(PERSONAL_TARGET_MESSAGE.takeoverDetails(plan.maintenanceKcal, planOf(s).maintenanceKcal));
+      // Report 50, point 6e: each maintenance with its weight (the text no longer presents their difference as a correction).
+      expect(e.message).toBe(PERSONAL_TARGET_MESSAGE.takeoverDetails({ kcal: plan.maintenanceKcal, kg: plan.planWeightKg ?? null }, { kcal: planOf(s).maintenanceKcal, kg: planOf(s).planWeightKg ?? null }));
       const short = planEventShort(e);
       if (!short) throw new Error('no short text');
       expect(short.title.split(' ').length).toBeLessThanOrEqual(6);

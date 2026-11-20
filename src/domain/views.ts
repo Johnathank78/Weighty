@@ -11,14 +11,15 @@ import type { DailyLog, Goal, MacroGrams, SpeedZone } from '@/science/types';
 import { assessBaseline, planContextFrom } from '@/science/assessment';
 import { trackingPauses, validWeights } from '@/science/calibration';
 import type { GateStatus } from '@/science/calibration';
-import { formatInteger } from './format';
+import { formatInteger, formatWeight, weightUnitLabel } from './format';
 import { snapWeeklyRate, speedZoneFor } from '@/science/goals';
 import type { CalibrationState } from './engine';
-import { contextForCurrentPlan, gateOf, goalStatus, hasAppliedRecalibration, latestAppliedSnapshot, weighInStale, latestRawWeight, MAINTENANCE_PROJECTION_DAYS, solverOptionsFor, trendOf, weighInDue } from './engine';
+import { contextForCurrentPlan, currentWeightKg, gateOf, goalStatus, hasAppliedRecalibration, latestAppliedSnapshot, weighInStale, latestRawWeight, MAINTENANCE_PROJECTION_DAYS, solverOptionsFor, trendOf, weighInDue } from './engine';
 import { alignedStatusLine, journalRead, measuredProjectionContext } from './journalPath';
-import { JOURNAL_MESSAGE } from './planMessages';
+import { JOURNAL_MESSAGE, maintenancePair, SHORT_MESSAGE } from './planMessages';
+import type { MaintenanceAt } from './planMessages';
 import { localTimeOf } from './journal';
-import type { CurrentPlan, WheightyStore } from './types';
+import type { CurrentPlan, UnitPreference, WheightyStore } from './types';
 
 export function displayMacros(plan: CurrentPlan): MacroGrams {
   return plan.macrosDisplay ?? { proteinG: Math.round(plan.macros.proteinG), carbsG: Math.round(plan.macros.carbsG), fatG: Math.round(plan.macros.fatG) };
@@ -379,7 +380,13 @@ export type AnalysisView = {
   nextUpdate: GateProgress | null;
   maintenanceKcal: number;
   initialMaintenanceKcal: number | null;
-  changeSinceInitialKcal: number | null;
+  /**
+   * Report 50, point 6e: each maintenance with the weight it holds at, never their difference (it mixes the weight lost and
+   * what the weigh-ins corrected): the estimate of the start at the weight of the start, the one shown at its weight (the
+   * current trend weight when the calibration of the day is shown, else the weight of the plan in force). Null without the
+   * estimate of the start.
+   */
+  startAndToday: { start: MaintenanceAt; today: MaintenanceAt } | null;
   interval80: readonly [number, number];
   interval95: readonly [number, number];
   confidence: CalibrationState['confidence'];
@@ -389,6 +396,11 @@ export type AnalysisView = {
   posteriorSdKcal: number | null;
   observationSpanDays: number;
 };
+
+/** Report 50, point 6e: the line of Analyse, each maintenance at its weight, in the unit of the user. */
+export function maintenanceComparisonText(view: AnalysisView, units: UnitPreference): string | null {
+  return view.startAndToday ? maintenancePair(view.startAndToday.start, view.startAndToday.today, (kg) => `${formatWeight(kg, units)} ${weightUnitLabel(units)}`) : null;
+}
 
 export function analysisView(store: WheightyStore, state: CalibrationState | null): AnalysisView | null {
   const plan = store.plan;
@@ -400,7 +412,7 @@ export function analysisView(store: WheightyStore, state: CalibrationState | nul
       nextUpdate: null,
       maintenanceKcal: plan.maintenanceKcal,
       initialMaintenanceKcal: null,
-      changeSinceInitialKcal: null,
+      startAndToday: null,
       interval80: plan.maintenanceInterval80,
       interval95: plan.maintenanceInterval95,
       confidence: state?.confidence ?? latestAppliedSnapshot(store)?.confidence ?? 'low',
@@ -423,7 +435,13 @@ export function analysisView(store: WheightyStore, state: CalibrationState | nul
     nextUpdate: applied && !gateMet ? gateProgress(state, store) : null,
     maintenanceKcal,
     initialMaintenanceKcal: initial,
-    changeSinceInitialKcal: initial === null ? null : maintenanceKcal - initial,
+    startAndToday:
+      initial === null
+        ? null
+        : {
+            start: { kcal: initial, kg: store.meta.initialWeightKg },
+            today: { kcal: maintenanceKcal, kg: gateMet ? currentWeightKg(store) : (plan.planWeightKg ?? null) },
+          },
     interval80: state?.currentInterval80 ?? plan.maintenanceInterval80,
     interval95: state?.currentInterval95 ?? plan.maintenanceInterval95,
     confidence: state?.confidence ?? latestAppliedSnapshot(store)?.confidence ?? 'low',
@@ -454,6 +472,25 @@ export function measuredHabit(store: WheightyStore): number | null {
 }
 
 /**
+ * A recalibration may be announced on Aujourd'hui (its status line and mascot): shown, computed for the current store, not
+ * on a personal target, which the app takes over by itself at its first recalibration (report 47, point 1d).
+ */
+export function recalibrationReady(store: WheightyStore, state: CalibrationState | null, pending: boolean): boolean {
+  return state?.surfaced === true && !pending && store.plan?.source !== 'personal_target';
+}
+
+/**
+ * Report 50, point 6d: one message at a time. While a recalibration is shown (it asks for an action), the decision cards of
+ * the journal path (the proposal to align the target, a plan of the measured habit to confirm) wait: they stay in the store,
+ * unanswered, and come back once the recalibration is applied or no longer shown. The last known state is read, so that a
+ * card does not flash while the calibration of a new store is computed.
+ */
+export function journalCardsWait(store: WheightyStore, state: CalibrationState | null): boolean {
+  // The measured habit never shows a recalibration of the current method (`surfaced` stays false there).
+  return state?.surfaced === true && store.plan?.source !== 'personal_target';
+}
+
+/**
  * Status line of Aujourd'hui under the tiles (the recalibration line). `recalibrationReady`: a recalibration may be announced
  * (shown, not pending, not on a personal target).
  */
@@ -471,6 +508,9 @@ export function todayStatusTitle(store: WheightyStore, today: string, state: Cal
   if (!gate.met && gate.remainingDays > 0) return `Encore ${gate.remainingDays} jour${gate.remainingDays > 1 ? 's' : ''} de suivi avant ${update}.`;
   if (!gate.met && gate.criteria.some((c) => c.key === 'cleanWeighIns' && !c.met)) return 'Encore quelques pesées en dehors des journées d’écart important.';
   if (!gate.met) return `Note tes journées pour débloquer ${update}.`;
+  // Report 50, point 6c: an update held back for want of a recent weigh-in (D3) is not "following the weigh-ins": the line
+  // says what the message of D3 says.
+  if (weighInStale(store, today)) return `${SHORT_MESSAGE.weighInNeeded.title}.`;
   return 'Ton estimation suit tes pesées.';
 }
 

@@ -7,7 +7,6 @@
  * moment the recalibration is marked seen changes, on the screen opened by itself (`RecalibrationScreen`).
  */
 import { hasAppliedRecalibration } from './engine';
-import { measuredOfferView, openAlignProposal } from './journalPath';
 import type { CalibrationState } from './engine';
 import type { WheightyStore } from './types';
 
@@ -19,21 +18,13 @@ export function firstRecalibrationShown(store: WheightyStore, state: Calibration
 }
 
 /**
- * A decision card of the journal path is on display (the proposal to align the target, a plan of the measured habit to
- * confirm): decision screens of the activity log (report 49, point 1c). The first recalibration does not open over them.
+ * The screen of the first recalibration opens by itself now: never opened by itself before, a first recalibration shown, and
+ * the calibration computed for the current store (`pending` false). Where it may open on the navigation (no onboarding, no
+ * sheet, no other decision screen) is the navigation's part (`autoOpenAllowed`). The decision cards of the journal path wait
+ * while a recalibration is shown (point 6d, `journalCardsWait`): none is on display then.
  */
-export function journalDecisionShown(store: WheightyStore, today: string): boolean {
-  return openAlignProposal(store, today) !== null || measuredOfferView(store) !== null;
-}
-
-/**
- * The screen of the first recalibration opens by itself now: never opened by itself before, a first recalibration shown, the
- * calibration computed for the current store (`pending` false), and no decision card of the journal path on display. Where
- * it may open on the navigation (no onboarding, no sheet, no other decision screen) is the navigation's part
- * (`autoOpenAllowed`).
- */
-export function firstRecalibrationAutoOpenDue(store: WheightyStore, today: string, state: CalibrationState | null, pending: boolean): boolean {
-  return store.meta.firstRecalibrationOpenedOn === null && !pending && firstRecalibrationShown(store, state) && !journalDecisionShown(store, today);
+export function firstRecalibrationAutoOpenDue(store: WheightyStore, state: CalibrationState | null, pending: boolean): boolean {
+  return store.meta.firstRecalibrationOpenedOn === null && !pending && firstRecalibrationShown(store, state);
 }
 
 /** The screen opened by itself on `today`: it never opens by itself again for this store, answered or not. */

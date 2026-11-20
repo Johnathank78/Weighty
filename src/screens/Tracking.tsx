@@ -14,8 +14,8 @@ import { ShortNotice } from '@/components/ShortNotice';
 import { floorAdviceOf } from '@/domain/planSafety';
 import { journalRead } from '@/domain/journalPath';
 import { JOURNAL_MESSAGE } from '@/domain/planMessages';
-import { formatDayMonth, formatDayShortMonth, formatInteger, formatKcal, formatKcalRange, formatSignedKcal, formatSignedWeight, formatSteps, formatWeight, weightUnitLabel } from '@/domain/format';
-import { adherenceSummary, analysisView, averageLoggedSteps, DEFAULT_TRACKING_RANGE, gateCriterionValue, gateProgress, recentWeights, trackingChart, TRACKING_RANGE_DAYS, TRACKING_RANGES, weeksOfTracking } from '@/domain/views';
+import { formatDayMonth, formatDayShortMonth, formatInteger, formatKcal, formatKcalRange, formatSignedWeight, formatSteps, formatWeight, weightUnitLabel } from '@/domain/format';
+import { adherenceSummary, analysisView, maintenanceComparisonText, averageLoggedSteps, DEFAULT_TRACKING_RANGE, gateCriterionValue, gateProgress, recentWeights, trackingChart, TRACKING_RANGE_DAYS, TRACKING_RANGES, weeksOfTracking } from '@/domain/views';
 import type { ChartSeries, TrackingRange } from '@/domain/views';
 import type { UnitPreference } from '@/domain/types';
 import { addDays } from '@/science/dates';
@@ -203,6 +203,7 @@ export function AnalyseScreen() {
   const avgSteps = averageLoggedSteps(store);
   const gate = gateProgress(calibration, store);
   const details = store.preferences.showScientificDetails;
+  const comparison = maintenanceComparisonText(view, units);
 
   const header = (
     <header style={{ padding: '8px 0 26px' }}>
@@ -293,10 +294,9 @@ export function AnalyseScreen() {
         <span className="num-xl">{formatKcal(view.maintenanceKcal)}</span>
         <span className="unit">kcal</span>
       </div>
-      {view.changeSinceInitialKcal !== null && view.initialMaintenanceKcal !== null ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, font: '500 13px var(--font)', color: 'var(--ink2)', marginBottom: 22 }}>
-          <span style={{ color: 'var(--acc)', fontWeight: 600 }}>{formatSignedKcal(view.changeSinceInitialKcal)} kcal</span> depuis l’estimation initiale ({formatKcal(view.initialMaintenanceKcal)})
-        </div>
+      {comparison ? (
+        // Report 50, point 6e: each maintenance with its weight; their difference is not presented as a correction.
+        <p style={{ font: '500 13px/1.45 var(--font)', color: 'var(--ink2)', margin: '0 0 22px' }}>{comparison}</p>
       ) : null}
       <div className="row" style={{ marginBottom: 30, borderBottom: 0 }}>
         <span className="row__label" style={{ fontSize: 12.5 }}>

@@ -5,7 +5,7 @@ import { intakeGauge, journalDay } from '@/domain/journal';
 import { Mascot } from '@/components/Mascot';
 import { PlanNotices } from '@/components/PlanNotices';
 import { formatDayMonth, formatGrams, formatInteger, formatKcal, formatLongDate, formatSignedWeight, formatSteps, formatWeight, weightUnitLabel } from '@/domain/format';
-import { displayMacros, gateProgress, goalStatus, nextWeighInDate, reminderDue, todayLog, todayStatusTitle } from '@/domain/views';
+import { displayMacros, gateProgress, goalStatus, nextWeighInDate, recalibrationReady as isRecalibrationReady, reminderDue, todayLog, todayStatusTitle } from '@/domain/views';
 import { trendOf } from '@/domain/engine';
 import { profileInitials } from '@/domain/onboarding';
 import { adherenceAsked, suggestedAdherence } from '@/domain/journalPath';
@@ -30,7 +30,7 @@ export function TodayScreen() {
   const kcalGauge = intakeGauge(journal.intakeLoggedKcal, log?.calorieTargetForDay ?? plan.calorieTarget);
   // A result computed for an older store never announces a recalibration; nor a personal target, which the app takes over
   // by itself at its first recalibration (report 47, point 1d).
-  const recalibrationReady = calibration?.surfaced === true && !calibrationPending && plan.source !== 'personal_target';
+  const recalibrationReady = isRecalibrationReady(store, calibration, calibrationPending);
 
   const deduced = log?.adherence ? null : suggestedAdherence(store, today);
   const statusTitle = todayStatusTitle(store, today, calibration, recalibrationReady);
@@ -113,7 +113,8 @@ export function TodayScreen() {
             <span className="progress__bar" style={{ display: 'block', width: `${kcalGauge.fraction * 100}%` }} />
           </span>
           <span className="tabular" style={{ display: 'block', marginTop: 6, font: '400 12px var(--font)', color: 'var(--ink2)' }}>
-            {kcalGauge.beyond > 0 ? JOURNAL_GAUGE_TEXT.beyond(formatInteger(kcalGauge.beyond)) : JOURNAL_GAUGE_TEXT.remaining(formatInteger(kcalGauge.remaining))}
+            {/* Report 50, point 6b: the rest of the day rounded as the target above it (display only). */}
+            {kcalGauge.beyond > 0 ? JOURNAL_GAUGE_TEXT.beyond(formatInteger(kcalGauge.beyond)) : JOURNAL_GAUGE_TEXT.remaining(formatKcal(kcalGauge.remaining))}
           </span>
         </button>
       </section>

@@ -125,13 +125,13 @@ it(`pass 5b manual check profiles, for ${TODAY}`, () => {
 
   // Report 50 (UX pass 3, 4.5): synthetic profiles 12 to 16.
   const firstRecal = runDailyChecks(firstRecalibrationProfile(TODAY), TODAY, at(TODAY));
-  expect(firstRecalibrationAutoOpenDue(firstRecal, TODAY, computeCalibrationState(firstRecal, TODAY, at(TODAY)), false)).toBe(true);
+  expect(firstRecalibrationAutoOpenDue(firstRecal, computeCalibrationState(firstRecal, TODAY, at(TODAY)), false)).toBe(true);
   write('12-premiere-recalibration.json', firstRecalibrationProfile(TODAY));
 
   const personalRecal = runDailyChecks(personalTargetRecalibrationProfile(TODAY), TODAY, at(TODAY));
   const personalRecalState = computeCalibrationState(personalRecal, TODAY, at(TODAY));
   expect(personalRecalState?.surfaced).toBe(true);
-  expect(firstRecalibrationAutoOpenDue(personalRecal, TODAY, personalRecalState, false)).toBe(false);
+  expect(firstRecalibrationAutoOpenDue(personalRecal, personalRecalState, false)).toBe(false);
   expect(takeOverPersonalTarget(personalRecal, personalRecalState, TODAY, at(TODAY)).plan?.source).toBe('recalibrated');
   write('13-cible-personnelle-recalibration.json', personalTargetRecalibrationProfile(TODAY));
 

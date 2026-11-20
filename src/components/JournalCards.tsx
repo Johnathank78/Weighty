@@ -3,6 +3,7 @@ import { useNav } from '@/app/navigation';
 import { ShortNotice } from '@/components/ShortNotice';
 import { acceptMeasuredOffer, declineAlignProposal, declineMeasuredOffer, measuredOfferView, openAlignProposal, switchToAlignedTarget } from '@/domain/journalPath';
 import { JOURNAL_MESSAGE, SHORT_MESSAGE } from '@/domain/planMessages';
+import { journalCardsWait } from '@/domain/views';
 import type { AlignedTarget } from '@/domain/types';
 import { useWheighty } from '@/store/StoreProvider';
 
@@ -11,7 +12,9 @@ import { useWheighty } from '@/store/StoreProvider';
  * the measured habit awaiting confirmation. Each card has its two buttons; nothing changes until the user answers.
  */
 export function JournalCards() {
-  const { store, today } = useWheighty();
+  const { store, today, calibration } = useWheighty();
+  // Report 50, point 6d: one message at a time, the recalibration first; the cards wait, unanswered.
+  if (journalCardsWait(store, calibration)) return null;
   const proposal = openAlignProposal(store, today);
   const offer = measuredOfferView(store);
   if (!proposal && !offer) return null;

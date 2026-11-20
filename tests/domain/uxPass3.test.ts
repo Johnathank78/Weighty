@@ -20,10 +20,15 @@ import { planChangeOptions } from '@/domain/planChange';
 import { periodicReplanDue } from '@/domain/engine';
 import { weighFirstInvitation } from '@/domain/weighFirst';
 import { WEIGH_FIRST_MESSAGE } from '@/domain/planMessages';
+import { journalCardsWait, maintenanceComparisonText, recalibrationReady, todayStatusTitle, analysisView } from '@/domain/views';
+import { personalTargetLine, choosePersonalTarget } from '@/domain/personalTarget';
+import { measuredOfferView } from '@/domain/journalPath';
+import { formatKcal } from '@/domain/format';
+import { JOURNAL_MESSAGE } from '@/domain/planMessages';
 import { inPlanHistory, planHistory, PLAN_HISTORY_RULES } from '@/domain/planHistory';
 import { PLAN_EVENT_RULES } from '@/domain/types';
 import type { PlanEvent } from '@/domain/types';
-import { at, firstRecalibrationProfile, history, oldWeighInChangeProfile, personalTargetProfile, planHistoryProfile, personalTargetRecalibrationProfile, recalibratedGateClosedProfile, verificationProfile } from '../helpers/verificationProfiles';
+import { at, firstPlanProfile, pauseWithoutWeighInProfile, firstRecalibrationProfile, history, oldWeighInChangeProfile, personalTargetProfile, planHistoryProfile, personalTargetRecalibrationProfile, recalibratedGateClosedProfile, verificationProfile } from '../helpers/verificationProfiles';
 
 /** Every verification profile (1 to 11 of reports 45 to 49, and those of this pass), for the migration and the round trip. */
 const ALL_PROFILES = Object.entries(profiles).filter(([name, f]) => name.endsWith('Profile') && name !== 'verificationProfile' && typeof f === 'function') as Array<[string, (today: string) => WheightyStore]>;
@@ -72,13 +77,13 @@ describe('2. the first recalibration (E2)', () => {
     expect(hasAppliedRecalibration(store)).toBe(false);
     expect(state?.surfaced).toBe(true);
     expect(firstRecalibrationShown(store, state)).toBe(true);
-    expect(firstRecalibrationAutoOpenDue(store, TODAY, state, false)).toBe(true);
+    expect(firstRecalibrationAutoOpenDue(store, state, false)).toBe(true);
     // Still computing for the current store: it waits.
-    expect(firstRecalibrationAutoOpenDue(store, TODAY, state, true)).toBe(false);
+    expect(firstRecalibrationAutoOpenDue(store, state, true)).toBe(false);
     // Opened (answered or not): never again by itself.
     const once = markFirstRecalibrationOpened(store, TODAY);
     expect(once.meta.firstRecalibrationOpenedOn).toBe(TODAY);
-    expect(firstRecalibrationAutoOpenDue(once, addDays(TODAY, 1), state, false)).toBe(false);
+    expect(firstRecalibrationAutoOpenDue(once, state, false)).toBe(false);
     expect(markFirstRecalibrationOpened(once, addDays(TODAY, 3))).toBe(once);
   });
 
@@ -86,7 +91,7 @@ describe('2. the first recalibration (E2)', () => {
     const store = opened(recalibratedGateClosedProfile(TODAY));
     expect(hasAppliedRecalibration(store)).toBe(true);
     const fake = { ...(stateOf(store) as NonNullable<ReturnType<typeof stateOf>>), surfaced: true };
-    expect(firstRecalibrationAutoOpenDue(store, TODAY, fake, false)).toBe(false);
+    expect(firstRecalibrationAutoOpenDue(store, fake, false)).toBe(false);
     // The first recalibration applied: the next one is no longer "first".
     const first = opened(firstRecalibrationProfile(TODAY));
     const st = stateOf(first);
@@ -101,13 +106,13 @@ describe('2. the first recalibration (E2)', () => {
     const state = stateOf(store);
     expect(store.plan?.source).toBe('personal_target');
     expect(state?.surfaced).toBe(true);
-    expect(firstRecalibrationAutoOpenDue(store, TODAY, state, false)).toBe(false);
+    expect(firstRecalibrationAutoOpenDue(store, state, false)).toBe(false);
     const taken = takeOverPersonalTarget(store, state, TODAY, at(TODAY));
     expect(taken.plan?.source).toBe('recalibrated');
     const event = taken.meta.planEvents[taken.meta.planEvents.length - 1];
     expect(event?.rule).toBe('personal_target_takeover');
     // After the takeover a recalibration was applied: nothing opens by itself either.
-    expect(firstRecalibrationAutoOpenDue(taken, TODAY, state, false)).toBe(false);
+    expect(firstRecalibrationAutoOpenDue(taken, state, false)).toBe(false);
   });
 
   it('2c: not marked seen, the recalibration stays shown the next days; marked seen, it is not shown again (05 s12 unchanged)', () => {
@@ -305,5 +310,66 @@ describe('5. weigh in first (E5)', () => {
     expect(first).toMatch(/event: 'shown'/);
     expect(first).toMatch(/event: 'weigh'/);
     expect(first).toMatch(/event: 'continue'/);
+  });
+});
+
+describe('6. texts (E6)', () => {
+  it('6a: "première" becomes "prochaine" once a recalibration was applied (personal target, aligned target)', () => {
+    const base = opened(firstRecalibrationProfile(TODAY));
+    const st = stateOf(base);
+    if (!st) throw new Error('state');
+    const applied = applyRecalibration(base, st, TODAY, at(TODAY));
+    if (!applied.ok) throw new Error(applied.reason);
+    const before = choosePersonalTarget(base, TODAY, 1700, at(TODAY));
+    const after = choosePersonalTarget(applied.store, TODAY, 1700, at(TODAY));
+    if (!before.ok || !after.ok) throw new Error('choose');
+    expect(personalTargetLine(before.store)).toMatch(/à ta première recalibration\.$/);
+    expect(personalTargetLine(after.store)).toMatch(/à ta prochaine recalibration\.$/);
+    expect(JOURNAL_MESSAGE.alignedLock(3)).toMatch(/après la première recalibration, dans 3 jours/);
+    expect(JOURNAL_MESSAGE.alignedLock(3, true)).toMatch(/après la prochaine recalibration, dans 3 jours/);
+    expect(JOURNAL_MESSAGE.alignedLock(0, true)).toMatch(/après la prochaine recalibration\.$/);
+  });
+
+  it('6b: the rest of the day of Aujourd’hui is rounded as the target (display only)', () => {
+    expect(formatKcal(1808.4)).toBe(formatKcal(1810));
+    expect(formatKcal(1689.4)).toBe(formatKcal(1690));
+    expect(readFileSync('src/screens/Today.tsx', 'utf8')).toMatch(/JOURNAL_GAUGE_TEXT\.remaining\(formatKcal\(kcalGauge\.remaining\)\)/);
+  });
+
+  it('6c: held back by D3, the status line says what the message of D3 says', () => {
+    const pause = opened(pauseWithoutWeighInProfile(TODAY));
+    const state = stateOf(pause);
+    expect(state?.blockedByStaleWeighIn).toBe(true);
+    expect(todayStatusTitle(pause, TODAY, state, false)).toBe('Ton plan attend une pesée.');
+    // With a recent weigh-in, as before.
+    const fresh = opened(addWeight(pause, { date: TODAY, weightKg: 73.8 }, at(TODAY)));
+    expect(todayStatusTitle(fresh, TODAY, stateOf(fresh), false)).not.toBe('Ton plan attend une pesée.');
+  });
+
+  it('6d: profile 3, both true at once: one message at a time, the recalibration first', () => {
+    const store = opened(firstPlanProfile(TODAY));
+    const state = stateOf(store);
+    expect(state?.surfaced).toBe(true);
+    expect(measuredOfferView(store)?.short.title).toBe('Plan calé sur ton journal');
+    expect(recalibrationReady(store, state, false)).toBe(true);
+    expect(journalCardsWait(store, state)).toBe(true);
+    // Seen (no longer shown), the offer comes back, still unanswered.
+    const seen = markRecalibrationSeen(store, state as NonNullable<typeof state>, TODAY);
+    expect(journalCardsWait(seen, stateOf(seen))).toBe(false);
+    expect(measuredOfferView(seen)?.short.title).toBe('Plan calé sur ton journal');
+  });
+
+  it('6e: each maintenance with its weight, no sentence presenting their difference as a correction', () => {
+    const store = opened(firstRecalibrationProfile(TODAY));
+    const view = analysisView(store, stateOf(store));
+    if (!view) throw new Error('view');
+    expect(view.startAndToday?.start).toEqual({ kcal: store.meta.initialMaintenanceKcal, kg: store.meta.initialWeightKg });
+    const text = maintenanceComparisonText(view, 'metric')?.replace(/\s/g, ' ');
+    expect(text).toMatch(/^Au départ : [\d ]+ kcal à \d+,\d kg\. Aujourd’hui : [\d ]+ kcal à \d+,\d kg\.$/);
+    expect(readFileSync('src/screens/Tracking.tsx', 'utf8')).not.toMatch(/depuis l’estimation initiale/);
+    const takeover = takeOverPersonalTarget(opened(personalTargetRecalibrationProfile(TODAY)), stateOf(opened(personalTargetRecalibrationProfile(TODAY))), TODAY, at(TODAY));
+    const message = takeover.meta.planEvents.at(-1)?.message?.replace(/\s/g, ' ') ?? '';
+    expect(message).toMatch(/^Au départ : [\d ]+ kcal à \d+,\d kg\. Aujourd’hui : [\d ]+ kcal à \d+,\d kg\. À partir de maintenant/);
+    expect(message).not.toMatch(/montrent|estimation de départ/);
   });
 });

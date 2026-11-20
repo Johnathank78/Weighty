@@ -4,7 +4,7 @@ import { useWheighty } from '@/store/StoreProvider';
 import { GOAL_LABEL, PLAN_SOURCE_LABEL, PROTEIN_RULE_TEXT, SPEED_LABEL } from '@/app/copy';
 import { Mascot } from '@/components/Mascot';
 import { formatGrams, formatKcal, formatNumber, formatRatePercent, formatSignedKcal, formatSteps, formatWeight, weightUnitLabel } from '@/domain/format';
-import { currentWeightKg } from '@/domain/engine';
+import { currentWeightKg, hasAppliedRecalibration } from '@/domain/engine';
 import { displayMacros, goalStatus, maintenanceZoneFor, planEnergyBalanceKcal, speedZone } from '@/domain/views';
 import { sliderBoundsFor } from '@/domain/sliderView';
 import { AlignProposalCard } from '@/components/JournalCards';
@@ -186,7 +186,7 @@ export function PlanScreen() {
                 ? 'Hors de la zone'
                 : 'Zone tenue'
               : lockLine
-                ? JOURNAL_MESSAGE.deadlineAfterRecalibration
+                ? JOURNAL_MESSAGE.deadlineAfterRecalibration(hasAppliedRecalibration(store))
                 : plan.projection.approximateWeeks !== undefined
                   ? `~${plan.projection.approximateWeeks} sem.`
                   : 'Au-delà de 2 ans'}

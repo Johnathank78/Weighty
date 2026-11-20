@@ -169,8 +169,15 @@ describe('2d. unchanged while it is in force, after the slider', () => {
 
 describe('2e. a personal target at the steps of the profile: bit for bit the base 1209d49', () => {
   it('entry (onboarding and Plan), estimated rate, plan, trace entry and takeover', () => {
-    const base = readFileSync('tests/fixtures/ux2-personal-target-base.json', 'utf8').trim();
-    const now = JSON.stringify(personalTargetFixture());
+    // Report 50, point 6e: the long text of the takeover (its message) now gives each maintenance with its weight; it is masked
+    // on both sides, every other value (rates, plans, entries, cases) stays compared bit for bit.
+    const maskMessage = (text: string) => {
+      const o = JSON.parse(text) as { takeovers?: Array<{ takeover?: { event?: { message?: unknown } } | null }> };
+      for (const t of o.takeovers ?? []) if (t.takeover?.event && typeof t.takeover.event.message === 'string') t.takeover.event.message = '<takeover text>';
+      return JSON.stringify(o);
+    };
+    const base = maskMessage(readFileSync('tests/fixtures/ux2-personal-target-base.json', 'utf8').trim());
+    const now = maskMessage(JSON.stringify(personalTargetFixture()));
     if (now !== base) {
       // Point at the first differing key, for the report.
       const a = JSON.parse(base) as Record<string, unknown>;

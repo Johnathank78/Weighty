@@ -20,6 +20,7 @@ import {
   buildPlanFromStore,
   completeOnboarding,
   ensureDailyLogs,
+  hasAppliedRecalibration,
   MAINTENANCE_PROJECTION_DAYS,
   markRecalibrationSeen,
   pathSolverRequest,
@@ -216,7 +217,8 @@ export function storePersonalTargetTable(store: WheightyStore, today: string): P
 /** "Ta cible personnelle : ... L'app l'ajustera à ta première recalibration." (Plan tab), null without a personal target. */
 export function personalTargetLine(store: WheightyStore): string | null {
   const t = store.plan?.source === 'personal_target' ? store.plan.personalTarget : undefined;
-  return t ? PERSONAL_TARGET_MESSAGE.inPlan(t.kcal) : null;
+  // Report 50, point 6a: "prochaine" once a recalibration was applied (a personal target set after it).
+  return t ? PERSONAL_TARGET_MESSAGE.inPlan(t.kcal, hasAppliedRecalibration(store)) : null;
 }
 
 type ChooseResult = { ok: true; store: WheightyStore } | { ok: false; reason: string; text?: string };
@@ -369,7 +371,7 @@ export function computePersonalTakeover(store: WheightyStore, state: Calibration
       status: 'applied',
       before: planSummary(plan),
       after: planSummary(r.plan),
-      message: PERSONAL_TARGET_MESSAGE.takeoverDetails(r.plan.maintenanceKcal, plan.maintenanceKcal),
+      message: PERSONAL_TARGET_MESSAGE.takeoverDetails({ kcal: r.plan.maintenanceKcal, kg: r.plan.planWeightKg ?? null }, { kcal: plan.maintenanceKcal, kg: plan.planWeightKg ?? null }),
       personalTarget: r.detail,
     },
   };

@@ -92,7 +92,7 @@ function useFirstRecalibrationAutoOpen(): void {
   useEffect(() => {
     if (!armed || screen === 'splash' || calibrationPending) return;
     setArmed(false);
-    if (!autoOpenAllowed || !firstRecalibrationAutoOpenDue(store, today, calibration, calibrationPending)) return;
+    if (!autoOpenAllowed || !firstRecalibrationAutoOpenDue(store, calibration, calibrationPending)) return;
     update((s) => markFirstRecalibrationOpened(s, today));
     openAuto('recalibration');
   }, [armed, screen, calibrationPending, autoOpenAllowed, store, today, calibration, update, openAuto]);
