@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useWeighFirstPending, WeighFirst } from '@/components/WeighFirst';
 import { useBackLabel, useNav } from '@/app/navigation';
 import { useWheighty } from '@/store/StoreProvider';
 import { ACTIVITY_LABEL, ADHERENCE_NOTED_TEXT, BODY_FAT_METHOD_LABEL, DATA_SOURCES_TEXT, GOAL_LABEL, GOAL_SHORT, occupationLabel, PACE_LABEL, PLAN_ERROR_TEXT, PRODUCT_SEARCH_TEXT } from '@/app/copy';
@@ -114,6 +115,9 @@ export function GoalSheet() {
   const [target, setTarget] = useState<number>(plan?.targetWeightKg ?? weight);
   const [rate, setRate] = useState<number | null>(plan && plan.goal !== 'maintenance' ? (plan.requestedWeeklyRate ?? plan.weeklyRateTarget) : null);
   const [error, setError] = useState<string | null>(null);
+  // Report 50, point 5: the invitation to weigh in first, at each opening, until "Continuer" (or a fresh weigh-in).
+  const [continued, setContinued] = useState(false);
+  const weighFirst = useWeighFirstPending(open, continued);
   // Pass 5b fixes, point 1: the slider of the method in force (the measured habit has its own limits); on the aligned target
   // itself, the speed of the goal in force is locked until the first recalibration.
   const lockLine = open && plan && goal === plan.goal ? alignedLockLine(store, today) : null;
@@ -127,8 +131,18 @@ export function GoalSheet() {
     setError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+  useEffect(() => {
+    if (!open) setContinued(false);
+  }, [open]);
 
   if (!open || !profile || !plan) return null;
+  if (weighFirst) {
+    return (
+      <BottomSheet open onClose={closeSheet} title="Ton objectif">
+        <WeighFirst sheet="goal" onContinue={() => setContinued(true)} />
+      </BottomSheet>
+    );
+  }
   const guard = goalGuardrails(profile.heightCm, weight);
   const pick = (g: Goal) => {
     setGoal(g);

@@ -49,6 +49,10 @@ type NavValue = {
   openAuto: (screen: ScreenId) => void;
   /** The screen on display was opened by itself (`openAuto`), and the user has not left it since. */
   autoOpened: boolean;
+  /** Report 50, point 5: opens the weigh-in, then comes back to the sheet `returnTo` once it is saved. */
+  weighThen: (returnTo: SheetId) => void;
+  /** A weigh-in was saved: back to the sheet it was opened from (`weighThen`), else the sheet closes. */
+  weighSaved: () => void;
 };
 
 const NavContext = createContext<NavValue | null>(null);
@@ -146,7 +150,10 @@ export function NavigationProvider({ initialScreen, children }: { initialScreen:
     if (topic) setWhyTopic(topic);
     setState((s) => navOpenSheet(s, next));
   }, []);
-  const closeSheet = useCallback(() => setState(navCloseSheet), []);
+  const closeSheet = useCallback(() => {
+    weighReturn.current = null;
+    setState(navCloseSheet);
+  }, []);
 
   const dismissToast = useCallback(() => setToast(null), []);
   const showToast = useCallback((text: string, action?: Toast['action']) => {
@@ -156,6 +163,17 @@ export function NavigationProvider({ initialScreen, children }: { initialScreen:
   }, []);
 
   const setDraft = useCallback((fn: (d: OnboardingDraft) => OnboardingDraft) => setState((s) => ({ ...s, draft: fn(s.draft) })), []);
+  // Report 50, point 5: the sheet a weigh-in opened from "Me peser d'abord" comes back to; forgotten when a sheet closes.
+  const weighReturn = useRef<SheetId | null>(null);
+  const weighThen = useCallback((returnTo: SheetId) => {
+    weighReturn.current = returnTo;
+    setState((s) => navOpenSheet(s, 'weigh'));
+  }, []);
+  const weighSaved = useCallback(() => {
+    const returnTo = weighReturn.current;
+    weighReturn.current = null;
+    setState((s) => (returnTo ? navOpenSheet(s, returnTo) : navCloseSheet(s)));
+  }, []);
   const openAuto = useCallback(
     (next: ScreenId) => {
       setAuto({ key: currentKey(navGo(stateRef.current, next)), shown: false });
@@ -190,8 +208,10 @@ export function NavigationProvider({ initialScreen, children }: { initialScreen:
       autoOpenAllowed: autoOpenAllowed(state),
       openAuto,
       autoOpened: auto !== null && auto.key === key,
+      weighThen,
+      weighSaved,
     }),
-    [state, key, arrival, completeSwipe, scrollOf, whyTopic, go, selectTab, back, openSheet, closeSheet, toast, showToast, dismissToast, setDraft, openAuto, auto],
+    [state, key, arrival, completeSwipe, scrollOf, whyTopic, go, selectTab, back, openSheet, closeSheet, toast, showToast, dismissToast, setDraft, openAuto, auto, weighThen, weighSaved],
   );
   return <NavContext.Provider value={value}>{children}</NavContext.Provider>;
 }

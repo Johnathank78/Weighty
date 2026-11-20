@@ -310,3 +310,15 @@ export const PLAN_HISTORY_MESSAGE = {
   maintenanceGoal: 'maintien du poids',
   perWeek: (rate: number) => `${formatRatePercent(rate)} par semaine`,
 } as const;
+
+/**
+ * Report 50, UX pass 3, point 5 (E5): before a change of plan, when the last valid weigh-in is more than 7 days old, a short
+ * invitation to weigh in first, without blocking anything. Never use the em dash character in this file.
+ */
+export const WEIGH_FIRST_MESSAGE = {
+  title: 'Pèse-toi d’abord ?',
+  line: (days: number | null) =>
+    days === null ? 'Aucune pesée encore : ton nouveau plan partira de ton poids du jour.' : `Dernière pesée il y a ${days} jours : ton nouveau plan partira de ton poids du jour.`,
+  weigh: 'Me peser d’abord',
+  continue: 'Continuer',
+} as const;

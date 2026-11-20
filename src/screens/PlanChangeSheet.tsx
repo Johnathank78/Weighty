@@ -5,6 +5,7 @@ import { previewAppPlanReturn, returnToAppPlan } from '@/domain/personalTarget';
 import type { PlanChangeOption } from '@/domain/planChange';
 import { PERSONAL_TARGET_MESSAGE, PLAN_CHANGE_MESSAGE, refusalReasonText } from '@/domain/planMessages';
 import { useWheighty } from '@/store/StoreProvider';
+import { useWeighFirstPending, WeighFirst } from '@/components/WeighFirst';
 
 /**
  * "Changer de plan" (UX pass 2, points 3 and 4), opened by "Je souhaite changer de plan" in Plan: the ways to change the
@@ -19,9 +20,14 @@ export function PlanChangeSheet({ options, onAlign }: { options: PlanChangeOptio
   // A copy of Plan drawn during a swipe opens no sheet.
   const open = useViewActive() && sheet === 'planChange' && options !== null;
   const [confirming, setConfirming] = useState(false);
+  // Report 50, point 5: the invitation to weigh in first, at each opening, until "Continuer" (or a fresh weigh-in).
+  const [continued, setContinued] = useState(false);
   useEffect(() => {
-    if (!open) setConfirming(false);
+    if (open) return;
+    setConfirming(false);
+    setContinued(false);
   }, [open]);
+  const weighFirst = useWeighFirstPending(open, continued);
   const preview = useMemo(() => (open && confirming ? previewAppPlanReturn(store, today) : null), [open, confirming, store, today]);
 
   const choose = (option: PlanChangeOption) => {
@@ -47,7 +53,9 @@ export function PlanChangeSheet({ options, onAlign }: { options: PlanChangeOptio
 
   return (
     <BottomSheet open={open} onClose={closeSheet} title={confirming ? PERSONAL_TARGET_MESSAGE.returnTitle : PLAN_CHANGE_MESSAGE.title}>
-      {confirming ? (
+      {weighFirst ? (
+        <WeighFirst sheet="planChange" onContinue={() => setContinued(true)} />
+      ) : confirming ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 8 }}>
           {preview?.ok ? (
             <>

@@ -18,10 +18,12 @@ import * as profiles from '../helpers/verificationProfiles';
 import { computePersonalTakeover, previewAppPlanReturn, returnToAppPlan } from '@/domain/personalTarget';
 import { planChangeOptions } from '@/domain/planChange';
 import { periodicReplanDue } from '@/domain/engine';
+import { weighFirstInvitation } from '@/domain/weighFirst';
+import { WEIGH_FIRST_MESSAGE } from '@/domain/planMessages';
 import { inPlanHistory, planHistory, PLAN_HISTORY_RULES } from '@/domain/planHistory';
 import { PLAN_EVENT_RULES } from '@/domain/types';
 import type { PlanEvent } from '@/domain/types';
-import { at, firstRecalibrationProfile, history, personalTargetProfile, planHistoryProfile, personalTargetRecalibrationProfile, recalibratedGateClosedProfile, verificationProfile } from '../helpers/verificationProfiles';
+import { at, firstRecalibrationProfile, history, oldWeighInChangeProfile, personalTargetProfile, planHistoryProfile, personalTargetRecalibrationProfile, recalibratedGateClosedProfile, verificationProfile } from '../helpers/verificationProfiles';
 
 /** Every verification profile (1 to 11 of reports 45 to 49, and those of this pass), for the migration and the round trip. */
 const ALL_PROFILES = Object.entries(profiles).filter(([name, f]) => name.endsWith('Profile') && name !== 'verificationProfile' && typeof f === 'function') as Array<[string, (today: string) => WheightyStore]>;
@@ -264,5 +266,44 @@ describe('4. "Revenir au plan de Wheighty" (E4)', () => {
     expect(planHistory(r.store, TODAY)[0]?.cause).toBe('Retour au plan de Wheighty');
     // Twice: nothing to go back from.
     expect(returnToAppPlan(r.store, TODAY, at(TODAY))).toMatchObject({ ok: false, reason: 'no_personal_target' });
+  });
+});
+
+describe('5. weigh in first (E5)', () => {
+  it('invites to weigh in when the last valid weigh-in is more than 7 days old (the reading of D3), never otherwise', () => {
+    const store = opened(oldWeighInChangeProfile(TODAY));
+    const invitation = weighFirstInvitation(store, TODAY);
+    expect(invitation).toMatchObject({ title: 'Pèse-toi d’abord ?', days: 10 });
+    // 8 days: invited; 7 days: not (age strictly over 7).
+    const last = store.weights[store.weights.length - 1]?.date as string;
+    expect(weighFirstInvitation(store, addDays(last, 8))?.days).toBe(8);
+    expect(weighFirstInvitation(store, addDays(last, 7))).toBeNull();
+    // A weigh-in today: no invitation any more (back to the choice after "Me peser d'abord").
+    expect(weighFirstInvitation(addWeight(store, { date: TODAY, weightKg: 73.9 }, at(TODAY)), TODAY)).toBeNull();
+    // No weigh-in at all: invited.
+    expect(weighFirstInvitation({ ...store, weights: [] }, TODAY)?.days).toBeNull();
+  });
+
+  it('the rule of 03/10: a title of 6 words at most, a line of 90 characters at most, no em dash', () => {
+    for (const days of [null, 8, 10, 365]) {
+      const i = weighFirstInvitation({ ...opened(oldWeighInChangeProfile(TODAY)), ...(days === null ? { weights: [] } : {}) }, days === null ? TODAY : addDays(TODAY, days - 10));
+      expect(i?.title.split(/\s+/).length).toBeLessThanOrEqual(6);
+      expect(i?.line.length ?? 0).toBeLessThanOrEqual(90);
+    }
+    expect(JSON.stringify(WEIGH_FIRST_MESSAGE)).not.toContain('—');
+    expect(readFileSync('src/domain/planMessages.ts', 'utf8')).not.toContain('—');
+  });
+
+  it('nothing is blocked: the sheets of "Je souhaite changer de plan" and of the goal show it, "Continuer" goes on', () => {
+    for (const file of ['src/screens/PlanChangeSheet.tsx', 'src/screens/Account.tsx']) {
+      const src = readFileSync(file, 'utf8');
+      expect(src, file).toMatch(/<WeighFirst sheet="(planChange|goal)" onContinue=\{\(\) => setContinued\(true\)\} \/>/);
+    }
+    // The weigh-in comes back to the choice once saved.
+    expect(readFileSync('src/screens/DailySheets.tsx', 'utf8')).toMatch(/weighSaved\(\);/);
+    const first = readFileSync('src/components/WeighFirst.tsx', 'utf8');
+    expect(first).toMatch(/event: 'shown'/);
+    expect(first).toMatch(/event: 'weigh'/);
+    expect(first).toMatch(/event: 'continue'/);
   });
 });
