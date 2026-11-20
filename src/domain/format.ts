@@ -172,6 +172,12 @@ export function formatDayMonth(isoDate: string): string {
   return `${p.d} ${MONTHS[p.m - 1] ?? ''}`;
 }
 
+/** "21 oct." (UX pass 3, point 1a: the dates at the ends of the Suivi chart). */
+export function formatDayShortMonth(isoDate: string): string {
+  const p = parts(isoDate);
+  return `${p.d} ${MONTHS_SHORT[p.m - 1] ?? ''}`;
+}
+
 export function formatShortMonth(isoDate: string): string {
   const p = parts(isoDate);
   const label = MONTHS_SHORT[p.m - 1] ?? '';

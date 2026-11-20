@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { OnboardingDraft, OnboardingScreenId } from '@/domain/onboarding';
-import { activeTab, canGoBack, currentKey, currentScreen, entryAnimated, initialNav, keptArrival, liveKeys, navBack, navCloseSheet, navGo, navOpenSheet, navSelectTab, navSwipe, screenUnder, swipeActions, swipeArrival } from './navModel';
+import { activeTab, autoOpenAllowed, canGoBack, currentKey, currentScreen, entryAnimated, initialNav, keptArrival, liveKeys, navBack, navCloseSheet, navGo, navOpenSheet, navSelectTab, navSwipe, screenUnder, swipeActions, swipeArrival } from './navModel';
 import { BACK_LABEL } from './copy';
 import type { NavState, NavTransition, ScreenId, SheetId, SwipeAction, TabId } from './navModel';
 import { createHistorySync } from './navHistory';
@@ -43,6 +43,16 @@ type NavValue = {
   dismissToast: () => void;
   draft: OnboardingDraft;
   setDraft: (fn: (d: OnboardingDraft) => OnboardingDraft) => void;
+  /** A screen may open by itself above what is on display (report 50, point 2): sections, no sheet, no decision screen. */
+  autoOpenAllowed: boolean;
+  /** Opens a screen by itself (stacked above the page on display); `autoOpened` stays true while it is on display. */
+  openAuto: (screen: ScreenId) => void;
+  /** The screen on display was opened by itself (`openAuto`), and the user has not left it since. */
+  autoOpened: boolean;
+  /** Report 50, point 5: opens the weigh-in, then comes back to the sheet `returnTo` once it is saved. */
+  weighThen: (returnTo: SheetId) => void;
+  /** A weigh-in was saved: back to the sheet it was opened from (`weighThen`), else the sheet closes. */
+  weighSaved: () => void;
 };
 
 const NavContext = createContext<NavValue | null>(null);
@@ -72,6 +82,14 @@ export function NavigationProvider({ initialScreen, children }: { initialScreen:
   // What the last swipe carried through landed on (UX pass 2, point 1), forgotten once something else is on display.
   const [arrival, setArrival] = useState<string | null>(null);
   if (keptArrival(arrival, state) !== arrival) setArrival(null);
+  // Report 50, point 2: the screen opened by itself, by its identity on the stack; forgotten once something else is on display
+  // (back to it later is a screen the user opened, under the usual rules).
+  const [auto, setAuto] = useState<{ key: string; shown: boolean } | null>(null);
+  if (auto !== null) {
+    const here = currentKey(state) === auto.key;
+    if (here && !auto.shown) setAuto({ ...auto, shown: true });
+    else if (!here && auto.shown) setAuto(null);
+  }
 
   /** Every navigation: the scroll position of the screen left is kept, then the state changes. */
   const navigate = useCallback((fn: (s: NavState) => NavState | null) => {
@@ -132,7 +150,10 @@ export function NavigationProvider({ initialScreen, children }: { initialScreen:
     if (topic) setWhyTopic(topic);
     setState((s) => navOpenSheet(s, next));
   }, []);
-  const closeSheet = useCallback(() => setState(navCloseSheet), []);
+  const closeSheet = useCallback(() => {
+    weighReturn.current = null;
+    setState(navCloseSheet);
+  }, []);
 
   const dismissToast = useCallback(() => setToast(null), []);
   const showToast = useCallback((text: string, action?: Toast['action']) => {
@@ -141,7 +162,34 @@ export function NavigationProvider({ initialScreen, children }: { initialScreen:
     toastTimer.current = window.setTimeout(() => setToast(null), action ? 8000 : 2800);
   }, []);
 
-  const setDraft = useCallback((fn: (d: OnboardingDraft) => OnboardingDraft) => setState((s) => ({ ...s, draft: fn(s.draft) })), []);
+  // Report 50, point 7 (defect 1 of report 48): a step forward of the onboarding (`setDraft` moving the step) is a page
+  // pushed: it no longer keeps the transition of the previous gesture (none after a swipe back, 'pop' after the back button).
+  const setDraft = useCallback(
+    (fn: (d: OnboardingDraft) => OnboardingDraft) =>
+      setState((s) => {
+        const draft = fn(s.draft);
+        return draft.step !== s.draft.step ? { ...s, draft, transition: 'push' } : { ...s, draft };
+      }),
+    [],
+  );
+  // Report 50, point 5: the sheet a weigh-in opened from "Me peser d'abord" comes back to; forgotten when a sheet closes.
+  const weighReturn = useRef<SheetId | null>(null);
+  const weighThen = useCallback((returnTo: SheetId) => {
+    weighReturn.current = returnTo;
+    setState((s) => navOpenSheet(s, 'weigh'));
+  }, []);
+  const weighSaved = useCallback(() => {
+    const returnTo = weighReturn.current;
+    weighReturn.current = null;
+    setState((s) => (returnTo ? navOpenSheet(s, returnTo) : navCloseSheet(s)));
+  }, []);
+  const openAuto = useCallback(
+    (next: ScreenId) => {
+      setAuto({ key: currentKey(navGo(stateRef.current, next)), shown: false });
+      navigate((s) => navGo(s, next));
+    },
+    [navigate],
+  );
 
   const value = useMemo<NavValue>(
     () => ({
@@ -166,8 +214,13 @@ export function NavigationProvider({ initialScreen, children }: { initialScreen:
       dismissToast,
       draft: state.draft,
       setDraft,
+      autoOpenAllowed: autoOpenAllowed(state),
+      openAuto,
+      autoOpened: auto !== null && auto.key === key,
+      weighThen,
+      weighSaved,
     }),
-    [state, key, arrival, completeSwipe, scrollOf, whyTopic, go, selectTab, back, openSheet, closeSheet, toast, showToast, dismissToast, setDraft],
+    [state, key, arrival, completeSwipe, scrollOf, whyTopic, go, selectTab, back, openSheet, closeSheet, toast, showToast, dismissToast, setDraft, openAuto, auto, weighThen, weighSaved],
   );
   return <NavContext.Provider value={value}>{children}</NavContext.Provider>;
 }

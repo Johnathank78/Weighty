@@ -64,6 +64,7 @@ import {
   currentWeightKg,
   ensureDailyLogs,
   gateOf,
+  hasAppliedRecalibration,
   planDateOf,
   planSummary,
   PRODUCTION_SOLVER,
@@ -859,7 +860,8 @@ export function measuredWhyText(store: WheightyStore): string | null {
 
 /** The line shown instead of the speed and of the steps / calories slider on the aligned target itself, null otherwise. */
 export function alignedLockLine(store: WheightyStore, today: string): string | null {
-  return alignedTargetLocked(store) ? JOURNAL_MESSAGE.alignedLock(alignedRecalibrationDays(store, today)) : null;
+  // Report 50, point 6a: "prochaine" once a recalibration was applied (before the switch to the aligned target).
+  return alignedTargetLocked(store) ? JOURNAL_MESSAGE.alignedLock(alignedRecalibrationDays(store, today), hasAppliedRecalibration(store)) : null;
 }
 
 /**

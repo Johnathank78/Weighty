@@ -16,10 +16,14 @@ import { runDailyChecks } from '@/domain/planSafety';
 import type { WheightyStore } from '@/domain/types';
 import { exportStore, parseImport } from '@/persistence/exportImport';
 import { addDays, localIsoDate } from '@/science/dates';
-import { at, backAfterPauseProfile, buttonProfile, deducedAdherenceProfile, eat, firstPlanProfile, incompleteDayProfile, pauseWithoutWeighInProfile, personalTargetProfile, proposalProfile, recalibratedGateClosedProfile, replanAndRecalibrationProfile, returnProfile, takeoverProfile } from '../../helpers/verificationProfiles';
+import { at, backAfterPauseProfile, buttonProfile, deducedAdherenceProfile, eat, firstPlanProfile, firstRecalibrationProfile, personalTargetRecalibrationProfile, planHistoryProfile, oldWeighInChangeProfile, incompleteDayProfile, pauseWithoutWeighInProfile, personalTargetProfile, proposalProfile, pauseAndProjectionProfile, recalibratedGateClosedProfile, replanAndRecalibrationProfile, returnProfile, takeoverProfile } from '../../helpers/verificationProfiles';
 import { hasAppliedRecalibration, periodicReplanDue, weighInStale } from '@/domain/engine';
 import { staleWeighInNotice } from '@/domain/planSafety';
-import { analysisView, gateProgress, todayStatusTitle, trackingChart } from '@/domain/views';
+import { firstRecalibrationAutoOpenDue } from '@/domain/firstRecalibration';
+import { planHistory } from '@/domain/planHistory';
+import { previewAppPlanReturn } from '@/domain/personalTarget';
+import { planChangeOptions } from '@/domain/planChange';
+import { analysisView, gateProgress, todayStatusTitle, trackingChart, TRACKING_RANGE_DAYS } from '@/domain/views';
 
 const TODAY = process.env.MANUAL_TODAY ?? localIsoDate(new Date());
 const OUT = 'docs/verification-5b';
@@ -118,4 +122,37 @@ it(`pass 5b manual check profiles, for ${TODAY}`, () => {
   expect(bothChecked.plan?.createdAt).toBe(both.plan?.createdAt);
   expect(bothChecked.meta.periodicReplanDeferredOn).toBe(TODAY);
   write('11-recalcul-et-recalibration.json', both);
+
+  // Report 50 (UX pass 3, 4.5): synthetic profiles 12 to 16.
+  const firstRecal = runDailyChecks(firstRecalibrationProfile(TODAY), TODAY, at(TODAY));
+  expect(firstRecalibrationAutoOpenDue(firstRecal, computeCalibrationState(firstRecal, TODAY, at(TODAY)), false)).toBe(true);
+  write('12-premiere-recalibration.json', firstRecalibrationProfile(TODAY));
+
+  const personalRecal = runDailyChecks(personalTargetRecalibrationProfile(TODAY), TODAY, at(TODAY));
+  const personalRecalState = computeCalibrationState(personalRecal, TODAY, at(TODAY));
+  expect(personalRecalState?.surfaced).toBe(true);
+  expect(firstRecalibrationAutoOpenDue(personalRecal, personalRecalState, false)).toBe(false);
+  expect(takeOverPersonalTarget(personalRecal, personalRecalState, TODAY, at(TODAY)).plan?.source).toBe('recalibrated');
+  write('13-cible-personnelle-recalibration.json', personalTargetRecalibrationProfile(TODAY));
+
+  const historyStore = runDailyChecks(planHistoryProfile(TODAY), TODAY, at(TODAY));
+  expect(planHistory(historyStore, TODAY).map((e) => e.cause)).toEqual(['Recalcul régulier', 'Tu as changé de vitesse ou d’objectif', 'Mise à jour avec tes pesées', 'Recalibration (détails non conservés)', 'Ton premier plan']);
+  write('14-historique-du-plan.json', planHistoryProfile(TODAY));
+
+  const paused = runDailyChecks(pauseAndProjectionProfile(TODAY), TODAY, at(TODAY));
+  const pausedState = computeCalibrationState(paused, TODAY, at(TODAY));
+  for (const range of [TRACKING_RANGE_DAYS.month, TRACKING_RANGE_DAYS.all]) {
+    const chart = trackingChart(paused, TODAY, range, pausedState);
+    expect(chart?.pauses).toHaveLength(1);
+    expect(chart?.projection[0]?.day).toBe(chart?.todayDay);
+    expect((chart?.todayDay ?? 0) - (chart?.trend[chart.trend.length - 1]?.day ?? 0)).toBe(3);
+    expect(chart?.projection[1]?.day).toBe((chart?.todayDay ?? 0) + 1);
+  }
+  write('15-pause-et-projection.json', pauseAndProjectionProfile(TODAY));
+
+  const oldWeighIn = runDailyChecks(oldWeighInChangeProfile(TODAY), TODAY, at(TODAY));
+  expect(weighInStale(oldWeighIn, TODAY)).toBe(true);
+  expect(planChangeOptions(oldWeighIn, TODAY)?.map((o) => o.id)).toContain('return');
+  expect(previewAppPlanReturn(oldWeighIn, TODAY)?.ok).toBe(true);
+  write('16-pesee-ancienne-changement.json', oldWeighInChangeProfile(TODAY));
 });

@@ -14,8 +14,8 @@ import { ShortNotice } from '@/components/ShortNotice';
 import { floorAdviceOf } from '@/domain/planSafety';
 import { journalRead } from '@/domain/journalPath';
 import { JOURNAL_MESSAGE } from '@/domain/planMessages';
-import { formatDayMonth, formatInteger, formatKcal, formatKcalRange, formatShortMonth, formatSignedKcal, formatSignedWeight, formatSteps, formatWeight, weightUnitLabel } from '@/domain/format';
-import { adherenceSummary, analysisView, averageLoggedSteps, DEFAULT_TRACKING_RANGE, gateCriterionValue, gateProgress, recentWeights, trackingChart, TRACKING_RANGE_DAYS, TRACKING_RANGES, weeksOfTracking } from '@/domain/views';
+import { formatDayMonth, formatDayShortMonth, formatInteger, formatKcal, formatKcalRange, formatSignedWeight, formatSteps, formatWeight, weightUnitLabel } from '@/domain/format';
+import { adherenceSummary, analysisView, maintenanceComparisonText, averageLoggedSteps, DEFAULT_TRACKING_RANGE, gateCriterionValue, gateProgress, recentWeights, trackingChart, TRACKING_RANGE_DAYS, TRACKING_RANGES, weeksOfTracking } from '@/domain/views';
 import type { ChartSeries, TrackingRange } from '@/domain/views';
 import type { UnitPreference } from '@/domain/types';
 import { addDays } from '@/science/dates';
@@ -32,9 +32,10 @@ export function SuiviScreen() {
   const trend = trendOf(store).summary;
   const chart = useMemo(() => trackingChart(store, today, TRACKING_RANGE_DAYS[range], calibration), [store, today, range, calibration]);
   const lastTrendDay = chart ? (chart.trend[chart.trend.length - 1]?.day ?? chart.todayDay) : 0;
-  const hasFuture = chart ? chart.projection.some((p) => p.day > lastTrendDay) : false;
+  const hasFuture = chart ? chart.projection.length > 1 : false;
+  // The dot of the latest trend weight (the figure above the chart), on its own day; "Auj." is placed on today (UX pass 3).
   const markers = useMemo(
-    () => (chart && trend.latest ? ([{ day: lastTrendDay, kg: trend.latest.trendKg, kind: 'today' }] as const) : []),
+    () => (chart && trend.latest && chart.trend.length > 0 ? ([{ day: lastTrendDay, kg: trend.latest.trendKg, kind: 'today' }] as const) : []),
     [chart, trend.latest, lastTrendDay],
   );
   const recent = recentWeights(store, 8);
@@ -76,14 +77,17 @@ export function SuiviScreen() {
         <>
           <WeightChart
             height={168}
+            domainDays={[0, chart.endDay]}
+            todayDay={chart.todayDay}
             raw={chart.raw}
             trend={chart.trend}
             projection={chart.projection}
             band={chart.band}
             markers={markers}
+            pauses={chart.pauses}
             label={`Évolution du poids en ${weightUnitLabel(units)} : pesées, tendance lissée${hasFuture ? ' et projection du plan' : ''}`}
             summary={chartSummary(chart, units)}
-            axis={{ start: formatShortMonth(chart.startDate), today: 'Auj.', ...(hasFuture ? { future: 'Prévu' } : {}) }}
+            axis={{ start: formatDayShortMonth(chart.startDate), today: 'Auj.', end: formatDayShortMonth(chart.endDate) }}
             bandLabel={CHART_BAND_LABEL}
           />
           {chart.weighInNeeded ? (
@@ -167,18 +171,22 @@ const CHART_LEARNING_NOTE = 'Pas encore de projection : Wheighty apprend encore 
 /** No curve ahead while the last weigh-in is more than 7 days old (report 49, point 4, D3; text of the prompt). */
 export const CHART_WEIGH_IN_NOTE = 'Pèse-toi pour voir où mène ton plan.';
 
-/** Text alternative to the drawing: what the curve says, for screen readers (A3). */
+/**
+ * Text alternative to the drawing: what the curve says, for screen readers (A3). UX pass 3, point 1e: the window, the pauses
+ * when there are some, and where the projection leads.
+ */
 export function chartSummary(chart: ChartSeries, units: UnitPreference): string {
   const unit = weightUnitLabel(units);
   const firstTrend = chart.trend[0];
   const lastTrend = chart.trend[chart.trend.length - 1];
   const lastProjection = chart.projection[chart.projection.length - 1];
-  const parts = [`${chart.raw.length} pesée${chart.raw.length > 1 ? 's' : ''} depuis le ${formatDayMonth(chart.startDate)}`];
+  const parts = [`${chart.raw.length} pesée${chart.raw.length > 1 ? 's' : ''}`];
   if (firstTrend && lastTrend) parts.push(`tendance de ${formatWeight(firstTrend.kg, units)} à ${formatWeight(lastTrend.kg, units)} ${unit}`);
-  if (lastTrend && lastProjection && lastProjection.day > lastTrend.day) {
-    parts.push(`projection du plan à ${formatWeight(lastProjection.kg, units)} ${unit} dans ${lastProjection.day - lastTrend.day} jours`);
-  }
-  return `${parts.join(', ')}.${chart.weighInNeeded ? ` ${CHART_WEIGH_IN_NOTE}` : chart.projectionPending ? ` ${CHART_LEARNING_NOTE}` : ''}`;
+  for (const p of chart.pauses) parts.push(`pause du suivi du ${formatDayMonth(p.from)} au ${formatDayMonth(p.to)}`);
+  if (chart.arrival) parts.push(`projection du plan : poids cible atteint vers le ${formatDayMonth(chart.arrival.date)}`);
+  else if (lastProjection && chart.projection.length > 1) parts.push(`projection du plan : ${formatWeight(lastProjection.kg, units)} ${unit} le ${formatDayMonth(addDays(chart.startDate, lastProjection.day))}`);
+  const period = `Du ${formatDayMonth(chart.startDate)} au ${formatDayMonth(chart.endDate)}`;
+  return `${period} : ${parts.join(', ')}.${chart.weighInNeeded ? ` ${CHART_WEIGH_IN_NOTE}` : chart.projectionPending ? ` ${CHART_LEARNING_NOTE}` : ''}`;
 }
 
 /** Display of one gate criterion (shared with the explanation panel). */
@@ -195,6 +203,7 @@ export function AnalyseScreen() {
   const avgSteps = averageLoggedSteps(store);
   const gate = gateProgress(calibration, store);
   const details = store.preferences.showScientificDetails;
+  const comparison = maintenanceComparisonText(view, units);
 
   const header = (
     <header style={{ padding: '8px 0 26px' }}>
@@ -285,10 +294,9 @@ export function AnalyseScreen() {
         <span className="num-xl">{formatKcal(view.maintenanceKcal)}</span>
         <span className="unit">kcal</span>
       </div>
-      {view.changeSinceInitialKcal !== null && view.initialMaintenanceKcal !== null ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, font: '500 13px var(--font)', color: 'var(--ink2)', marginBottom: 22 }}>
-          <span style={{ color: 'var(--acc)', fontWeight: 600 }}>{formatSignedKcal(view.changeSinceInitialKcal)} kcal</span> depuis l’estimation initiale ({formatKcal(view.initialMaintenanceKcal)})
-        </div>
+      {comparison ? (
+        // Report 50, point 6e: each maintenance with its weight; their difference is not presented as a correction.
+        <p style={{ font: '500 13px/1.45 var(--font)', color: 'var(--ink2)', margin: '0 0 22px' }}>{comparison}</p>
       ) : null}
       <div className="row" style={{ marginBottom: 30, borderBottom: 0 }}>
         <span className="row__label" style={{ fontSize: 12.5 }}>
@@ -390,7 +398,7 @@ export function AnalyseScreen() {
 }
 
 export function RecalibrationScreen() {
-  const { go, openSheet, showToast } = useNav();
+  const { go, openSheet, showToast, autoOpened } = useNav();
   const { store, calibration, calibrationPending, commit, today, nowIso, logActivity } = useWheighty();
   const plan = store.plan;
   const state = calibration;
@@ -433,20 +441,24 @@ export function RecalibrationScreen() {
   // Report 47, point 1d: no recalibration screen while a personal target is in force (the app takes it over by itself).
   const personal = plan?.source === 'personal_target';
 
+  // Report 50, point 2c: opened by itself (the first recalibration), the screen does not mark the recalibration seen, nor
+  // does "Plus tard": it stays ready in Analyse and on Aujourd'hui. Opened by the user, the rule of 05 s12 as before.
+  const auto = live && autoOpened;
+
   // Recalibration screen opened (activity log, report 49, point 1c), once per opening of the live screen.
   useEffect(() => {
     if (!live || logged.current || calibrationPending) return;
     logged.current = true;
-    logActivity('recalibration', { event: 'screen_opened', surfaced: state?.surfaced ?? false, proposedMaintenanceKcal: state?.proposedMaintenanceKcal ?? null, currentMaintenanceKcal: plan?.maintenanceKcal ?? null, previewTargetKcal: preview?.calorieTarget ?? null, currentTargetKcal: plan?.calorieTarget ?? null, buildOk: build?.ok ?? null });
-  }, [live, calibrationPending, state, plan, preview, build, logActivity]);
+    logActivity('recalibration', { event: 'screen_opened', ...(auto ? { auto: true } : {}), surfaced: state?.surfaced ?? false, proposedMaintenanceKcal: state?.proposedMaintenanceKcal ?? null, currentMaintenanceKcal: plan?.maintenanceKcal ?? null, previewTargetKcal: preview?.calorieTarget ?? null, currentTargetKcal: plan?.calorieTarget ?? null, buildOk: build?.ok ?? null });
+  }, [live, auto, calibrationPending, state, plan, preview, build, logActivity]);
 
   useEffect(() => {
-    if (live && !personal && !marked.current && !calibrationPending && state?.surfaced && state.candidate) {
+    if (live && !auto && !personal && !marked.current && !calibrationPending && state?.surfaced && state.candidate) {
       marked.current = true;
       // Seen: surfacing thresholds now compare against this event (05 s12). The plan is unchanged until applied.
       commit(markRecalibrationSeen(store, state, today));
     }
-  }, [live, personal, state, calibrationPending, store, today, commit]);
+  }, [live, auto, personal, state, calibrationPending, store, today, commit]);
 
   if (!plan || personal || !state?.candidate || target === null) {
     return (
@@ -586,7 +598,7 @@ export function RecalibrationScreen() {
         className="btn btn--ghost"
         style={{ paddingTop: 0 }}
         onClick={() => {
-          logActivity('recalibration', { event: 'later' });
+          logActivity('recalibration', { event: 'later', ...(auto ? { auto: true } : {}) });
           go('analyse', { replace: true });
         }}
       >

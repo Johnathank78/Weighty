@@ -4,12 +4,12 @@
  * is unchanged (`personalTargetAvailable`, `alignButton`); this only gathers them for the sheet.
  */
 import { alignButton } from './journalPath';
-import { personalTargetAvailable } from './personalTarget';
-import { PLAN_CHANGE_MESSAGE } from './planMessages';
+import { personalTargetActive, personalTargetAvailable } from './personalTarget';
+import { PERSONAL_TARGET_MESSAGE, PLAN_CHANGE_MESSAGE } from './planMessages';
 import type { WheightyStore } from './types';
 
 export type PlanChangeOption = {
-  id: 'personal' | 'align';
+  id: 'personal' | 'align' | 'return';
   title: string;
   /** Under the title: what the option is, or, greyed, what it waits for. */
   sub: string;
@@ -25,5 +25,7 @@ export function planChangeOptions(store: WheightyStore, today: string): PlanChan
   if (personalTargetAvailable(store)) options.push({ id: 'personal', title: PLAN_CHANGE_MESSAGE.personalTitle, sub: PLAN_CHANGE_MESSAGE.personalSub, enabled: true });
   const align = alignButton(store, today);
   if (align) options.push({ id: 'align', title: PLAN_CHANGE_MESSAGE.alignTitle, sub: align.enabled ? PLAN_CHANGE_MESSAGE.alignSub : (align.hint ?? PLAN_CHANGE_MESSAGE.alignSub), enabled: align.enabled });
+  // Report 50, point 4 (E4): from a personal target in force only, back to the plan of the app.
+  if (personalTargetActive(store)) options.push({ id: 'return', title: PERSONAL_TARGET_MESSAGE.returnTitle, sub: PERSONAL_TARGET_MESSAGE.returnSub, enabled: true });
   return options.length > 0 ? options : null;
 }

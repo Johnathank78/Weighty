@@ -3,9 +3,9 @@
 Journal technique et scientifique de l'implémentation. Toute décision qui n'est pas écrite telle quelle dans `instruct/` est listée ici avec sa justification. Aucune déviation scientifique n'est silencieuse.
 
 - Modèle scientifique : `SCIENTIFIC_MODEL_VERSION = "1.9.0"` (`src/science/constants.ts`). Jusqu'à 1.3.0 : sections 3 et 11 de ces notes. Les modèles 1.4.0 à 1.8.0 (solveur K2, recalcul périodique, garde-fous G1 et G2, parcours journal, cible personnelle) sont décrits dans les rapports 37 à 48 et dans les commentaires du code, pas ici. 1.9.0 : section 12 (rapport 49).
-- Schéma de stockage : `SCHEMA_VERSION = 11` (`src/domain/types.ts`), migrations dans `src/persistence/migrations.ts`. 1 → 6 : voir plus bas (J-01, J-06, J-09, C-01) ; 6 → 10 : passes 5a et 5b (commentaire de `SCHEMA_VERSION`) ; 10 → 11 : D-35.
+- Schéma de stockage : `SCHEMA_VERSION = 12` (`src/domain/types.ts`), migrations dans `src/persistence/migrations.ts`. 1 → 6 : voir plus bas (J-01, J-06, J-09, C-01) ; 6 → 10 : passes 5a et 5b (commentaire de `SCHEMA_VERSION`) ; 10 → 11 : D-35 ; 11 → 12 : D-43 (passe UX 3, rapport 50, aucune sortie scientifique).
 
-Depuis la passe « science + onboarding + warm start » (modèle 1.1.0), les fichiers `instruct/` ont été mis à jour pour refléter les décisions finales ; ils ne contredisent plus ces notes (`instruct/05` s17 et `instruct/08` réalignés sur le modèle 1.2.0 en P3, D-30). La section 9 résume ce qui a changé par rapport au modèle 1.0.0, la section 10 par rapport au modèle 1.1.0, la section 11 par rapport au modèle 1.2.0 (passe bêta), la section 12 par rapport au modèle 1.8.0 (rapport 49).
+Depuis la passe « science + onboarding + warm start » (modèle 1.1.0), les fichiers `instruct/` ont été mis à jour pour refléter les décisions finales ; ils ne contredisent plus ces notes (`instruct/05` s17 et `instruct/08` réalignés sur le modèle 1.2.0 en P3, D-30). La section 9 résume ce qui a changé par rapport au modèle 1.0.0, la section 10 par rapport au modèle 1.1.0, la section 11 par rapport au modèle 1.2.0 (passe bêta), la section 12 par rapport au modèle 1.8.0 (rapport 49). La section 13 décrit la passe UX 3 (rapport 50) : écrans seulement, le modèle reste en 1.9.0.
 
 ---
 
@@ -709,6 +709,7 @@ Temps par image : **médiane 0,11 ms, p95 0,56 ms** (Node, PC). Faux positifs : 
 - **Diagnostic** (cas signalé : 1 pesée hier, 2 aujourd'hui, vue 3 mois) : `WeightChart` calculait un domaine X unique sur toutes les séries, projection comprise (`d0 = 0`, `d1 = 21`), donc 1 jour d'historique occupait 5 % de la largeur ; les libellés `.chart-axis` étaient un flex `space-between` à trois cellules, c'est-à-dire une **seconde échelle implicite en tiers égaux** sans rapport avec le tracé ; la projection était la trajectoire du plan **filtrée** à `jour ≥ dernier point de tendance`, donc elle démarrait sur l'échantillon hebdomadaire suivant (jour 7 pour une tendance qui s'arrête au jour 1) et à la valeur prévue par le plan, d'où le décrochage.
 - **`domain/chartScale.ts`** (pur, testé, sans DOM) : mapping données → pixels. Règle horizontale retenue avec le product owner : départ à la première pesée affichée, **30 % de la largeur réservés aux jours à venir** (`FUTURE_WIDTH_SHARE`). « Aujourd'hui » est donc toujours au même endroit et les libellés reçoivent la position réelle (`todayRatio`) au lieu de la deviner. Les deux zones n'ont pas la même densité de jours : la jonction est marquée par un trait pointillé vertical. Cas dégénérés : une seule pesée sans plan → point centré ; pas de projection → l'historique prend toute la largeur. La polyligne de projection commence sur le dernier point de tendance ; la bande est coupée sur ce jour par interpolation du segment qui le traverse.
 - **Projection recalculée depuis aujourd'hui** (`views.projectionFromToday`, décision du product owner). Le snapshot `plan.projection` restait figé au jour de la création du plan : au bout de 90 jours sa valeur du jour avait dérivé de 0,9 kg de la tendance réelle (falaise d'un kilo en un jour à la jonction) et son intervalle 80 %, ouvert sur 90 jours, faisait 10 kg de haut. La courbe affichée repart donc du **poids de tendance actuel**, avec la cible calorique et les pas du plan en cours et le **maintien estimé courant** (`CalibrationState.currentMaintenanceKcal`, sinon celui du plan), via `assessBaseline` + `planContextFrom` + `projectPlan`, les fonctions que le domaine appelait déjà. `science/` n'est pas modifié, aucun modèle nouveau, rien n'est stocké, `plan.projection` reste la référence du plan (testé). Jour 0 de la simulation = le dernier point de tendance, donc le raccord est exact et la bande s'ouvre à partir de là (< 0,2 kg à la jonction). Coût mesuré : 0,03 ms par appel sur un historique de 11 semaines.
+- **Remplacé par D-42 (rapport 50)** : la part fixe de 30 % pour le futur, la jonction sur le dernier point de tendance et le jour 0 de la projection sur ce point ne sont plus en service.
 - **Rien devant pendant l'apprentissage** (décision du product owner) : tant que la première calibration n'est pas atteinte (`gate.met && candidate`, le même prédicat que l'écran Analyse), aucune courbe ni bande ne sont dessinées, `projectionPending` est vrai, l'historique prend toute la largeur et une ligne grise l'explique. Avant ce seuil l'estimation de maintien est encore l'a priori de l'onboarding : une courbe donnerait une fausse impression de précision.
 - **Rendu canvas** (`components/WeightChart.tsx`) : `devicePixelRatio` (plafonné à 3), couleurs lues sur les tokens (`--coral`, `--peach`, `--ink2`, `--line-strong`) et redessinées quand `data-theme` change, révélation progressive respectant `prefers-reduced-motion`, largeur suivie par `ResizeObserver`. Alternative accessible : `role="img"` + `aria-label`, plus un résumé en toutes lettres (nombre de pesées, tendance de … à …, projection à … dans N jours) en contenu de repli et en texte masqué. Aucune librairie graphique.
 - **Pesées multiples le même jour** : `computeTrend` déduplique par date (dernière pesée du jour), le graphique montre donc un point pour deux pesées. Inchangé, c'est du `science/`. La liste « Dernières pesées » affiche maintenant l'heure quand le jour porte plusieurs pesées (`RecentWeight.time`, dérivé de `createdAt`, rien de persisté en plus).
@@ -806,6 +807,34 @@ Le réglage passe en fin de liste des préférences : c'est une option d'observa
 ### D-41 Réancrage après une pause (rapport 49, point 7, D7, amendement 8)
 
 `src/science/reanchor.ts`, option `reanchorAfterPause` de l'entrée de calibration, `REANCHOR_AFTER_PAUSE = 'A'` (`engineering_prior`). Variante A : une ordonnée par période de suivi (grille ±3 kg par 0,05 kg, centrée sur la première pesée de la période), marginalisée séparément à offset donné ; la première pesée de chaque période pèse 1 (les jours de pause n'apportent aucune preuve) ; le modèle de Hall continue à travers la pause ; l'état modélisé du jour prend le niveau de la dernière période. Sans pause : le code de 71bc77e, au bit près. Régime « journal lu » hors périmètre (option ignorée). Amendement 8 : A retenue sur l'entraînement (pire cellule 0,20 kg contre 0,26 pour B), GO en validation (V1 à V5, rapport 49). Limite : avec une seule pesée dans la dernière période, l'état modélisé est exactement cette pesée (V1 et V5 passent par construction).
+
+### D-42 Graphique de Suivi sur une seule échelle de temps (rapport 50, point 1, E1, affichage)
+
+Remplace la règle horizontale d'A-03. Un jour a la même largeur avant et après aujourd'hui. « Ce mois-ci » : 30 jours avant aujourd'hui et 30 après, « Auj. » au milieu même pour un nouvel utilisateur. « Tout » : de la première pesée au jour où la projection atteint le poids cible ; 30 jours après aujourd'hui en maintien ou sans arrivée ; 365 jours au plus. Sans projection (apprentissage, D3) : même fenêtre, futur vide. Libellés : date de début, « Auj. » à sa position réelle, date de fin (un libellé de bord trop proche de « Auj. » est masqué). « Auj. » et le jour 0 de la projection sont sur aujourd'hui ; le décalage vertical d'affichage existant est gardé ; un raccord en pointillés relie le dernier point de tendance à aujourd'hui. La projection du graphique est échantillonnée tous les jours (`ProjectionInput.sampleEveryDays`, optionnel ; sans lui, `projectPlan` rend exactement la même chose, captures à 0 différence) ; le jour d'arrivée, les semaines annoncées et l'horizon ne dépendent pas de l'échantillonnage. Les pauses de `trackingPauses` (D-40) : tendance interrompue, bande grise discrète. Le résumé texte dit la fenêtre, les pauses et où mène la projection. Le dessin ne se relance que quand son contenu change (clé de contenu, plus l'identité des tableaux).
+
+### D-43 Première recalibration ouverte une fois (rapport 50, point 2, E2, schéma 12)
+
+Première recalibration : proposée (`surfaced`) sans recalibration appliquée, hors cible personnelle. À l'ouverture suivante (démarrage ou retour au premier plan), une fois la calibration du store en cours prête et l'écran d'accueil passé, son écran s'ouvre de lui-même, empilé sur la page affichée, une seule fois par store (`AppMeta.firstRecalibrationOpenedOn`, écrite à l'ouverture ; migration 11 → 12 : `null`). Décidé une fois par ouverture : onboarding, feuille ou autre écran de décision affiché → il attend l'ouverture suivante (`autoOpenAllowed`). Sur cet écran seulement, ni l'ouverture ni « Plus tard » n'appellent `markRecalibrationSeen` ; ouvert par l'utilisateur, la règle de 05 s12 inchangée. Cible personnelle : la reprise automatique, inchangée. Journal : `screen_opened` et `later` avec `auto: true`.
+
+### D-44 Historique de mon plan (rapport 50, point 3, E3, affichage)
+
+Page empilée au-dessus de Plan, en lecture seule, lue dans `meta.planEvents` seulement (`src/domain/planHistory.ts`). Retenues : les entrées `applied` avec un plan `after` des règles qui changent le plan en vigueur (`PLAN_HISTORY_RULES`), et les entrées `recalibration` reconstituées (`backfilled`, « Recalibration (détails non conservés) »). Écartées : échecs, offres de l'habitude mesurée, messages et refus, `journal_measured_exit` et `target_bmi_20` (plans non gardés). Plus récente en haut ; date, cible avant → après, cause en mots simples, et derrière « Détails » le maintien avant et après et la vitesse.
+
+### D-45 Revenir au plan de Wheighty (rapport 50, point 4, E4)
+
+Depuis une cible personnelle, dans « Changer de plan ». Le calcul de la reprise automatique (étapes 2 à 4 de `computePersonalTakeover`, extraites dans `appPlanOfPersonalTarget` ; la reprise rend le même résultat au bit près), sur l'estimation en vigueur (la dernière calibration appliquée, celle de l'inscription avant toute recalibration), source `initial` comme un plan demandé par l'utilisateur. Aperçu, puis « Confirmer » ou « Annuler ». Confirmé : la cible personnelle prend fin (G2 et le recalcul tous les 28 jours reprennent) ; entrée de trace `personal_target_return` (schéma 12) avec les plans avant et après.
+
+### D-46 Se peser d'abord (rapport 50, point 5, E5)
+
+À l'ouverture de « Je souhaite changer de plan » et de la feuille d'objectif et de vitesse, quand la dernière pesée valide a plus de 7 jours (`AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS`, lecture de D-38) : « Pèse-toi d'abord ? » avec « Me peser d'abord » (la saisie de pesée, puis retour au choix) et « Continuer ». Rien n'est bloqué. Journalisé.
+
+### D-47 Textes (rapport 50, point 6, E6)
+
+« première » devient « prochaine » après une recalibration appliquée (ligne de la cible personnelle, verrou et échéance de la cible alignée). Le reste du jour d'Aujourd'hui est arrondi comme la cible. Pendant D3, la ligne d'état dit « Ton plan attend une pesée. ». Un seul message à la fois : tant qu'une recalibration est proposée, les cartes de décision du parcours journal attendent, sans réponse (`journalCardsWait`). Le texte long de la reprise et Analyse donnent chaque maintien avec son poids (« Au départ : … à … kg. Aujourd'hui : … à … kg. ») et ne présentent plus leur différence comme une correction.
+
+### D-48 Défauts du rapport 48 (rapport 50, point 7)
+
+Une étape d'onboarding qui avance est une page empilée (transition `push`), quel que soit le geste précédent. Une feuille donne le focus à son dialogue, plus à sa poignée (qui montrait son contour orange à chaque ouverture).
 
 ---
 
@@ -1001,3 +1030,18 @@ Profils golden modifiés (tous les 12) : calories de −10,5 à +52,5 kcal/j (01
 | Export | format 1 | format 2 avec diagnostics (D-35) |
 | Constantes | | `AUTO_UPDATE_MAX_WEIGHIN_AGE_DAYS`, `TRACKING_PAUSE_MIN_GAP_DAYS`, `REANCHOR_AFTER_PAUSE` |
 | Captures T-03, T-04, golden | | identiques au bit près ; R, S et parcours : versions, schéma et nouvelles clés seulement |
+
+---
+
+## 13. Passe UX 3 (rapport 50) : écrans seulement
+
+Le modèle reste en 1.9.0 ; aucune constante de `src/science/constants.ts`, aucune sortie scientifique ne change (captures T-03, T-04 et golden identiques au bit près à `292d617` ; équivalence de la 5b rejouée sur le code final).
+
+| Domaine | Avant (rapport 49) | Passe UX 3 |
+|---|---|---|
+| Graphique de Suivi | part fixe de 30 % pour le futur, « Auj. » sur la dernière pesée, projection hebdomadaire | une échelle de temps, « Auj. » à aujourd'hui, raccord, projection quotidienne, pauses visibles (D-42) |
+| Première recalibration | discrète, marquée vue à l'ouverture de l'écran | écran ouvert une fois de lui-même, ni l'ouverture ni « Plus tard » ne la marquent vue (D-43) |
+| Plan | | « Historique de mon plan » (D-44), « Revenir au plan de Wheighty » (D-45), « Pèse-toi d'abord ? » (D-46) |
+| Textes | | D-47 ; défauts du rapport 48 (D-48) |
+| Schéma | 11 | 12 : `AppMeta.firstRecalibrationOpenedOn`, règle de trace `personal_target_return` |
+| `projectPlan` | échantillonnage fixe | paramètre optionnel `sampleEveryDays`, absent partout sauf pour le graphique |

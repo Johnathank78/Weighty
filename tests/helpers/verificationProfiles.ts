@@ -6,7 +6,8 @@
  */
 import { addWeight, applyRecalibration, completeOnboarding, computeCalibrationState, setAdherence } from '@/domain/engine';
 import { addFoodEntry } from '@/domain/journal';
-import { acceptMeasuredOffer, runJournalWeek, switchToAlignedTarget } from '@/domain/journalPath';
+import { acceptMeasuredOffer, changeGoalOnPath, runJournalWeek, switchToAlignedTarget } from '@/domain/journalPath';
+import { backfillRecalibrations } from '@/persistence/migrations';
 import { completeOnboardingWithTarget } from '@/domain/personalTarget';
 import { runDailyChecks } from '@/domain/planSafety';
 import type { WheightyStore } from '@/domain/types';
@@ -206,4 +207,93 @@ export function replanAndRecalibrationProfile(today: string): WheightyStore {
   const r = applyRecalibration(s, state, day, at(day));
   if (!r.ok) throw new Error(r.reason);
   return tracked(r.store, start, 22, 61, () => true, () => 75 - 0.06 * 21);
+}
+
+// ---------------------------------------------------------------------------
+// UX pass 3 (report 50, section 4.5). No real data: synthetic stores.
+// ---------------------------------------------------------------------------
+
+/**
+ * 15. Pause and projection (point 1): a weigh-in and "Plan respecté" a day for 21 days, a pause of 20 days without a weigh-in,
+ * the return on day 42, a recalibration applied on day 60 (gate of the period met), then weigh-ins up to 3 days ago.
+ * Expected in Suivi: a grey band over the pause, "Auj." on today, the dashed join from the last weigh-in, the projection drawn
+ * day by day, on "Ce mois-ci" and on "Tout".
+ */
+export function pauseAndProjectionProfile(today: string): WheightyStore {
+  const { store, start } = history(verificationProfile('Test pause et projection'), today, 70);
+  const before = tracked(store, start, 0, 21);
+  const back = tracked(before, start, 42, 60, () => true, (i) => 75 - 0.06 * i + 0.4);
+  const day = addDays(start, 60);
+  const state = computeCalibrationState(back, day, at(day));
+  if (!state?.gate.met) throw new Error('gate of profile 15');
+  const r = applyRecalibration(back, state, day, at(day));
+  if (!r.ok) throw new Error(r.reason);
+  return tracked(r.store, start, 61, 67, () => true, (i) => 75 - 0.06 * i + 0.4);
+}
+
+/**
+ * 12. First recalibration (point 2): the target assumed to be followed, no recalibration applied, 21 days of a weigh-in and
+ * "Plan respecté" a day, losing faster than the plan: a first recalibration is ready. Expected: its screen opens by itself
+ * at the loading; after "Plus tard" the card stays in Analyse; after a reload the screen does not open again.
+ */
+export function firstRecalibrationProfile(today: string): WheightyStore {
+  const { store, start } = history(verificationProfile('Test première recalibration'), today, 21);
+  return tracked(store, start, 1, 21, () => true, (i) => 75 - 0.1 * i);
+}
+
+/**
+ * 13. Personal target and first recalibration (point 2b): a target of 1 700 kcal chosen at the onboarding 21 days ago, a
+ * weigh-in and "Plan respecté" a day, losing 0.1 kg a day: the first recalibration is ready. Expected: no screen; the app
+ * takes the target over by itself, with its short message.
+ */
+export function personalTargetRecalibrationProfile(today: string): WheightyStore {
+  const start = addDays(today, -21);
+  const r = completeOnboardingWithTarget(emptyStore(), verificationProfile('Test cible et recalibration'), start, at(start), null, 1700);
+  if (!r.ok) throw new Error(r.reason);
+  return tracked(r.store, start, 1, 21, () => true, (i) => 75 - 0.1 * i);
+}
+
+/** A recalibration applied on day `day` of the tracking (the gate must be met). */
+function recalibrateOn(s: WheightyStore, start: string, day: number): WheightyStore {
+  const date = addDays(start, day);
+  const state = computeCalibrationState(s, date, at(date));
+  if (!state?.gate.met || !state.candidate) throw new Error(`gate on day ${day}`);
+  const r = applyRecalibration(s, state, date, at(date));
+  if (!r.ok) throw new Error(r.reason);
+  return r.store;
+}
+
+/**
+ * 14. History of the plan (point 3): onboarding 70 days ago; a recalibration on day 21 whose entry is the one the migration
+ * 10 -> 11 rebuilds (backfilled, plans unknown); a second recalibration on day 35; the speed changed on day 40 (0.5 -> 0.75 %
+ * a week); the periodic replan 28 days later (day 68). A weigh-in and "Plan respecté" a day. Expected: the page lists the
+ * five changes, most recent first, the rebuilt one as "Recalibration (détails non conservés)".
+ */
+export function planHistoryProfile(today: string): WheightyStore {
+  const { store, start } = history(verificationProfile('Test historique'), today, 70);
+  let s = tracked(store, start, 0, 21, () => true, (i) => 75 - 0.1 * i);
+  s = recalibrateOn(s, start, 21);
+  // As if written before schema 11: the entry of that recalibration is the rebuilt one.
+  const kept = s.meta.planEvents.filter((e) => e.rule !== 'recalibration');
+  s = { ...s, meta: { ...s.meta, planEvents: backfillRecalibrations(kept, s.calibrationSnapshots) as typeof kept } };
+  s = tracked(s, start, 22, 35, () => true, (i) => 75 - 0.1 * i);
+  s = recalibrateOn(s, start, 35);
+  s = tracked(s, start, 36, 40, () => true, (i) => 75 - 0.1 * i);
+  const d40 = addDays(start, 40);
+  const goal = changeGoalOnPath(s, d40, { goal: 'loss', targetWeightKg: 64, weeklyRate: 0.0075 });
+  if (!goal.ok) throw new Error(goal.reason);
+  s = tracked(goal.store, start, 41, 68, () => true, (i) => 75 - 0.1 * i);
+  return runDailyChecks(s, addDays(start, 68), at(addDays(start, 68)));
+}
+
+/**
+ * 16. Old weigh-in and a change of plan (points 4 and 5): a target of 1 700 kcal chosen at the onboarding 30 days ago, a
+ * weigh-in and "Plan respecté" a day for 20 days, the last weigh-in 10 days ago. Expected: the invitation to weigh in at the
+ * opening of "Je souhaite changer de plan", the option "Revenir au plan de Wheighty" and its preview.
+ */
+export function oldWeighInChangeProfile(today: string): WheightyStore {
+  const start = addDays(today, -30);
+  const r = completeOnboardingWithTarget(emptyStore(), verificationProfile('Test pesée ancienne'), start, at(start), null, 1700);
+  if (!r.ok) throw new Error(r.reason);
+  return tracked(r.store, start, 1, 20, () => true, (i) => 75 - 0.05 * i);
 }

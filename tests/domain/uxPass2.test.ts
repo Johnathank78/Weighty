@@ -169,8 +169,15 @@ describe('2d. unchanged while it is in force, after the slider', () => {
 
 describe('2e. a personal target at the steps of the profile: bit for bit the base 1209d49', () => {
   it('entry (onboarding and Plan), estimated rate, plan, trace entry and takeover', () => {
-    const base = readFileSync('tests/fixtures/ux2-personal-target-base.json', 'utf8').trim();
-    const now = JSON.stringify(personalTargetFixture());
+    // Report 50, point 6e: the long text of the takeover (its message) now gives each maintenance with its weight; it is masked
+    // on both sides, every other value (rates, plans, entries, cases) stays compared bit for bit.
+    const maskMessage = (text: string) => {
+      const o = JSON.parse(text) as { takeovers?: Array<{ takeover?: { event?: { message?: unknown } } | null }> };
+      for (const t of o.takeovers ?? []) if (t.takeover?.event && typeof t.takeover.event.message === 'string') t.takeover.event.message = '<takeover text>';
+      return JSON.stringify(o);
+    };
+    const base = maskMessage(readFileSync('tests/fixtures/ux2-personal-target-base.json', 'utf8').trim());
+    const now = maskMessage(JSON.stringify(personalTargetFixture()));
     if (now !== base) {
       // Point at the first differing key, for the report.
       const a = JSON.parse(base) as Record<string, unknown>;
@@ -211,9 +218,14 @@ describe('3 and 4. the options of "Changer de plan"', () => {
     expect(planChangeOptions(withMethod(logged(14), 'measured'), day(14))).toBeNull();
   });
 
-  it('a personal target in force: both, as before (the method stays the target assumed to be followed)', () => {
+  // Report 50, point 4 (E4): a third option, "Revenir au plan de Wheighty", is added while a personal target is in force.
+  it('a personal target in force: both, as before (the method stays the target assumed to be followed), and the return', () => {
     const s = personal();
-    expect(planChangeOptions(s, D0)).toEqual([personalOption, { id: 'align', title: PLAN_CHANGE_MESSAGE.alignTitle, sub: JOURNAL_MESSAGE.alignButtonDisabled(10), enabled: false }]);
+    expect(planChangeOptions(s, D0)).toEqual([
+      personalOption,
+      { id: 'align', title: PLAN_CHANGE_MESSAGE.alignTitle, sub: JOURNAL_MESSAGE.alignButtonDisabled(10), enabled: false },
+      { id: 'return', title: PERSONAL_TARGET_MESSAGE.returnTitle, sub: PERSONAL_TARGET_MESSAGE.returnSub, enabled: true },
+    ]);
   });
 
   it('annex texts, without the em dash', () => {

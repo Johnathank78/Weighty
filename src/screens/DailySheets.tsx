@@ -33,7 +33,7 @@ function DayPicker({ value, onChange }: { value: DayChoice; onChange: (v: DayCho
 }
 
 export function WeighSheet() {
-  const { sheet, closeSheet, showToast } = useNav();
+  const { sheet, closeSheet, showToast, weighSaved } = useNav();
   const { store, update, today, nowIso } = useWheighty();
   const open = sheet === 'weigh';
   const units = store.preferences.units;
@@ -72,7 +72,8 @@ export function WeighSheet() {
     const at = nowIso();
     // Report 49, point 5 (D5): the periodic replan that was due runs once the calibration of this weigh-in comes back.
     update((s) => runWeighInChecks(addWeight(s, { date, weightKg: kg, ...(asksPeriod && menstruating ? { menstruating: true } : {}) }, at), today, at, { periodic: 'after_calibration' }));
-    closeSheet();
+    // Report 50, point 5: opened from "Me peser d'abord", back to the choice of plan; otherwise the sheet closes.
+    weighSaved();
     showToast('Pesée enregistrée. Tendance mise à jour.');
   };
 

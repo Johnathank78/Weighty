@@ -9,15 +9,17 @@ import type { Projection, ProjectionWindow } from '@/science/goals';
 import { bmi, minimumTargetWeightKg } from '@/science/macros';
 import type { DailyLog, Goal, MacroGrams, SpeedZone } from '@/science/types';
 import { assessBaseline, planContextFrom } from '@/science/assessment';
+import { trackingPauses, validWeights } from '@/science/calibration';
 import type { GateStatus } from '@/science/calibration';
-import { formatInteger } from './format';
+import { formatInteger, formatWeight, weightUnitLabel } from './format';
 import { snapWeeklyRate, speedZoneFor } from '@/science/goals';
 import type { CalibrationState } from './engine';
-import { contextForCurrentPlan, gateOf, goalStatus, hasAppliedRecalibration, latestAppliedSnapshot, weighInStale, latestRawWeight, MAINTENANCE_PROJECTION_DAYS, solverOptionsFor, trendOf, weighInDue } from './engine';
+import { contextForCurrentPlan, currentWeightKg, gateOf, goalStatus, hasAppliedRecalibration, latestAppliedSnapshot, weighInStale, latestRawWeight, MAINTENANCE_PROJECTION_DAYS, solverOptionsFor, trendOf, weighInDue } from './engine';
 import { alignedStatusLine, journalRead, measuredProjectionContext } from './journalPath';
-import { JOURNAL_MESSAGE } from './planMessages';
+import { JOURNAL_MESSAGE, maintenancePair, SHORT_MESSAGE } from './planMessages';
+import type { MaintenanceAt } from './planMessages';
 import { localTimeOf } from './journal';
-import type { CurrentPlan, WheightyStore } from './types';
+import type { CurrentPlan, UnitPreference, WheightyStore } from './types';
 
 export function displayMacros(plan: CurrentPlan): MacroGrams {
   return plan.macrosDisplay ?? { proteinG: Math.round(plan.macros.proteinG), carbsG: Math.round(plan.macros.carbsG), fatG: Math.round(plan.macros.fatG) };
@@ -180,18 +182,39 @@ export function maintenanceZoneFor(targetWeightKg: number): { lowKg: number; hig
   return { lowKg: z.lowKg, highKg: z.highKg };
 }
 
+/**
+ * Data of the Suivi chart. Days count from `startDate` (day 0, the left edge of the window). UX pass 3, point 1: one time
+ * scale for the window, a day has the same width before and after today.
+ */
 export type ChartSeries = {
   raw: Array<{ day: number; kg: number; date: string }>;
   trend: Array<{ day: number; kg: number }>;
+  /** Where the plan leads, from today (day `todayDay`), one point per day, within the window. */
   projection: Array<{ day: number; kg: number }>;
   band: Array<{ day: number; lo: number; hi: number }>;
   todayDay: number;
   startDate: string;
+  /** Last day of the window (right edge), and its date. */
+  endDay: number;
+  endDate: string;
+  /** Tracking pauses (report 49, D4: two valid weigh-ins 15 days apart or more) that touch the window, in days and dates. */
+  pauses: Array<{ fromDay: number; toDay: number; from: string; to: string }>;
+  /** Where the projection reaches the target weight (day and date), when it does within the window; null otherwise. */
+  arrival: { day: number; date: string; kg: number } | null;
   /** Nothing is drawn ahead yet: Wheighty is still learning (A3). */
   projectionPending: boolean;
   /** D3 (report 49, point 4): nothing is drawn ahead because the last weigh-in is more than 7 days old. */
   weighInNeeded: boolean;
 };
+
+/** "Ce mois-ci" (UX pass 3, point 1a): the days shown before today, and as many after. */
+export const TRACKING_MONTH_DAYS_EACH_SIDE = 30;
+/** "Tout": the days shown after today when the projection does not reach the target (maintenance, or never reached). */
+export const TRACKING_ALL_DAYS_AHEAD = 30;
+/** "Tout": the window never goes further than this after today. */
+export const TRACKING_ALL_MAX_DAYS_AHEAD = 365;
+/** The chart asks for one sample of the projection per day (UX pass 3, point 1c). */
+export const TRACKING_PROJECTION_SAMPLE_DAYS = 1;
 
 /**
  * Where the plan leads from today (A3): the same model as the plan, restarted from the current trend
@@ -201,8 +224,10 @@ export type ChartSeries = {
  * shown (the candidate when the gate is met, else the latest applied one); equilibrium before any calibration.
  * `frame` (pass 5a s4, warning ahead of BMI 20): fixed horizon, daily step, stop under a weight, instead of the plan's
  * projection to its target.
+ * `sampleEveryDays` (UX pass 3, point 1c): sampling of the trajectory to the target (the chart of Suivi asks for 1); absent,
+ * the plan's own sampling. The day the target is reached does not depend on it.
  */
-export function projectionFromToday(store: WheightyStore, today: string, state: CalibrationState | null, frame?: ProjectionWindow): Projection | null {
+export function projectionFromToday(store: WheightyStore, today: string, state: CalibrationState | null, frame?: ProjectionWindow, sampleEveryDays?: number): Projection | null {
   const plan = store.plan;
   const profile = store.profile;
   const latest = trendOf(store).summary.latest;
@@ -214,7 +239,7 @@ export function projectionFromToday(store: WheightyStore, today: string, state: 
     if (!m) return null;
     const baseM = { goal: plan.goal, scenario: { calorieTargetKcal: m.calorieTargetKcal, stepsPerDay: plan.stepTarget }, maintenanceOffsets80: m.maintenanceOffsets80 };
     if (frame) return projectPlanWindow(m.context, baseM, frame);
-    return projectPlan(m.context, { ...baseM, targetWeightKg: plan.targetWeightKg ?? profile.targetWeightKg, maintenanceHorizonDays: MAINTENANCE_PROJECTION_DAYS });
+    return projectPlan(m.context, { ...baseM, targetWeightKg: plan.targetWeightKg ?? profile.targetWeightKg, maintenanceHorizonDays: MAINTENANCE_PROJECTION_DAYS, ...(sampleEveryDays !== undefined ? { sampleEveryDays } : {}) });
   }
   const maintenanceKcal = state?.currentMaintenanceKcal ?? plan.maintenanceKcal;
   const interval80 = state?.currentInterval80 ?? plan.maintenanceInterval80;
@@ -227,53 +252,83 @@ export function projectionFromToday(store: WheightyStore, today: string, state: 
     maintenanceOffsets80: [interval80[0] - maintenanceKcal, interval80[1] - maintenanceKcal] as const,
   };
   if (frame) return projectPlanWindow(context, base, frame);
-  return projectPlan(context, { ...base, targetWeightKg: plan.targetWeightKg ?? profile.targetWeightKg, maintenanceHorizonDays: MAINTENANCE_PROJECTION_DAYS });
+  return projectPlan(context, { ...base, targetWeightKg: plan.targetWeightKg ?? profile.targetWeightKg, maintenanceHorizonDays: MAINTENANCE_PROJECTION_DAYS, ...(sampleEveryDays !== undefined ? { sampleEveryDays } : {}) });
 }
 
-/** Weight chart data for Suivi: raw points, trend, and where the plan leads from the last trend point. */
 /**
- * Periods of the Suivi chart (UX pass 2, point 5): "Ce mois-ci", the last 30 days (not the calendar month), the default;
- * "Tout", since the first weigh-in.
+ * Periods of the Suivi chart (UX pass 2, point 5): "Ce mois-ci", the default, and "Tout". UX pass 3, point 1a: "Ce mois-ci" is
+ * a fixed window of 30 days before today and 30 after (today in the middle); "Tout" runs from the first weigh-in to the day
+ * the projection reaches the target weight (30 days after today without one, 365 at most).
  */
 export type TrackingRange = 'month' | 'all';
 export const TRACKING_RANGES: readonly TrackingRange[] = ['month', 'all'];
 export const DEFAULT_TRACKING_RANGE: TrackingRange = 'month';
 export const TRACKING_RANGE_DAYS: Readonly<Record<TrackingRange, number | null>> = { month: 30, all: null };
 
+/**
+ * Weight chart data for Suivi: raw points, trend, pauses, and where the plan leads from today, on one time scale.
+ * `rangeDays`: "Ce mois-ci" (the days on each side of today), or null for "Tout".
+ */
 export function trackingChart(store: WheightyStore, today: string, rangeDays: number | null, state: CalibrationState | null = null): ChartSeries | null {
   const { points } = trendOf(store);
   if (points.length === 0) return null;
   const first = points[0]?.date ?? today;
-  const startDate = rangeDays === null ? first : addDays(today, -rangeDays) > first ? addDays(today, -rangeDays) : first;
+  // "Ce mois-ci": a fixed window around today, partly empty for a new user. "Tout": from the first weigh-in.
+  const startDate = rangeDays === null ? (first < today ? first : today) : addDays(today, -rangeDays);
   const visible = points.filter((p) => p.date >= startDate);
   const raw = visible.map((p) => ({ day: daysBetween(startDate, p.date), kg: p.rawKg, date: p.date }));
   const trend = visible.map((p) => ({ day: daysBetween(startDate, p.date), kg: p.trendKg }));
   const todayDay = daysBetween(startDate, today);
-  // Based on the span actually shown, not the nominal range: ranges that clip to the same first weigh-in draw the same curve.
-  const horizonAhead = Math.max(21, Math.round(Math.max(28, todayDay) / 3));
   // While the first calibration is not reached, the estimate is still the onboarding prior: no curve is
   // drawn ahead rather than a confident looking one (decision of the product owner). Once a recalibration was applied, the
   // projection stays whatever the gate of the day (report 49, point 2, D2).
   const learning = measuredHabit(store) === null && !(state?.gate.met && state.candidate) && !hasAppliedRecalibration(store);
   // D3 (report 49, point 4): no projection without a recent weigh-in (the measured habit has its own weigh-in rules).
   const weighInNeeded = measuredHabit(store) === null && weighInStale(store, today);
-  const live = learning || weighInNeeded ? null : projectionFromToday(store, today, state);
+  // UX pass 3, point 1c: one sample per day for the drawing only; the day of arrival is the model's (daily stop).
+  const live = learning || weighInNeeded ? null : projectionFromToday(store, today, state, undefined, TRACKING_PROJECTION_SAMPLE_DAYS);
+  // Right edge: "Ce mois-ci", as many days after today as before; "Tout", the arrival of the projection (30 days after today
+  // without one: maintenance, never reached, nothing projected), at most 365 days after today.
+  const daysAhead =
+    rangeDays !== null ? rangeDays : live?.daysToTarget != null ? Math.min(TRACKING_ALL_MAX_DAYS_AHEAD, Math.max(1, live.daysToTarget)) : TRACKING_ALL_DAYS_AHEAD;
+  const endDay = todayDay + daysAhead;
   let projection: ChartSeries['projection'] = [];
   let band: ChartSeries['band'] = [];
+  let arrival: ChartSeries['arrival'] = null;
   if (live) {
-    // Day 0 of the simulation is drawn on the last trend point, on its own day. Since model 1.4.0 the simulation starts
-    // from the modeled weight of the day, a few hundred grams off the smoothed trend: the curve and its band are moved by
-    // that gap so the drawing has no step at the junction (display only; the model's changes are drawn unchanged).
+    // UX pass 3, point 1b: day 0 of the simulation is today. Since model 1.4.0 the simulation starts from the modeled weight
+    // of the day, a few hundred grams off the smoothed trend: the curve and its band are moved by the gap to the last trend
+    // point (display choice in service, kept as is), so the dashed join from the last trend point to today has no step.
     const last = trend[trend.length - 1];
-    const anchor = last?.day ?? todayDay;
     const shift = last && live.trajectory[0] ? last.kg - live.trajectory[0].weightKg : 0;
-    const within = (day: number) => day <= todayDay + horizonAhead;
-    projection = live.trajectory.map((pt) => ({ day: anchor + pt.day, kg: pt.weightKg + shift })).filter((p) => within(p.day));
+    const within = (day: number) => day <= endDay;
+    projection = live.trajectory.map((pt) => ({ day: todayDay + pt.day, kg: pt.weightKg + shift })).filter((p) => within(p.day));
     band = live.trajectory
-      .map((pt, i) => ({ day: anchor + pt.day, lo: (live.lower80[i]?.weightKg ?? pt.weightKg) + shift, hi: (live.upper80[i]?.weightKg ?? pt.weightKg) + shift }))
+      .map((pt, i) => ({ day: todayDay + pt.day, lo: (live.lower80[i]?.weightKg ?? pt.weightKg) + shift, hi: (live.upper80[i]?.weightKg ?? pt.weightKg) + shift }))
       .filter((p) => within(p.day));
+    if (live.daysToTarget !== null && todayDay + live.daysToTarget <= endDay) {
+      const at = live.trajectory.find((pt) => pt.day === live.daysToTarget) ?? live.trajectory[live.trajectory.length - 1];
+      arrival = { day: todayDay + live.daysToTarget, date: addDays(today, live.daysToTarget), kg: (at?.weightKg ?? Number.NaN) + shift };
+    }
   }
-  return { raw, trend, projection, band, todayDay, startDate, projectionPending: learning && !weighInNeeded, weighInNeeded };
+  // UX pass 3, point 1d: the pauses of the gate (trackingPauses, report 49), as they are, clipped to the window.
+  const pauses = trackingPauses(validWeights(store.weights))
+    .pauses.filter((p) => p.to >= startDate)
+    .map((p) => ({ fromDay: daysBetween(startDate, p.from), toDay: daysBetween(startDate, p.to), from: p.from, to: p.to }));
+  return {
+    raw,
+    trend,
+    projection,
+    band,
+    todayDay,
+    startDate,
+    endDay,
+    endDate: addDays(today, daysAhead),
+    pauses,
+    arrival,
+    projectionPending: learning && !weighInNeeded,
+    weighInNeeded,
+  };
 }
 
 export type RecentWeight = {
@@ -325,7 +380,13 @@ export type AnalysisView = {
   nextUpdate: GateProgress | null;
   maintenanceKcal: number;
   initialMaintenanceKcal: number | null;
-  changeSinceInitialKcal: number | null;
+  /**
+   * Report 50, point 6e: each maintenance with the weight it holds at, never their difference (it mixes the weight lost and
+   * what the weigh-ins corrected): the estimate of the start at the weight of the start, the one shown at its weight (the
+   * current trend weight when the calibration of the day is shown, else the weight of the plan in force). Null without the
+   * estimate of the start.
+   */
+  startAndToday: { start: MaintenanceAt; today: MaintenanceAt } | null;
   interval80: readonly [number, number];
   interval95: readonly [number, number];
   confidence: CalibrationState['confidence'];
@@ -335,6 +396,11 @@ export type AnalysisView = {
   posteriorSdKcal: number | null;
   observationSpanDays: number;
 };
+
+/** Report 50, point 6e: the line of Analyse, each maintenance at its weight, in the unit of the user. */
+export function maintenanceComparisonText(view: AnalysisView, units: UnitPreference): string | null {
+  return view.startAndToday ? maintenancePair(view.startAndToday.start, view.startAndToday.today, (kg) => `${formatWeight(kg, units)} ${weightUnitLabel(units)}`) : null;
+}
 
 export function analysisView(store: WheightyStore, state: CalibrationState | null): AnalysisView | null {
   const plan = store.plan;
@@ -346,7 +412,7 @@ export function analysisView(store: WheightyStore, state: CalibrationState | nul
       nextUpdate: null,
       maintenanceKcal: plan.maintenanceKcal,
       initialMaintenanceKcal: null,
-      changeSinceInitialKcal: null,
+      startAndToday: null,
       interval80: plan.maintenanceInterval80,
       interval95: plan.maintenanceInterval95,
       confidence: state?.confidence ?? latestAppliedSnapshot(store)?.confidence ?? 'low',
@@ -369,7 +435,13 @@ export function analysisView(store: WheightyStore, state: CalibrationState | nul
     nextUpdate: applied && !gateMet ? gateProgress(state, store) : null,
     maintenanceKcal,
     initialMaintenanceKcal: initial,
-    changeSinceInitialKcal: initial === null ? null : maintenanceKcal - initial,
+    startAndToday:
+      initial === null
+        ? null
+        : {
+            start: { kcal: initial, kg: store.meta.initialWeightKg },
+            today: { kcal: maintenanceKcal, kg: gateMet ? currentWeightKg(store) : (plan.planWeightKg ?? null) },
+          },
     interval80: state?.currentInterval80 ?? plan.maintenanceInterval80,
     interval95: state?.currentInterval95 ?? plan.maintenanceInterval95,
     confidence: state?.confidence ?? latestAppliedSnapshot(store)?.confidence ?? 'low',
@@ -400,6 +472,25 @@ export function measuredHabit(store: WheightyStore): number | null {
 }
 
 /**
+ * A recalibration may be announced on Aujourd'hui (its status line and mascot): shown, computed for the current store, not
+ * on a personal target, which the app takes over by itself at its first recalibration (report 47, point 1d).
+ */
+export function recalibrationReady(store: WheightyStore, state: CalibrationState | null, pending: boolean): boolean {
+  return state?.surfaced === true && !pending && store.plan?.source !== 'personal_target';
+}
+
+/**
+ * Report 50, point 6d: one message at a time. While a recalibration is shown (it asks for an action), the decision cards of
+ * the journal path (the proposal to align the target, a plan of the measured habit to confirm) wait: they stay in the store,
+ * unanswered, and come back once the recalibration is applied or no longer shown. The last known state is read, so that a
+ * card does not flash while the calibration of a new store is computed.
+ */
+export function journalCardsWait(store: WheightyStore, state: CalibrationState | null): boolean {
+  // The measured habit never shows a recalibration of the current method (`surfaced` stays false there).
+  return state?.surfaced === true && store.plan?.source !== 'personal_target';
+}
+
+/**
  * Status line of Aujourd'hui under the tiles (the recalibration line). `recalibrationReady`: a recalibration may be announced
  * (shown, not pending, not on a personal target).
  */
@@ -417,6 +508,9 @@ export function todayStatusTitle(store: WheightyStore, today: string, state: Cal
   if (!gate.met && gate.remainingDays > 0) return `Encore ${gate.remainingDays} jour${gate.remainingDays > 1 ? 's' : ''} de suivi avant ${update}.`;
   if (!gate.met && gate.criteria.some((c) => c.key === 'cleanWeighIns' && !c.met)) return 'Encore quelques pesées en dehors des journées d’écart important.';
   if (!gate.met) return `Note tes journées pour débloquer ${update}.`;
+  // Report 50, point 6c: an update held back for want of a recent weigh-in (D3) is not "following the weigh-ins": the line
+  // says what the message of D3 says.
+  if (weighInStale(store, today)) return `${SHORT_MESSAGE.weighInNeeded.title}.`;
   return 'Ton estimation suit tes pesées.';
 }
 

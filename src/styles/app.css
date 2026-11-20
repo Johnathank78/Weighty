@@ -584,6 +584,35 @@ img {
 .opt-card__title {
   font: 600 16px var(--font);
 }
+/*
+ * Cards of a choice inside a sheet ("Changer de plan"): the sheet has the colour of a card, so they get a tinted fill
+ * instead of a line, and a chevron. An option not available yet keeps a readable text, on a plain outline.
+ */
+.opt-card--action {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  border-color: transparent;
+  background: var(--surf2);
+}
+.opt-card__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+.opt-card--action:disabled {
+  background: transparent;
+  border: 1px dashed var(--line-strong);
+}
+.opt-card--action:disabled .opt-card__title {
+  color: var(--ink2);
+}
+.opt-card--action:disabled .opt-card__sub {
+  opacity: 1;
+  color: var(--ink2);
+}
 .opt-card__sub {
   font: 400 13px/1.4 var(--font);
   opacity: 0.65;

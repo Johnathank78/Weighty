@@ -30,7 +30,8 @@ export type ScreenId =
   | 'delete'
   | 'reached'
   | 'journal'
-  | 'history';
+  | 'history'
+  | 'planHistory';
 
 export type SheetId = 'balance' | 'weigh' | 'adherence' | 'steps' | 'why' | 'goal' | 'food' | 'foodEdit' | 'weighOptions' | 'productConsent' | 'productClear' | 'personalTarget' | 'planChange';
 
@@ -127,6 +128,18 @@ export function navGo(s: NavState, screen: ScreenId, options: { replace?: boolea
   if (isTab(screen) && options.replace) return { ...base, tab: screen, stack: [], transition: tabDirection(s.tab, screen) };
   const stack = options.replace && s.stack.length > 0 ? [...s.stack.slice(0, -1), screen] : [...s.stack, screen];
   return { ...base, stack, transition: 'push' };
+}
+
+/** Screens where the user is taking a decision, or still onboarding: nothing opens by itself above them (report 50, point 2). */
+const DECISION_SCREENS: readonly ScreenId[] = ['recalibration', 'reached', 'delete', 'onboarding', 'result'];
+
+/**
+ * Whether a screen may open by itself above what is on display (report 50, point 2, the first recalibration): in the sections
+ * only (never over the splash, the intro or the onboarding), no sheet open, and no decision screen on display. Otherwise it
+ * waits for the next opening of the app.
+ */
+export function autoOpenAllowed(s: NavState): boolean {
+  return s.mode === 'tabs' && s.sheet === null && !DECISION_SCREENS.includes(currentScreen(s));
 }
 
 /** Bottom bar: that section, at its root; the stacked pages are closed. */

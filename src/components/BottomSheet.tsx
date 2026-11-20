@@ -91,10 +91,9 @@ export function BottomSheet({ open, onClose, title, lead, children, hideTitle, s
     const root = document.documentElement;
     const previousOverflow = root.style.overflow;
     root.style.overflow = 'hidden';
-    const focusTimer = window.setTimeout(() => {
-      const first = sheetRef.current?.querySelector<HTMLElement>(FOCUSABLE);
-      (first ?? sheetRef.current)?.focus({ preventScroll: true });
-    }, 50);
+    // Report 50, point 7 (defect 3 of report 48): the focus goes to the dialog itself, not to its first control (the handle),
+    // which then showed its orange focus outline at every opening. Tab reaches the handle and the controls as before.
+    const focusTimer = window.setTimeout(() => sheetRef.current?.focus({ preventScroll: true }), 50);
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();

@@ -156,7 +156,8 @@ export const JOURNAL_MESSAGE = {
   sliderUnavailable: 'En mode journal, ta cible suit ton journal et tes pesées.',
   /** Pass 5b fixes, point 7 (report 45 s5, point 2): the deadline of the aligned target itself, Plan tab. */
   deadlineLabel: 'Échéance',
-  deadlineAfterRecalibration: 'Après la première recalibration',
+  /** Report 50, point 6a: "prochaine" once a recalibration was applied (`next`). */
+  deadlineAfterRecalibration: (next = false) => (next ? 'Après la prochaine recalibration' : 'Après la première recalibration'),
   /** Point 7 (report 45 s5, point 7): the recalibration line of Aujourd'hui on the aligned target. */
   nextRecalibration: (days: number) => `Prochaine recalibration dans ${days} jour${days > 1 ? 's' : ''}.`,
   /** Point 7 (report 45 s5, point 5): "Pourquoi ce résultat ?" in the measured habit (annex); the habit as a signed percent. */
@@ -168,10 +169,10 @@ export const JOURNAL_MESSAGE = {
    * Pass 5b fixes, point 1a: on the aligned target itself, the speed (and the steps / calories slider) waits for the first
    * recalibration. `days`: days before it can come (0: it may come any day, the count is left out).
    */
-  alignedLock: (days: number) =>
+  alignedLock: (days: number, next = false) =>
     days > 0
-      ? `Ta cible suit ce que tu manges. Vitesse modifiable après la première recalibration, dans ${days} jour${days > 1 ? 's' : ''}.`
-      : 'Ta cible suit ce que tu manges. Vitesse modifiable après la première recalibration.',
+      ? `Ta cible suit ce que tu manges. Vitesse modifiable après la ${next ? 'prochaine' : 'première'} recalibration, dans ${days} jour${days > 1 ? 's' : ''}.`
+      : `Ta cible suit ce que tu manges. Vitesse modifiable après la ${next ? 'prochaine' : 'première'} recalibration.`,
 } as const;
 
 /**
@@ -181,6 +182,8 @@ export const JOURNAL_MESSAGE = {
 export const PLAN_CHANGE_MESSAGE = {
   button: 'Je souhaite changer de plan',
   title: 'Changer de plan',
+  /** Under the title of the sheet (UX pass 3, after John's review of 20/11). */
+  lead: 'Comment veux-tu fixer ta cible ?',
   personalTitle: 'Choisir ma cible',
   personalSub: 'Tu connais déjà les calories qui te conviennent.',
   alignTitle: 'Aligner ma cible sur ce que je mange',
@@ -202,15 +205,42 @@ export const PERSONAL_TARGET_MESSAGE = {
   /** The target goes the other way than the goal (or away from a stable weight). */
   opposite: (direction: 'gain' | 'loss') => `Au départ, l’app estime que tu ${direction === 'gain' ? 'prendrais' : 'perdrais'} du poids avec cette cible. Tes pesées diront la vraie.`,
   belowFloor: (floorKcal: number) => `Ton minimum est de ${formatKcal(floorKcal)} kcal par jour.`,
-  inPlan: (kcal: number) => `Ta cible personnelle : ${formatKcal(kcal)} kcal par jour. L’app l’ajustera à ta première recalibration.`,
+  /** Report 50, point 6a: "prochaine" once a recalibration was applied (`next`). */
+  inPlan: (kcal: number, next = false) => `Ta cible personnelle : ${formatKcal(kcal)} kcal par jour. L’app l’ajustera à ta ${next ? 'prochaine' : 'première'} recalibration.`,
   /** Long text of the takeover, behind "Détails": the new maintenance and the one of the start. */
-  takeoverDetails: (maintenanceKcal: number, startKcal: number) =>
-    `Tes pesées montrent un maintien d’environ ${formatKcal(maintenanceKcal)} kcal par jour (estimation de départ : ${formatKcal(startKcal)}). À partir de maintenant, l’app ajuste ta cible pour tenir ce rythme.`,
+  /**
+   * Long text of the takeover, behind "Détails". Report 50, point 6e: each maintenance with the weight it holds at (the one of
+   * the start, at the weight of the start; the one of today, at today's weight), without presenting their difference as a
+   * correction: it mixes the weight lost and what the weigh-ins corrected.
+   */
+  takeoverDetails: (today: MaintenanceAt, start: MaintenanceAt) => `${maintenancePair(start, today)} À partir de maintenant, l’app ajuste ta cible pour tenir ce rythme.`,
   apply: 'Appliquer ma cible',
   applied: 'Ta cible est appliquée.',
   /** Onboarding: back to the target computed by the app. */
   useComputed: 'Revenir à la cible proposée',
+  /** Report 50, point 4: from a personal target, back to the plan of the app (sheet "Changer de plan"). */
+  returnTitle: 'Revenir au plan de Wheighty',
+  returnSub: 'Une cible calculée par l’app, ajustée ensuite avec tes pesées.',
+  returnPreview: (beforeKcal: number, afterKcal: number) => `Ton plan passerait de ${formatKcal(beforeKcal)} à ${formatKcal(afterKcal)} kcal par jour.`,
+  returnSpeed: (goal: Goal, rate: number) => (goal === 'maintenance' ? 'Objectif : garder ton poids stable.' : `Vitesse : ${formatRatePercent(rate)} par semaine.`),
+  returnConfirm: 'Confirmer',
+  returnCancel: 'Annuler',
+  returnApplied: 'Plan de Wheighty appliqué.',
 } as const;
+
+/** A maintenance and the weight it holds at (kg; null when the plan did not keep it). */
+export type MaintenanceAt = { kcal: number; kg: number | null };
+
+const kgText = (kg: number) => `${formatNumber(kg, 1)} kg`;
+
+/**
+ * Report 50, point 6e: "Au départ : 2 060 kcal à 68,0 kg. Aujourd’hui : 2 010 kcal à 66,5 kg." `weight`: how a weight is
+ * written (kg by default; the unit of the user on screen).
+ */
+export function maintenancePair(start: MaintenanceAt, today: MaintenanceAt, weight: (kg: number) => string = kgText): string {
+  const at = (m: MaintenanceAt) => `${formatKcal(m.kcal)} kcal${m.kg === null ? '' : ` à ${weight(m.kg)}`}`;
+  return `Au départ : ${at(start)}. Aujourd’hui : ${at(today)}.`;
+}
 
 /**
  * Every reason for which a plan cannot be (re)built, as returned by the domain (`buildPlan`, `buildPlanFromStore`,
@@ -263,3 +293,54 @@ export function refusalReasonText(reason: string, floorKcal: number | null): str
 export function recalibrationRefusedText(reason: string, floorKcal: number | null): string {
   return `On n’a pas pu recalculer ton plan : ${refusalReasonText(reason, floorKcal)}. Tu peux passer en maintien.`;
 }
+
+/**
+ * History of the plan (report 50, UX pass 3, point 3): the cause of each change, in plain words, one per rule of the trace.
+ * Texts of the prompt for 'recalibration', 'user_goal', 'periodic_replan' and 'G1'; the others in the same style (listed in
+ * report 50). Never use the em dash character in this file.
+ */
+export const PLAN_HISTORY_MESSAGE = {
+  link: 'Historique de mon plan',
+  title: 'Historique de mon plan',
+  lead: 'Chaque changement de ta cible, le plus récent en haut.',
+  empty: 'Ton plan n’a pas encore changé.',
+  details: 'Détails',
+  cause: {
+    onboarding: 'Ton premier plan',
+    recalibration: 'Mise à jour avec tes pesées',
+    recalibration_maintenance: 'Mise à jour avec tes pesées, passage en maintien',
+    user_goal: 'Tu as changé de vitesse ou d’objectif',
+    user_slider: 'Tu as ajusté l’équilibre manger / marcher',
+    user_profile: 'Tu as modifié tes informations',
+    periodic_replan: 'Recalcul régulier',
+    G1: 'Sécurité : IMC 20',
+    G2: 'Sécurité : vitesse ramenée au maximum',
+    personal_target_set: 'Tu as choisi ta cible',
+    personal_target_takeover: 'Ta cible, reprise après tes pesées',
+    personal_target_return: 'Retour au plan de Wheighty',
+    journal_switch: 'Cible alignée sur ton journal',
+    journal_measured_enter: 'Plan calé sur ton journal',
+    journal_measured_update: 'Plan mis à jour avec ton journal',
+  },
+  backfilled: 'Recalibration (détails non conservés)',
+  target: (before: number, after: number) => `${formatKcal(before)} → ${formatKcal(after)} kcal par jour`,
+  firstTarget: (after: number) => `${formatKcal(after)} kcal par jour`,
+  maintenance: (before: number | null, after: number | null) =>
+    before === null ? `Maintien estimé : ${formatKcal(after ?? 0)} kcal par jour.` : `Maintien estimé : ${formatKcal(before)} → ${formatKcal(after ?? before)} kcal par jour.`,
+  speed: (text: string) => `Vitesse : ${text}.`,
+  speedChange: (before: string, after: string) => (before === after ? `Vitesse : ${after}.` : `Vitesse : ${before} → ${after}.`),
+  maintenanceGoal: 'maintien du poids',
+  perWeek: (rate: number) => `${formatRatePercent(rate)} par semaine`,
+} as const;
+
+/**
+ * Report 50, UX pass 3, point 5 (E5): before a change of plan, when the last valid weigh-in is more than 7 days old, a short
+ * invitation to weigh in first, without blocking anything. Never use the em dash character in this file.
+ */
+export const WEIGH_FIRST_MESSAGE = {
+  title: 'Pèse-toi d’abord ?',
+  line: (days: number | null) =>
+    days === null ? 'Aucune pesée encore : ton nouveau plan partira de ton poids du jour.' : `Dernière pesée il y a ${days} jours : ton nouveau plan partira de ton poids du jour.`,
+  weigh: 'Me peser d’abord',
+  continue: 'Continuer',
+} as const;

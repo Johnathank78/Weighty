@@ -684,6 +684,12 @@ export type ProjectionInput = {
   maintenanceOffsets80: Interval;
   /** Horizon used for maintenance goals (no target to reach). */
   maintenanceHorizonDays: number;
+  /**
+   * Days between two samples of the trajectory and of its 80 percent band (UX pass 3, point 1c: the Suivi chart asks for 1).
+   * Leaves the day the target is reached (`daysToTarget`), the horizon and the weeks announced unchanged: the stop is found on
+   * the default sampling. Absent: PROJECTION_SAMPLE_EVERY_DAYS, the projection of every plan.
+   */
+  sampleEveryDays?: number;
 };
 
 function sampleTrajectory(ctx: PlanContext, goal: Goal, scenario: Scenario, days: number, offset: number, stopAt?: (w: number) => boolean, everyDays = PROJECTION_SAMPLE_EVERY_DAYS) {
@@ -747,9 +753,10 @@ export function projectPlan(ctx: PlanContext, input: ProjectionInput): Projectio
       horizonDays = PROJECTION_MAX_DAYS;
     }
   }
-  const central = sampleTrajectory(ctx, goal, scenario, horizonDays, 0);
-  const a = sampleTrajectory(ctx, goal, scenario, horizonDays, input.maintenanceOffsets80[0]);
-  const b = sampleTrajectory(ctx, goal, scenario, horizonDays, input.maintenanceOffsets80[1]);
+  const every = input.sampleEveryDays ?? PROJECTION_SAMPLE_EVERY_DAYS;
+  const central = sampleTrajectory(ctx, goal, scenario, horizonDays, 0, undefined, every);
+  const a = sampleTrajectory(ctx, goal, scenario, horizonDays, input.maintenanceOffsets80[0], undefined, every);
+  const b = sampleTrajectory(ctx, goal, scenario, horizonDays, input.maintenanceOffsets80[1], undefined, every);
   const trajectory = central.days.map((d) => ({ day: d.day, weightKg: d.bodyWeightKg }));
   const lower80: TrajectoryPoint[] = [];
   const upper80: TrajectoryPoint[] = [];

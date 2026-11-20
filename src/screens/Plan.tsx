@@ -4,12 +4,13 @@ import { useWheighty } from '@/store/StoreProvider';
 import { GOAL_LABEL, PLAN_SOURCE_LABEL, PROTEIN_RULE_TEXT, SPEED_LABEL } from '@/app/copy';
 import { Mascot } from '@/components/Mascot';
 import { formatGrams, formatKcal, formatNumber, formatRatePercent, formatSignedKcal, formatSteps, formatWeight, weightUnitLabel } from '@/domain/format';
-import { currentWeightKg } from '@/domain/engine';
+import { currentWeightKg, hasAppliedRecalibration } from '@/domain/engine';
 import { displayMacros, goalStatus, maintenanceZoneFor, planEnergyBalanceKcal, speedZone } from '@/domain/views';
 import { sliderBoundsFor } from '@/domain/sliderView';
 import { AlignProposalCard } from '@/components/JournalCards';
 import { alignButton, alignedLockLine, alignedTargetPreview, balanceSliderAvailable, habitLine, journalBalanceLine } from '@/domain/journalPath';
-import { JOURNAL_MESSAGE, PLAN_CHANGE_MESSAGE } from '@/domain/planMessages';
+import { JOURNAL_MESSAGE, PLAN_CHANGE_MESSAGE, PLAN_HISTORY_MESSAGE } from '@/domain/planMessages';
+import { NavRow } from '@/components/controls';
 import { personalTargetLine } from '@/domain/personalTarget';
 import { planChangeOptions } from '@/domain/planChange';
 import { PlanChangeSheet } from '@/screens/PlanChangeSheet';
@@ -185,7 +186,7 @@ export function PlanScreen() {
                 ? 'Hors de la zone'
                 : 'Zone tenue'
               : lockLine
-                ? JOURNAL_MESSAGE.deadlineAfterRecalibration
+                ? JOURNAL_MESSAGE.deadlineAfterRecalibration(hasAppliedRecalibration(store))
                 : plan.projection.approximateWeeks !== undefined
                   ? `~${plan.projection.approximateWeeks} sem.`
                   : 'Au-delà de 2 ans'}
@@ -209,6 +210,10 @@ export function PlanScreen() {
         </button>
       ) : null}
       <PlanChangeSheet options={changeOptions} onAlign={() => setAsking(true)} />
+      {/* Report 50, point 3: the changes of the plan, read in the trace (a page stacked above Plan). */}
+      <div className="rows" style={{ marginTop: 22 }}>
+        <NavRow label={PLAN_HISTORY_MESSAGE.link} onClick={() => go('planHistory')} />
+      </div>
       {plan.warnings?.belowRee ? (
         <div className="note" style={{ marginTop: 16 }}>
           <Mascot variant="search" width={40} />

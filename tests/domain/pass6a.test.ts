@@ -305,7 +305,8 @@ describe('1e. migration 10 -> 11, without loss', () => {
     expect(backfillRecalibrations([], snaps)).toHaveLength(1);
   });
 
-  it('a schema-7 store (pass 5a, as in report 47) loads without loss up to schema 11', () => {
+  // Report 50: the current schema is 12 (one date of meta added, null for this store); the load stays without loss.
+  it('a schema-7 store (pass 5a, as in report 47) loads without loss up to schema 11 (now 12)', () => {
     const { store } = recalibrated();
     const { journalPath: _p, ...meta7 } = store.meta;
     const { activityLog: _l, ...rest } = store;
@@ -317,7 +318,7 @@ describe('1e. migration 10 -> 11, without loss', () => {
     const v = validateStore(m.value);
     if ('error' in v) throw new Error(v.error);
     expect(v.clean).toBe(true);
-    expect(v.store.schemaVersion).toBe(11);
+    expect(v.store.schemaVersion).toBe(12);
     for (const k of ['profile', 'plan', 'weights', 'calibrationSnapshots', 'historicalEvidence', 'foodJournal', 'preferences'] as const) expect(v.store[k]).toEqual(JSON.parse(JSON.stringify(store[k])));
     expect(v.store.dailyLogs).toEqual(JSON.parse(JSON.stringify(store.dailyLogs)));
     expect(v.store.meta.planEvents.map((e) => e.rule)).toEqual(['recalibration']);

@@ -42,8 +42,11 @@ import type {
  * `PlanEvent.backfilled`; `AppMeta.staleWeighInNoticeClosedOn` (point 4) and `AppMeta.periodicReplanDeferredOn` (point 5). Loaded from schema 10 with an empty log and one
  * backfilled 'recalibration' entry per applied calibration snapshot (warm start excepted) whose plan change the trace did not
  * keep.
+ * Version 12 (report 50, UX pass 3, point 2): `AppMeta.firstRecalibrationOpenedOn`, the day the screen of the first
+ * recalibration opened by itself (once per store); the trace rule 'personal_target_return' (point 4: the user goes back to
+ * the plan of the app from a personal target). Loaded from schema 11 with the date at null; nothing else changes.
  */
-export const SCHEMA_VERSION = 11;
+export const SCHEMA_VERSION = 12;
 
 /**
  * A weigh-in as this app stores it: the engine contract (`WeightEntry`, science) plus fields that are
@@ -283,6 +286,8 @@ export type PlanSummary = {
  * - 'personal_target_set': the user set their own target (no message; schema 10);
  * - 'personal_target_takeover': the app took the personal target over at its first recalibration, with its message (schema
  *   10; failed: the build failed, the personal target stays, no message).
+ * - 'personal_target_return': the user went back to the plan of the app from a personal target, "Revenir au plan de
+ *   Wheighty" (schema 12, report 50, point 4), without a message: the computation of the takeover on the estimate in force.
  * Every plan change, without a message (schema 11, report 49, point 1d), for the history of the plan:
  * - 'recalibration': a recalibration applied ("Appliquer le nouveau plan"); 'recalibration_maintenance': applied as a
  *   maintenance ("Passer en maintien");
@@ -298,6 +303,7 @@ export type PlanEventRule =
   | 'underweight_decline'
   | 'personal_target_set'
   | 'personal_target_takeover'
+  | 'personal_target_return'
   | PlanChangeRule
   | JournalEventRule;
 
@@ -336,6 +342,7 @@ export const PLAN_EVENT_RULES: readonly PlanEventRule[] = [
   'underweight_decline',
   'personal_target_set',
   'personal_target_takeover',
+  'personal_target_return',
   ...PLAN_CHANGE_RULES,
   'journal_switch',
   'journal_proposal_declined',
@@ -548,6 +555,11 @@ export type AppMeta = {
    * day only; from the next day of the same cycle it runs.
    */
   periodicReplanDeferredOn: string | null;
+  /**
+   * Schema 12 (report 50, point 2): the day the screen of the first recalibration opened by itself. Set when it opens, even
+   * if the user leaves without answering: it never opens by itself again for this store. Null until then.
+   */
+  firstRecalibrationOpenedOn: string | null;
 };
 
 export type WheightyStore = {
@@ -595,4 +607,5 @@ export const DEFAULT_META: AppMeta = {
   journalPath: defaultJournalPath(),
   staleWeighInNoticeClosedOn: null,
   periodicReplanDeferredOn: null,
+  firstRecalibrationOpenedOn: null,
 };

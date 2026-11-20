@@ -22,11 +22,13 @@ import { WhySheet } from '@/screens/WhySheet';
 import { PersonalTargetSheet } from '@/screens/PersonalTargetSheet';
 import { JournalScreen } from '@/screens/Journal';
 import { HistoryScreen } from '@/screens/History';
+import { PlanHistoryScreen } from '@/screens/PlanHistory';
+import { firstRecalibrationAutoOpenDue, markFirstRecalibrationOpened } from '@/domain/firstRecalibration';
 
 /** Screens shown with the bottom navigation; the others (moments, onboarding, deletion) take the whole screen. */
-const WITH_BOTTOM_NAV: ReadonlySet<ScreenId> = new Set(['today', 'journal', 'plan', 'macros', 'suivi', 'history', 'analyse', 'profil', 'params', 'data']);
+const WITH_BOTTOM_NAV: ReadonlySet<ScreenId> = new Set(['today', 'journal', 'plan', 'macros', 'suivi', 'history', 'analyse', 'profil', 'params', 'data', 'planHistory']);
 
-const NEEDS_PLAN: ReadonlySet<ScreenId> = new Set(['today', 'plan', 'macros', 'suivi', 'analyse', 'recalibration', 'profil', 'reached', 'journal', 'history']);
+const NEEDS_PLAN: ReadonlySet<ScreenId> = new Set(['today', 'plan', 'macros', 'suivi', 'analyse', 'recalibration', 'profil', 'reached', 'journal', 'history', 'planHistory']);
 
 /** The component of a screen: the live one, or a copy drawn under or beside it during a swipe. */
 function renderScreen(screen: ScreenId, hasPlan: boolean): ReactNode {
@@ -65,7 +67,35 @@ function renderScreen(screen: ScreenId, hasPlan: boolean): ReactNode {
       return <JournalScreen />;
     case 'history':
       return <HistoryScreen />;
+    case 'planHistory':
+      return <PlanHistoryScreen />;
   }
+}
+
+/**
+ * Report 50, point 2 (E2): at the next opening of the app (start, or return to the foreground), once the calibration of the
+ * day is ready for the current store, the screen of the first recalibration opens by itself, stacked above the page on
+ * display, once per store. Decided once per opening: if a sheet, the onboarding or another decision screen is on display at
+ * that moment, it waits for the next opening. The splash screen is waited out.
+ */
+function useFirstRecalibrationAutoOpen(): void {
+  const { screen, autoOpenAllowed, openAuto } = useNav();
+  const { store, today, calibration, calibrationPending, update } = useWheighty();
+  const [armed, setArmed] = useState(true);
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') setArmed(true);
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+  useEffect(() => {
+    if (!armed || screen === 'splash' || calibrationPending) return;
+    setArmed(false);
+    if (!autoOpenAllowed || !firstRecalibrationAutoOpenDue(store, calibration, calibrationPending)) return;
+    update((s) => markFirstRecalibrationOpened(s, today));
+    openAuto('recalibration');
+  }, [armed, screen, calibrationPending, autoOpenAllowed, store, today, calibration, update, openAuto]);
 }
 
 /** Decision sheets logged when they open (report 49, point 1c); the recalibration screen logs itself. */
@@ -77,6 +107,7 @@ function Screens() {
   useEffect(() => {
     if (sheet && DECISION_SHEETS.has(sheet)) logActivity('screen', { name: sheet });
   }, [sheet, logActivity]);
+  useFirstRecalibrationAutoOpen();
   const pwa = usePwa();
   // Swiping the update notice away hides it for this session only.
   const [updateDismissed, setUpdateDismissed] = useState(false);
