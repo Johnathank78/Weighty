@@ -285,3 +285,15 @@ export function planHistoryProfile(today: string): WheightyStore {
   s = tracked(goal.store, start, 41, 68, () => true, (i) => 75 - 0.1 * i);
   return runDailyChecks(s, addDays(start, 68), at(addDays(start, 68)));
 }
+
+/**
+ * 16. Old weigh-in and a change of plan (points 4 and 5): a target of 1 700 kcal chosen at the onboarding 30 days ago, a
+ * weigh-in and "Plan respecté" a day for 20 days, the last weigh-in 10 days ago. Expected: the invitation to weigh in at the
+ * opening of "Je souhaite changer de plan", the option "Revenir au plan de Wheighty" and its preview.
+ */
+export function oldWeighInChangeProfile(today: string): WheightyStore {
+  const start = addDays(today, -30);
+  const r = completeOnboardingWithTarget(emptyStore(), verificationProfile('Test pesée ancienne'), start, at(start), null, 1700);
+  if (!r.ok) throw new Error(r.reason);
+  return tracked(r.store, start, 1, 20, () => true, (i) => 75 - 0.05 * i);
+}

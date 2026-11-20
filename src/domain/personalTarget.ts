@@ -345,30 +345,23 @@ export type PersonalTakeover = {
 export function computePersonalTakeover(store: WheightyStore, state: CalibrationState | null, today: string, nowIso: string): PersonalTakeover | null {
   if (!personalTakeoverDue(store, state)) return null;
   const plan = store.plan as CurrentPlan;
-  const profile = store.profile as UserProfile;
   const kcal = plan.personalTarget?.kcal ?? plan.calorieTarget;
   const seen = markRecalibrationSeen(store, state, today).meta.lastSurfacedCalibration;
   const id = { plan: { createdAt: plan.createdAt, kcal }, seen };
   const snapshot: CalibrationSnapshot = { ...state.candidate, appliedAt: nowIso };
   const withSnapshot: WheightyStore = { ...ensureDailyLogs(store, today), calibrationSnapshots: [...store.calibrationSnapshots, snapshot] };
-  const table = storePersonalTargetTable(withSnapshot, today);
   const failed = (reason: string, detail?: PlanEvent['personalTarget']): PersonalTakeover => ({
     ...id,
     status: 'failed',
     event: { date: today, rule: 'personal_target_takeover', status: 'failed', reason, before: planSummary(plan), after: null, message: null, ...(detail ? { personalTarget: detail } : {}) },
   });
-  if (!table) return failed('no_profile');
-  const reading = readPersonalTarget(table, kcal);
-  const choice = goalRateOf(table, reading);
-  const detail = { ...estimateOf(kcal, reading), case: choice.case };
-  const nextProfile: UserProfile = { ...profile, weeklyRateTarget: choice.rate };
-  const r = buildPlanFromStore({ ...withSnapshot, profile: nextProfile }, today, { source: 'recalibrated', snapshot, stepTarget: plan.stepTarget, solver: pathSolverRequest(store) });
-  if (!r.ok) return failed(r.reason, detail);
+  const r = appPlanOfPersonalTarget(withSnapshot, store, today, kcal, 'recalibrated', snapshot);
+  if (!r.ok) return failed(r.reason, r.detail);
   return {
     ...id,
     status: 'applied',
     snapshot,
-    profile: nextProfile,
+    profile: r.profile,
     next: r.plan,
     event: {
       date: today,
@@ -377,8 +370,74 @@ export function computePersonalTakeover(store: WheightyStore, state: Calibration
       before: planSummary(plan),
       after: planSummary(r.plan),
       message: PERSONAL_TARGET_MESSAGE.takeoverDetails(r.plan.maintenanceKcal, plan.maintenanceKcal),
-      personalTarget: detail,
+      personalTarget: r.detail,
     },
+  };
+}
+
+type AppPlanOfTarget =
+  | { ok: true; profile: UserProfile; plan: CurrentPlan; detail: NonNullable<PlanEvent['personalTarget']> }
+  | { ok: false; reason: string; detail?: NonNullable<PlanEvent['personalTarget']> };
+
+/**
+ * Steps 2 to 4 of the takeover (report 47, point 1c), shared with "Revenir au plan de Wheighty" (report 50, point 4): on the
+ * estimate of `base` (`snapshot`, or the latest applied one when absent), the rate the personal target `kcal` gives, brought
+ * inside the limits of the goal and of the BMI (`goalRateOf`), then the plan of the current method at that rate, with the
+ * steps of the plan in force (source `source`); the rate of the profile becomes that rate. `store`: the store of the moment,
+ * for its plan and its journal path.
+ */
+function appPlanOfPersonalTarget(base: WheightyStore, store: WheightyStore, today: string, kcal: number, source: CurrentPlan['source'], snapshot?: CalibrationSnapshot): AppPlanOfTarget {
+  const plan = store.plan as CurrentPlan;
+  const profile = store.profile as UserProfile;
+  const table = storePersonalTargetTable(base, today);
+  if (!table) return { ok: false, reason: 'no_profile' };
+  const reading = readPersonalTarget(table, kcal);
+  const choice = goalRateOf(table, reading);
+  const detail = { ...estimateOf(kcal, reading), case: choice.case };
+  const nextProfile: UserProfile = { ...profile, weeklyRateTarget: choice.rate };
+  const r = buildPlanFromStore({ ...base, profile: nextProfile }, today, { source, ...(snapshot ? { snapshot } : {}), stepTarget: plan.stepTarget, solver: pathSolverRequest(store) });
+  if (!r.ok) return { ok: false, reason: r.reason, detail };
+  return { ok: true, profile: nextProfile, plan: r.plan, detail };
+}
+
+// ---------------------------------------------------------------------------
+// "Revenir au plan de Wheighty" (report 50, UX pass 3, point 4, decision E4)
+// ---------------------------------------------------------------------------
+
+/**
+ * What going back to the plan of the app would give, from a personal target in force: the computation of the takeover
+ * (`appPlanOfPersonalTarget`) on the estimate in force, without a new estimate: the latest applied calibration, or before any
+ * recalibration the one of the onboarding (the population prior, or the warm start). Source 'initial', as a plan the user
+ * asks for (a goal change). Null without a personal target in force.
+ */
+export type AppPlanReturn = { ok: true; beforeKcal: number; plan: CurrentPlan; profile: UserProfile; detail: NonNullable<PlanEvent['personalTarget']> } | { ok: false; reason: string };
+
+export function previewAppPlanReturn(store: WheightyStore, today: string): AppPlanReturn | null {
+  if (!personalTargetActive(store) || !store.profile) return null;
+  const plan = store.plan as CurrentPlan;
+  const kcal = plan.personalTarget?.kcal ?? plan.calorieTarget;
+  const r = appPlanOfPersonalTarget(ensureDailyLogs(store, today), store, today, kcal, 'initial');
+  return r.ok ? { ok: true, beforeKcal: plan.calorieTarget, plan: r.plan, profile: r.profile, detail: r.detail } : { ok: false, reason: r.reason };
+}
+
+/**
+ * Confirmed: the personal target ends (the plan in force is no longer one), so G2 and the periodic replan every 28 days apply
+ * again, as after a takeover; a trace entry 'personal_target_return' with the plans before and after (no message).
+ */
+export function returnToAppPlan(store: WheightyStore, today: string, nowIso = `${today}T00:00:00.000Z`): { ok: true; store: WheightyStore } | { ok: false; reason: string } {
+  const preview = previewAppPlanReturn(store, today);
+  if (!preview) return { ok: false, reason: 'no_personal_target' };
+  if (!preview.ok) return preview;
+  const before = store.plan as CurrentPlan;
+  const withLogs = ensureDailyLogs(store, today);
+  const next = syncTodayLog({ ...withLogs, profile: preview.profile, plan: preview.plan }, today);
+  return {
+    ok: true,
+    store: recordPlanEvent(
+      next,
+      { date: today, rule: 'personal_target_return', status: 'applied', before: planSummary(before), after: planSummary(preview.plan), message: null, personalTarget: preview.detail },
+      nowIso,
+    ),
   };
 }
 

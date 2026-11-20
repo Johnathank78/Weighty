@@ -211,9 +211,14 @@ describe('3 and 4. the options of "Changer de plan"', () => {
     expect(planChangeOptions(withMethod(logged(14), 'measured'), day(14))).toBeNull();
   });
 
-  it('a personal target in force: both, as before (the method stays the target assumed to be followed)', () => {
+  // Report 50, point 4 (E4): a third option, "Revenir au plan de Wheighty", is added while a personal target is in force.
+  it('a personal target in force: both, as before (the method stays the target assumed to be followed), and the return', () => {
     const s = personal();
-    expect(planChangeOptions(s, D0)).toEqual([personalOption, { id: 'align', title: PLAN_CHANGE_MESSAGE.alignTitle, sub: JOURNAL_MESSAGE.alignButtonDisabled(10), enabled: false }]);
+    expect(planChangeOptions(s, D0)).toEqual([
+      personalOption,
+      { id: 'align', title: PLAN_CHANGE_MESSAGE.alignTitle, sub: JOURNAL_MESSAGE.alignButtonDisabled(10), enabled: false },
+      { id: 'return', title: PERSONAL_TARGET_MESSAGE.returnTitle, sub: PERSONAL_TARGET_MESSAGE.returnSub, enabled: true },
+    ]);
   });
 
   it('annex texts, without the em dash', () => {

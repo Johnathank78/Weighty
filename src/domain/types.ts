@@ -43,7 +43,8 @@ import type {
  * backfilled 'recalibration' entry per applied calibration snapshot (warm start excepted) whose plan change the trace did not
  * keep.
  * Version 12 (report 50, UX pass 3, point 2): `AppMeta.firstRecalibrationOpenedOn`, the day the screen of the first
- * recalibration opened by itself (once per store). Loaded from schema 11 with the date at null; nothing else changes.
+ * recalibration opened by itself (once per store); the trace rule 'personal_target_return' (point 4: the user goes back to
+ * the plan of the app from a personal target). Loaded from schema 11 with the date at null; nothing else changes.
  */
 export const SCHEMA_VERSION = 12;
 
@@ -285,6 +286,8 @@ export type PlanSummary = {
  * - 'personal_target_set': the user set their own target (no message; schema 10);
  * - 'personal_target_takeover': the app took the personal target over at its first recalibration, with its message (schema
  *   10; failed: the build failed, the personal target stays, no message).
+ * - 'personal_target_return': the user went back to the plan of the app from a personal target, "Revenir au plan de
+ *   Wheighty" (schema 12, report 50, point 4), without a message: the computation of the takeover on the estimate in force.
  * Every plan change, without a message (schema 11, report 49, point 1d), for the history of the plan:
  * - 'recalibration': a recalibration applied ("Appliquer le nouveau plan"); 'recalibration_maintenance': applied as a
  *   maintenance ("Passer en maintien");
@@ -300,6 +303,7 @@ export type PlanEventRule =
   | 'underweight_decline'
   | 'personal_target_set'
   | 'personal_target_takeover'
+  | 'personal_target_return'
   | PlanChangeRule
   | JournalEventRule;
 
@@ -338,6 +342,7 @@ export const PLAN_EVENT_RULES: readonly PlanEventRule[] = [
   'underweight_decline',
   'personal_target_set',
   'personal_target_takeover',
+  'personal_target_return',
   ...PLAN_CHANGE_RULES,
   'journal_switch',
   'journal_proposal_declined',

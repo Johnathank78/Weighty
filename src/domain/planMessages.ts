@@ -210,6 +210,14 @@ export const PERSONAL_TARGET_MESSAGE = {
   applied: 'Ta cible est appliquée.',
   /** Onboarding: back to the target computed by the app. */
   useComputed: 'Revenir à la cible proposée',
+  /** Report 50, point 4: from a personal target, back to the plan of the app (sheet "Changer de plan"). */
+  returnTitle: 'Revenir au plan de Wheighty',
+  returnSub: 'Une cible calculée par l’app, ajustée ensuite avec tes pesées.',
+  returnPreview: (beforeKcal: number, afterKcal: number) => `Ton plan passerait de ${formatKcal(beforeKcal)} à ${formatKcal(afterKcal)} kcal par jour.`,
+  returnSpeed: (goal: Goal, rate: number) => (goal === 'maintenance' ? 'Objectif : garder ton poids stable.' : `Vitesse : ${formatRatePercent(rate)} par semaine.`),
+  returnConfirm: 'Confirmer',
+  returnCancel: 'Annuler',
+  returnApplied: 'Plan de Wheighty appliqué.',
 } as const;
 
 /**
@@ -287,6 +295,7 @@ export const PLAN_HISTORY_MESSAGE = {
     G2: 'Sécurité : vitesse ramenée au maximum',
     personal_target_set: 'Tu as choisi ta cible',
     personal_target_takeover: 'Ta cible, reprise après tes pesées',
+    personal_target_return: 'Retour au plan de Wheighty',
     journal_switch: 'Cible alignée sur ton journal',
     journal_measured_enter: 'Plan calé sur ton journal',
     journal_measured_update: 'Plan mis à jour avec ton journal',

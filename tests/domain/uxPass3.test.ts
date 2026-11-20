@@ -15,10 +15,13 @@ import { validateStore } from '@/persistence/schema';
 import { addDays } from '@/science/dates';
 import { addWeight, setAdherence } from '@/domain/engine';
 import * as profiles from '../helpers/verificationProfiles';
+import { computePersonalTakeover, previewAppPlanReturn, returnToAppPlan } from '@/domain/personalTarget';
+import { planChangeOptions } from '@/domain/planChange';
+import { periodicReplanDue } from '@/domain/engine';
 import { inPlanHistory, planHistory, PLAN_HISTORY_RULES } from '@/domain/planHistory';
 import { PLAN_EVENT_RULES } from '@/domain/types';
 import type { PlanEvent } from '@/domain/types';
-import { at, firstRecalibrationProfile, history, planHistoryProfile, personalTargetRecalibrationProfile, recalibratedGateClosedProfile, verificationProfile } from '../helpers/verificationProfiles';
+import { at, firstRecalibrationProfile, history, personalTargetProfile, planHistoryProfile, personalTargetRecalibrationProfile, recalibratedGateClosedProfile, verificationProfile } from '../helpers/verificationProfiles';
 
 /** Every verification profile (1 to 11 of reports 45 to 49, and those of this pass), for the migration and the round trip. */
 const ALL_PROFILES = Object.entries(profiles).filter(([name, f]) => name.endsWith('Profile') && name !== 'verificationProfile' && typeof f === 'function') as Array<[string, (today: string) => WheightyStore]>;
@@ -206,5 +209,60 @@ describe('3. the history of the plan (E3)', () => {
     const src = readFileSync('src/screens/PlanHistory.tsx', 'utf8');
     expect(src).toMatch(/PLAN_HISTORY_MESSAGE\.empty/);
     expect(src).toMatch(/planHistory\(store, today\)/);
+  });
+});
+
+describe('4. "Revenir au plan de Wheighty" (E4)', () => {
+  it('offered in "Changer de plan" only while a personal target is in force', () => {
+    const personal = opened(personalTargetProfile(TODAY));
+    expect(planChangeOptions(personal, TODAY)?.map((o) => o.id)).toContain('return');
+    expect(planChangeOptions(opened(firstRecalibrationProfile(TODAY)), TODAY)?.map((o) => o.id) ?? []).not.toContain('return');
+    expect(previewAppPlanReturn(opened(firstRecalibrationProfile(TODAY)), TODAY)).toBeNull();
+  });
+
+  it('the computation of the takeover, on the estimate in force (no new rule)', () => {
+    // The takeover profile: its first recalibration is ready. The same estimate applied beforehand, the return gives the plan
+    // the takeover gives (the plan of the usual method, at the rate the personal target gives, brought within the limits).
+    const store = opened(personalTargetRecalibrationProfile(TODAY));
+    const state = stateOf(store);
+    const takeover = computePersonalTakeover(store, state, TODAY, at(TODAY));
+    if (!takeover || takeover.status !== 'applied') throw new Error('takeover');
+    const withEstimate: WheightyStore = { ...store, calibrationSnapshots: [...store.calibrationSnapshots, takeover.snapshot] };
+    const preview = previewAppPlanReturn(withEstimate, TODAY);
+    if (!preview?.ok) throw new Error('preview');
+    expect({ ...preview.plan, source: 'recalibrated' }).toEqual(takeover.next);
+    expect(preview.profile).toEqual(takeover.profile);
+    expect(preview.detail).toEqual(takeover.event.personalTarget);
+    // Before any recalibration: the estimate of the onboarding (no snapshot applied, the population prior).
+    const early = opened(personalTargetProfile(TODAY));
+    const p = previewAppPlanReturn(early, TODAY);
+    if (!p?.ok) throw new Error('preview');
+    // No snapshot applied: the population estimate, rebuilt at the current trend weight (a few kcal from the onboarding's).
+    expect(early.calibrationSnapshots.some((x) => x.appliedAt !== undefined)).toBe(false);
+    expect(Math.abs(p.plan.maintenanceKcal - (early.plan?.maintenanceKcal ?? 0))).toBeLessThan(30);
+    expect(p.beforeKcal).toBe(early.plan?.calorieTarget);
+    expect(p.plan.source).toBe('initial');
+    // A valid speed and never under the floor.
+    expect(p.plan.calorieTarget).toBeGreaterThanOrEqual(p.plan.hardFloorKcal ?? 0);
+    expect(p.plan.weeklyRateTarget).toBeGreaterThanOrEqual(0.002);
+    expect(p.plan.weeklyRateTarget).toBeLessThanOrEqual(0.01);
+  });
+
+  it('confirmed: the personal target ends, G2 and the replan every 28 days apply again, one trace entry', () => {
+    const store = opened(personalTargetProfile(TODAY));
+    expect(periodicReplanDue({ ...store, weights: store.weights }, addDays(TODAY, 40))).toBe(false);
+    const r = returnToAppPlan(store, TODAY, at(TODAY));
+    if (!r.ok) throw new Error(r.reason);
+    expect(r.store.plan?.source).toBe('initial');
+    expect(r.store.plan?.personalTarget).toBeUndefined();
+    expect(periodicReplanDue(r.store, addDays(TODAY, 27))).toBe(false);
+    expect(periodicReplanDue(r.store, addDays(TODAY, 28))).toBe(true);
+    const event = r.store.meta.planEvents[r.store.meta.planEvents.length - 1];
+    expect(event).toMatchObject({ rule: 'personal_target_return', status: 'applied', message: null, seen: true });
+    expect(event?.before?.calorieTarget).toBe(store.plan?.calorieTarget);
+    expect(event?.after?.calorieTarget).toBe(r.store.plan?.calorieTarget);
+    expect(planHistory(r.store, TODAY)[0]?.cause).toBe('Retour au plan de Wheighty');
+    // Twice: nothing to go back from.
+    expect(returnToAppPlan(r.store, TODAY, at(TODAY))).toMatchObject({ ok: false, reason: 'no_personal_target' });
   });
 });

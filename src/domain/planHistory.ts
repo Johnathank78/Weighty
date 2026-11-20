@@ -26,6 +26,7 @@ export const PLAN_HISTORY_RULES = [
   'G2',
   'personal_target_set',
   'personal_target_takeover',
+  'personal_target_return',
   'journal_switch',
   'journal_measured_enter',
   'journal_measured_update',
