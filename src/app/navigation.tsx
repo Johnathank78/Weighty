@@ -162,7 +162,16 @@ export function NavigationProvider({ initialScreen, children }: { initialScreen:
     toastTimer.current = window.setTimeout(() => setToast(null), action ? 8000 : 2800);
   }, []);
 
-  const setDraft = useCallback((fn: (d: OnboardingDraft) => OnboardingDraft) => setState((s) => ({ ...s, draft: fn(s.draft) })), []);
+  // Report 50, point 7 (defect 1 of report 48): a step forward of the onboarding (`setDraft` moving the step) is a page
+  // pushed: it no longer keeps the transition of the previous gesture (none after a swipe back, 'pop' after the back button).
+  const setDraft = useCallback(
+    (fn: (d: OnboardingDraft) => OnboardingDraft) =>
+      setState((s) => {
+        const draft = fn(s.draft);
+        return draft.step !== s.draft.step ? { ...s, draft, transition: 'push' } : { ...s, draft };
+      }),
+    [],
+  );
   // Report 50, point 5: the sheet a weigh-in opened from "Me peser d'abord" comes back to; forgotten when a sheet closes.
   const weighReturn = useRef<SheetId | null>(null);
   const weighThen = useCallback((returnTo: SheetId) => {

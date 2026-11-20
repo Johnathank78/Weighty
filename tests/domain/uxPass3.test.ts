@@ -373,3 +373,16 @@ describe('6. texts (E6)', () => {
     expect(message).not.toMatch(/montrent|estimation de départ/);
   });
 });
+
+describe('7. defects of report 48 (E7)', () => {
+  it('a step forward of the onboarding is a page pushed, whatever the previous gesture', () => {
+    const src = readFileSync('src/app/navigation.tsx', 'utf8');
+    expect(src).toMatch(/return draft\.step !== s\.draft\.step \? \{ \.\.\.s, draft, transition: 'push' \} : \{ \.\.\.s, draft \};/);
+  });
+
+  it('a sheet gives the focus to its dialog, not to its handle', () => {
+    const src = readFileSync('src/components/BottomSheet.tsx', 'utf8');
+    expect(src).toMatch(/window\.setTimeout\(\(\) => sheetRef\.current\?\.focus\(\{ preventScroll: true \}\), 50\)/);
+    expect(src).toMatch(/role="dialog"/);
+  });
+});
